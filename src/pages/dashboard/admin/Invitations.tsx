@@ -54,9 +54,7 @@ export default function AdminInvitations() {
       } else {
         // Email provider not configured or send failed — invite row still created
         toast.warning(
-          data?.emailWarning?.includes("RESEND_API_KEY")
-            ? "Invitation created — no email provider configured. Copy the link below."
-            : `Invitation created, but email failed: ${data?.emailWarning ?? "unknown error"}. Copy the link below.`,
+          `Invitation created, but email failed: ${data?.emailWarning ?? "unknown error"}. Copy the link from the table below.`,
         );
       }
 
