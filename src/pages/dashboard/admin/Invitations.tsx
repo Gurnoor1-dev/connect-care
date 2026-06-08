@@ -24,14 +24,43 @@ export default function AdminInvitations() {
   useEffect(() => { load(); }, []);
 
   const send = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSending(true);
-    const { error } = await supabase.functions.invoke("invite-specialist", { body: { email, full_name: fullName } });
+  e.preventDefault();
+  setSending(true);
+
+  try {
+    // 1. Extract both data and invoke-level errors
+    const { data, error: invokeError } = await supabase.functions.invoke("invite-specialist", { 
+      body: { email, full_name: fullName } 
+    });
+
     setSending(false);
-    if (error) return toast.error(error.message);
-    toast.success("Invitation sent");
-    setEmail(""); setFullName(""); load();
-  };
+
+    // 2. Handle network-level or baseline authorization failures
+    if (invokeError) {
+      return toast.error(invokeError.message || "Network invocation failed");
+    }
+
+    // 3. Handle application-level errors returned in your 500 JSON block
+    if (data && data.error) {
+      // If the link was made but SMTP failed, we inform the admin and still refresh the list
+      toast.warning(`${data.error} Link generated anyway.`);
+      setEmail(""); 
+      setFullName(""); 
+      load();
+      return;
+    }
+
+    // 4. Absolute success path
+    toast.success("Invitation sent successfully!");
+    setEmail(""); 
+    setFullName(""); 
+    load();
+
+  } catch (err: any) {
+    setSending(false);
+    toast.error(err.message || "An unexpected error occurred");
+  }
+};
 
   const copyLink = (token: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/invite/${token}`);
