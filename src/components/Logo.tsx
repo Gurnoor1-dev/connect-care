@@ -1,10 +1,14 @@
 import logo from "@/assets/breatherise-logo.png";
 import { Link } from "react-router-dom";
 
-export function Logo({ className = "h-10" }: { className?: string }) {
+export function Logo({ className = "h-8" }: { className?: string }) {
   return (
     <Link to="/" className="inline-flex items-center" aria-label="BreatheRise home">
-      <img src={logo} alt="BreatheRise" className={className} />
+      <img
+        src={logo}
+        alt="BreatheRise"
+        className={`w-auto object-contain ${className}`}
+      />
     </Link>
   );
 }
