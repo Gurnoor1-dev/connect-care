@@ -41,6 +41,7 @@ import DashboardRedirect from "@/pages/dashboard/DashboardRedirect";
 
 import PaymentSuccess from "@/pages/payment/Success";
 import PaymentFailure from "@/pages/payment/Failure";
+import PaymentBridge from "@/pages/payment/Bridge";
 
 const App = () => (
   <ThemeProvider>
@@ -66,7 +67,8 @@ const App = () => (
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/invite/:token" element={<AcceptInvite />} />
 
-            {/* Payment callbacks (PayU hosted checkout returns here) */}
+            {/* Payment — bridge auto-submits signed form to PayU, success/failure are callbacks */}
+            <Route path="/payment/bridge" element={<PaymentBridge />} />
             <Route path="/payment/success" element={<PaymentSuccess />} />
             <Route path="/payment/failure" element={<PaymentFailure />} />
 
