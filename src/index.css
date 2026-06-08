@@ -4,7 +4,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * BreatheRise design system — inspired by the logo
+ * BreatheRise design system, inspired by the logo.
  * Primary deep blue: #1976B8 / Accent teal: #3FB8C5
  * Calm, premium, breathable.
  */
@@ -41,18 +41,18 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   --background: oklch(0.99 0.005 220);
   --foreground: oklch(0.18 0.04 240);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.18 0.04 240);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.04 240);
-  --primary: oklch(0.52 0.13 235);          /* deep BreatheRise blue */
+  --primary: oklch(0.52 0.13 235);
   --primary-foreground: oklch(0.99 0 0);
   --brand: oklch(0.52 0.13 235);
   --brand-foreground: oklch(0.99 0 0);
-  --teal: oklch(0.72 0.12 200);              /* logo teal */
+  --teal: oklch(0.72 0.12 200);
   --secondary: oklch(0.96 0.01 220);
   --secondary-foreground: oklch(0.2 0.04 240);
   --muted: oklch(0.96 0.01 220);
@@ -66,8 +66,8 @@
   --ring: oklch(0.72 0.12 200);
   --gradient-brand: linear-gradient(135deg, oklch(0.52 0.13 235), oklch(0.72 0.12 200));
   --gradient-soft: linear-gradient(180deg, oklch(0.98 0.02 220), oklch(1 0 0));
-  --shadow-soft: 0 10px 40px -10px color-mix(in oklab, var(--primary) 25%, transparent);
-  --shadow-glow: 0 0 60px -10px color-mix(in oklab, var(--teal) 40%, transparent);
+  --shadow-soft: 0 12px 36px -18px color-mix(in oklab, var(--primary) 40%, transparent);
+  --shadow-glow: 0 24px 80px -36px color-mix(in oklab, var(--teal) 55%, transparent);
 }
 
 .dark {
@@ -99,9 +99,27 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  html { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
-  body { background-color: var(--color-background); color: var(--color-foreground); }
-  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
+  html {
+    min-width: 320px;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    min-width: 320px;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: 0;
+  }
+  p, li, a, button, input, textarea, label {
+    overflow-wrap: anywhere;
+  }
+  img, svg, video, canvas {
+    max-width: 100%;
+  }
 }
 
 @utility bg-gradient-brand {
