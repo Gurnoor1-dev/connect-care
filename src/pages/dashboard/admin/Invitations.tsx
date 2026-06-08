@@ -21,50 +21,57 @@ export default function AdminInvitations() {
       .order("created_at", { ascending: false });
     setRows(data ?? []);
   };
+
   useEffect(() => { load(); }, []);
 
   const send = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setSending(true);
+    e.preventDefault();
+    setSending(true);
 
-  try {
-    // 1. Extract both data and invoke-level errors
-    const { data, error: invokeError } = await supabase.functions.invoke("invite-specialist", { 
-      body: { email, full_name: fullName } 
-    });
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke(
+        "invite-specialist",
+        { body: { email, full_name: fullName } },
+      );
 
-    setSending(false);
+      setSending(false);
 
-    // 2. Handle network-level or baseline authorization failures
-    if (invokeError) {
-      return toast.error(invokeError.message || "Network invocation failed");
-    }
+      // Network / auth level error
+      if (invokeError) {
+        toast.error(invokeError.message || "Failed to send invitation");
+        return;
+      }
 
-    // 3. Handle application-level errors returned in your 500 JSON block
-    if (data && data.error) {
-      // If the link was made but SMTP failed, we inform the admin and still refresh the list
-      toast.warning(`${data.error} Link generated anyway.`);
-      setEmail(""); 
-      setFullName(""); 
+      // Application-level hard error (insert failed, forbidden, etc.)
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      // Success — email may or may not have been sent
+      if (data?.emailSent) {
+        toast.success(`Invitation emailed to ${email}`);
+      } else {
+        // Email provider not configured or send failed — invite row still created
+        toast.warning(
+          data?.emailWarning?.includes("RESEND_API_KEY")
+            ? "Invitation created — no email provider configured. Copy the link below."
+            : `Invitation created, but email failed: ${data?.emailWarning ?? "unknown error"}. Copy the link below.`,
+        );
+      }
+
+      setEmail("");
+      setFullName("");
       load();
-      return;
+    } catch (err: any) {
+      setSending(false);
+      toast.error(err.message || "An unexpected error occurred");
     }
-
-    // 4. Absolute success path
-    toast.success("Invitation sent successfully!");
-    setEmail(""); 
-    setFullName(""); 
-    load();
-
-  } catch (err: any) {
-    setSending(false);
-    toast.error(err.message || "An unexpected error occurred");
-  }
-};
+  };
 
   const copyLink = (token: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/invite/${token}`);
-    toast.success("Invite link copied");
+    toast.success("Invite link copied to clipboard");
   };
 
   return (
@@ -73,35 +80,77 @@ export default function AdminInvitations() {
         <h1 className="text-3xl font-bold">Specialist invitations</h1>
         <p className="mt-1 text-muted-foreground">Specialists join only via invitation.</p>
       </header>
+
       <Card className="p-6">
         <form onSubmit={send} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
-          <div><Label>Email</Label><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2" /></div>
-          <div><Label>Full name (optional)</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-2" /></div>
+          <div>
+            <Label>Email</Label>
+            <Input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+          <div>
+            <Label>Full name (optional)</Label>
+            <Input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="mt-2"
+            />
+          </div>
           <div className="flex items-end">
-            <Button type="submit" disabled={sending} className="bg-gradient-brand text-primary-foreground">
-              <Mail className="mr-2 h-4 w-4" /> Send invite
+            <Button
+              type="submit"
+              disabled={sending}
+              className="bg-gradient-brand text-primary-foreground"
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              {sending ? "Sending…" : "Send invite"}
             </Button>
           </div>
         </form>
       </Card>
 
       <div className="space-y-2">
-        {rows.length === 0 && <Card className="p-8 text-center text-muted-foreground">No invitations yet.</Card>}
+        {rows.length === 0 && (
+          <Card className="p-8 text-center text-muted-foreground">No invitations yet.</Card>
+        )}
         {rows.map((r) => (
-          <Card key={r.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <Card
+            key={r.id}
+            className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+          >
             <div>
               <div className="font-medium">{r.email}</div>
               <div className="text-xs text-muted-foreground">
-                {r.full_name ? `${r.full_name} · ` : ""}sent {format(new Date(r.created_at), "PP")} · expires {format(new Date(r.expires_at), "PP")}
+                {r.full_name ? `${r.full_name} · ` : ""}
+                sent {format(new Date(r.created_at), "PP")} · expires{" "}
+                {format(new Date(r.expires_at), "PP")}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                r.status === "pending" ? "bg-accent text-accent-foreground" :
-                r.status === "accepted" ? "bg-teal/20 text-teal" :
-                "bg-muted text-muted-foreground"}`}>{r.status}</span>
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                  r.status === "pending"
+                    ? "bg-accent text-accent-foreground"
+                    : r.status === "accepted"
+                      ? "bg-teal/20 text-teal"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {r.status}
+              </span>
               {r.status === "pending" && (
-                <Button size="sm" variant="outline" onClick={() => copyLink(r.token)}><Copy className="mr-1.5 h-3.5 w-3.5" /> Copy link</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => copyLink(r.token)}
+                >
+                  <Copy className="mr-1.5 h-3.5 w-3.5" /> Copy link
+                </Button>
               )}
             </div>
           </Card>
