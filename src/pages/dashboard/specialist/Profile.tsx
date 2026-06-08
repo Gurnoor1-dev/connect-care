@@ -115,7 +115,10 @@ export default function SpecialistProfile() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><Label className="mb-2 block">{label}</Label>{children}</div>;
 }
-function ChipList({ label, items, input, setInput, onAdd, onRemove, placeholder }: any) {
+function ChipList({ label, items, input, setInput, onAdd, onRemove, placeholder }: {
+  label: string; items: string[]; input: string; setInput: (s: string) => void;
+  onAdd: () => void; onRemove: (i: number) => void; placeholder: string;
+}) {
   return (
     <div>
       <Label className="mb-2 block">{label}</Label>
