@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { AuthShell, Divider } from "./Login";
+import { AuthShell, Divider, OAuthBrandButton } from "./Login";
 
 export default function Signup() {
   const [fullName, setFullName] = useState("");
@@ -27,7 +27,6 @@ export default function Signup() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Sign up with email OTP confirmation (no auto password session until verified)
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -69,16 +68,16 @@ export default function Signup() {
         </div>
         <label className="flex items-start gap-2 text-sm text-muted-foreground">
           <Checkbox checked={notify} onCheckedChange={(v) => setNotify(!!v)} className="mt-0.5" />
-          <span>Send me reminders & notifications for upcoming appointments.</span>
+          <span>Send me reminders and notifications for upcoming appointments.</span>
         </label>
-        <Button type="submit" disabled={loading} className="w-full bg-gradient-brand text-primary-foreground">
+        <Button type="submit" disabled={loading} className="w-full bg-gradient-brand text-primary-foreground shadow-brand">
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create account
         </Button>
       </form>
       <Divider />
       <div className="grid gap-2">
-        <Button variant="outline" onClick={() => oauth("google")}>Continue with Google</Button>
-        <Button variant="outline" onClick={() => oauth("facebook")}>Continue with Facebook</Button>
+        <OAuthBrandButton provider="google" onClick={() => oauth("google")} />
+        <OAuthBrandButton provider="facebook" onClick={() => oauth("facebook")} />
       </div>
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account? <Link to="/login" className="text-foreground underline-offset-4 hover:underline">Sign in</Link>
