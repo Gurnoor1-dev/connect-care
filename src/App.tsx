@@ -10,6 +10,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import Index from "@/pages/Index";
 import HowItWorks from "@/pages/HowItWorks";
 import Specialists from "@/pages/Specialists";
+import BookAppointment from "@/pages/BookAppointment";
 import About from "@/pages/About";
 import Contact from "@/pages/Contact";
 import NotFound from "@/pages/NotFound";
@@ -24,7 +25,6 @@ import AcceptInvite from "@/pages/auth/AcceptInvite";
 import CustomerOverview from "@/pages/dashboard/customer/Overview";
 import CustomerAppointments from "@/pages/dashboard/customer/Appointments";
 import CustomerVideoCall from "@/pages/dashboard/customer/VideoCall";
-import CustomerBook from "@/pages/dashboard/customer/BookAppointment";
 
 import SpecialistOverview from "@/pages/dashboard/specialist/Overview";
 import SpecialistAvailability from "@/pages/dashboard/specialist/Availability";
@@ -36,6 +36,7 @@ import SpecialistPatients from "@/pages/dashboard/specialist/Patients";
 import AdminOverview from "@/pages/dashboard/admin/Overview";
 import AdminInvitations from "@/pages/dashboard/admin/Invitations";
 import AdminUsers from "@/pages/dashboard/admin/Users";
+import AdminTiers from "@/pages/dashboard/admin/Tiers";
 
 import DashboardRedirect from "@/pages/dashboard/DashboardRedirect";
 
@@ -55,6 +56,9 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/how-it-works" element={<HowItWorks />} />
               <Route path="/specialists" element={<Specialists />} />
+              <Route path="/book" element={<ProtectedRoute requireRole="customer" />}>
+                <Route index element={<BookAppointment />} />
+              </Route>
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
             </Route>
@@ -67,7 +71,7 @@ const App = () => (
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/invite/:token" element={<AcceptInvite />} />
 
-            {/* Payment — bridge auto-submits signed form to PayU, success/failure are callbacks */}
+            {/* Payment - bridge auto-submits signed form to PayU, success/failure are callbacks */}
             <Route path="/payment/bridge" element={<PaymentBridge />} />
             <Route path="/payment/success" element={<PaymentSuccess />} />
             <Route path="/payment/failure" element={<PaymentFailure />} />
@@ -81,7 +85,7 @@ const App = () => (
                 <Route path="customer" element={<ProtectedRoute requireRole="customer" />}>
                   <Route index element={<CustomerOverview />} />
                   <Route path="appointments" element={<CustomerAppointments />} />
-                  <Route path="book" element={<CustomerBook />} />
+                  <Route path="book" element={<Navigate to="/book" replace />} />
                   <Route path="call/:appointmentId" element={<CustomerVideoCall />} />
                 </Route>
 
@@ -100,6 +104,7 @@ const App = () => (
                   <Route index element={<AdminOverview />} />
                   <Route path="invitations" element={<AdminInvitations />} />
                   <Route path="users" element={<AdminUsers />} />
+                  <Route path="tiers" element={<AdminTiers />} />
                 </Route>
               </Route>
             </Route>
