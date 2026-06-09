@@ -15,6 +15,7 @@ interface Tier {
   duration_minutes: number;
   price_cents: number;
   currency: string;
+  is_active: boolean;
 }
 
 interface SpecialistRow {
@@ -29,7 +30,7 @@ interface SpecialistRow {
   timezone: string | null;
   avatar_url: string | null;
   availability_status: "online" | "offline" | null;
-  specialist_tiers: Tier[]; // Joined from specialist_tiers table
+  specialist_tiers: Tier[];
 }
 
 export default function Specialists() {
@@ -38,19 +39,30 @@ export default function Specialists() {
 
   useEffect(() => {
     (async () => {
-      // Fetches full profile fields + all nested active tiers
-      const { data } = await supabase
+      // 1. Fetch profiles and embed tiers cleanly without forcing a strict INNER JOIN filter
+      const { data, error } = await supabase
         .from("specialist_profiles")
         .select(`
           id, display_name, headline, bio, country, country_flag, 
           specialities, qualifications, timezone, avatar_url, availability_status,
-          specialist_tiers(id, label, duration_minutes, price_cents, currency)
+          specialist_tiers(id, label, duration_minutes, price_cents, currency, is_active)
         `)
         .eq("is_published", true)
-        .eq("specialist_tiers.is_active", true) // Only grab active tiers
         .order("availability_status", { ascending: false });
-        
-      setItems((data as unknown as SpecialistRow[]) ?? []);
+
+      if (error) {
+        console.error("Error fetching specialists:", error.message);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Safely cast data and filter out inactive tiers programmatically 
+      const formattedData = ((data as unknown as SpecialistRow[]) ?? []).map(specialist => ({
+        ...specialist,
+        specialist_tiers: (specialist.specialist_tiers ?? []).filter(tier => tier.is_active)
+      }));
+
+      setItems(formattedData);
       setLoading(false);
     })();
   }, []);
@@ -68,7 +80,6 @@ export default function Specialists() {
           </p>
         </div>
 
-        {/* Grid layout adapts seamlessly from 1 to 3 columns depending on scale */}
         <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {loading && Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-[500px] animate-pulse rounded-xl bg-card/70 shadow-brand" />
@@ -78,7 +89,7 @@ export default function Specialists() {
             <Card className="col-span-full border-white/10 bg-card/90 p-12 text-center text-muted-foreground shadow-brand backdrop-blur-md">
               <UserRound className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <p className="mt-4 text-lg font-medium">No specialists are available right now.</p>
-              <p className="text-sm">Please check back later or refresh your session dashboard.</p>
+              <p className="text-sm">Make sure profiles are marked "Publish Profile" in their configuration panels.</p>
             </Card>
           )}
           
@@ -98,7 +109,7 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
   return (
     <Card className="group flex flex-col overflow-hidden border-white/20 bg-card/80 shadow-brand backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 hover:shadow-glow">
       
-      {/* Top Profile Banner area */}
+      {/* Top Profile Banner */}
       <div className="border-b border-white/10 bg-gradient-to-br from-accent/40 via-card/50 to-card/90 p-6">
         <div className="flex items-start gap-4">
           <div className="relative h-20 w-20 shrink-0 overflow-visible rounded-xl bg-gradient-vivid p-0.5 shadow-brand">
@@ -116,7 +127,7 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
           
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="truncate text-xl font-bold tracking-tight text-foreground">{specialist.display_name}</h3>
+              <h3 className="truncate text-xl font-bold tracking-tight text-foreground">{specialist.display_name || "Anonymous Specialist"}</h3>
             </div>
             
             {specialist.headline && (
@@ -130,7 +141,7 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
               </div>
               <div className="flex items-center gap-1">
                 <Globe className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate max-w-[120px]">{specialist.timezone}</span>
+                <span className="truncate max-w-[120px]">{specialist.timezone || "UTC"}</span>
               </div>
             </div>
           </div>
@@ -140,7 +151,7 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
       {/* Main Details Body */}
       <div className="flex flex-1 flex-col space-y-5 p-6">
         
-        {/* Full un-truncated Bio */}
+        {/* Full Bio */}
         {specialist.bio && (
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">About Specialist</h4>
@@ -150,7 +161,7 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
           </div>
         )}
 
-        {/* Dynamic Display of All Specialities */}
+        {/* Specialities */}
         {specialist.specialities && specialist.specialities.length > 0 && (
           <div>
             <h4 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -166,7 +177,7 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
           </div>
         )}
 
-        {/* Dynamic Display of All Qualifications */}
+        {/* Qualifications */}
         {specialist.qualifications && specialist.qualifications.length > 0 && (
           <div>
             <h4 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -182,7 +193,7 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
           </div>
         )}
 
-        {/* Tier Pricing Cards Section */}
+        {/* Tier Pricing Section */}
         <div className="mt-auto pt-2">
           <h4 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             <Calendar className="h-3.5 w-3.5" /> Available Session Tiers
@@ -206,13 +217,13 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-white/10 p-3 text-center text-xs text-muted-foreground">
-              No public consultation tiers active.
+              No active consultation tiers available.
             </div>
           )}
         </div>
       </div>
 
-      {/* Conditional Action Footer based on Live Availability */}
+      {/* Dynamic Action Footer */}
       <div className="border-t border-white/10 bg-accent/20 p-5">
         {isOnline ? (
           <Button asChild size="default" className="w-full bg-gradient-brand font-semibold text-primary-foreground shadow-brand transition-transform active:scale-95">
