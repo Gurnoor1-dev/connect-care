@@ -38,23 +38,53 @@ export default function Specialists() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      // 1. Fetch profiles and embed tiers cleanly without forcing a strict INNER JOIN filter
-      const { data, error } = await supabase
+  (async () => {
+    // We add !specialist_tiers to break the ambiguity loop
+    const { data, error } = await supabase
+      .from("specialist_profiles")
+      .select(`
+        id, display_name, headline, bio, country, country_flag, 
+        specialities, qualifications, timezone, avatar_url, availability_status,
+        specialist_tiers!specialist_tiers_specialist_id_fkey(id, label, duration_minutes, price_cents, currency, is_active)
+      `)
+      .eq("is_published", true)
+      .order("availability_status", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching specialists:", error.message);
+      
+      // FALLBACK: If your foreign key constraint name is named differently, 
+      // let's try the table name fallback so your UI doesn't break.
+      const fallback = await supabase
         .from("specialist_profiles")
         .select(`
           id, display_name, headline, bio, country, country_flag, 
           specialities, qualifications, timezone, avatar_url, availability_status,
-          specialist_tiers(id, label, duration_minutes, price_cents, currency, is_active)
+          specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active)
         `)
-        .eq("is_published", true)
-        .order("availability_status", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching specialists:", error.message);
-        setLoading(false);
-        return;
+        .eq("is_published", true);
+        
+      if (!fallback.error && fallback.data) {
+        const formattedData = ((fallback.data as unknown as SpecialistRow[]) ?? []).map(specialist => ({
+          ...specialist,
+          specialist_tiers: (specialist.specialist_tiers ?? []).filter(tier => tier.is_active)
+        }));
+        setItems(formattedData);
       }
+      setLoading(false);
+      return;
+    }
+
+    const formattedData = ((data as unknown as SpecialistRow[]) ?? []).map(specialist => ({
+      ...specialist,
+      specialist_tiers: (specialist.specialist_tiers ?? []).filter(tier => tier.is_active)
+    }));
+
+    setItems(formattedData);
+    setLoading(false);
+  })();
+}, []);
+
 
       // 2. Safely cast data and filter out inactive tiers programmatically 
       const formattedData = ((data as unknown as SpecialistRow[]) ?? []).map(specialist => ({
