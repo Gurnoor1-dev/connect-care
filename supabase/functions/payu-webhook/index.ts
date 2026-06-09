@@ -1,31 +1,101 @@
-// PayU server-to-server webhook. Verifies reverse hash, marks appointment confirmed.
+// PayU hosted-checkout return/webhook. PayU cannot send a Supabase JWT, so this
+// function verifies PayU's reverse hash before updating an appointment.
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-async function sha512(s: string) {
-  const hash = await crypto.subtle.digest("SHA-512", new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+async function sha512(value: string) {
+  const hash = await crypto.subtle.digest("SHA-512", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(hash))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function buildRedirect(req: Request, fallbackPath: string) {
+  const url = new URL(req.url);
+  const explicitRedirect = url.searchParams.get("redirect");
+  if (explicitRedirect) return explicitRedirect;
+
+  const appBase = Deno.env.get("APP_BASE_URL") ?? "";
+  const appointment = url.searchParams.get("appointment");
+  const suffix = appointment ? `${fallbackPath}?appointment=${encodeURIComponent(appointment)}` : fallbackPath;
+  return appBase ? `${appBase}${suffix}` : suffix;
+}
+
+function textResponse(body: string, status = 200) {
+  return new Response(body, { status, headers: corsHeaders });
 }
 
 Deno.serve(async (req) => {
-  const form = await req.formData();
-  const get = (k: string) => String(form.get(k) ?? "");
-  const status = get("status");
-  const key = get("key");
-  const txnid = get("txnid");
-  const amount = get("amount");
-  const productinfo = get("productinfo");
-  const firstname = get("firstname");
-  const email = get("email");
-  const posted = get("hash");
-  const mihpayid = get("mihpayid");
-  const salt = Deno.env.get("PAYU_MERCHANT_SALT")!;
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Reverse hash: salt|status|||||||||||email|firstname|productinfo|amount|txnid|key
-  const calc = await sha512(`${salt}|${status}|||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`);
-  if (calc !== posted) return new Response("invalid hash", { status: 400 });
+  try {
+    const form = await req.formData();
+    const get = (key: string) => String(form.get(key) ?? "");
 
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const newStatus = status === "success" ? "confirmed" : "cancelled";
-  await admin.from("appointments").update({ status: newStatus, payu_mihpayid: mihpayid }).eq("payu_txn_id", txnid);
-  return new Response("ok");
+    const status = get("status");
+    const key = get("key");
+    const txnid = get("txnid");
+    const amount = get("amount");
+    const productinfo = get("productinfo");
+    const firstname = get("firstname");
+    const email = get("email");
+    const postedHash = get("hash").toLowerCase();
+    const mihpayid = get("mihpayid");
+    const salt = Deno.env.get("PAYU_MERCHANT_SALT");
+    const merchantKey = Deno.env.get("PAYU_MERCHANT_KEY");
+
+    if (!salt || !merchantKey) {
+      console.error("PayU webhook secrets are missing");
+      return textResponse("PayU webhook is not configured", 500);
+    }
+
+    if (!postedHash || !txnid || !status) {
+      return textResponse("missing PayU fields", 400);
+    }
+
+    if (key && key !== merchantKey) {
+      return textResponse("invalid merchant key", 400);
+    }
+
+    // Reverse hash: salt|status|||||||||||email|firstname|productinfo|amount|txnid|key
+    const calculatedHash = await sha512(
+      `${salt}|${status}|||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${merchantKey}`,
+    );
+
+    if (calculatedHash !== postedHash) {
+      console.error("PayU webhook hash mismatch", { txnid, status });
+      return textResponse("invalid hash", 400);
+    }
+
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const nextStatus = status.toLowerCase() === "success" ? "confirmed" : "cancelled";
+    const { error } = await admin
+      .from("appointments")
+      .update({ status: nextStatus, payu_mihpayid: mihpayid || null })
+      .eq("payu_txn_id", txnid);
+
+    if (error) {
+      console.error("PayU appointment update failed", error);
+      return textResponse("appointment update failed", 500);
+    }
+
+    const redirectUrl = buildRedirect(
+      req,
+      nextStatus === "confirmed" ? "/payment/success" : "/payment/failure",
+    );
+
+    return Response.redirect(redirectUrl, 303);
+  } catch (error) {
+    console.error("payu-webhook error", error);
+    return textResponse("unexpected PayU webhook error", 500);
+  }
 });
