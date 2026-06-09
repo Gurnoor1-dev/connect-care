@@ -4,12 +4,24 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { ArrowRight, MapPin, UserRound, Wifi, WifiOff } from "lucide-react";
+import { 
+  ArrowRight, MapPin, UserRound, Wifi, WifiOff, 
+  GraduationCap, Briefcase, Calendar, Globe, AlertCircle 
+} from "lucide-react";
+
+interface Tier {
+  id: string;
+  label: string;
+  duration_minutes: number;
+  price_cents: number;
+  currency: string;
+}
 
 interface SpecialistRow {
   id: string;
   display_name: string;
   headline: string | null;
+  bio: string | null;
   country: string | null;
   country_flag: string | null;
   specialities: string[] | null;
@@ -17,6 +29,7 @@ interface SpecialistRow {
   timezone: string | null;
   avatar_url: string | null;
   availability_status: "online" | "offline" | null;
+  specialist_tiers: Tier[]; // Joined from specialist_tiers table
 }
 
 export default function Specialists() {
@@ -25,40 +38,53 @@ export default function Specialists() {
 
   useEffect(() => {
     (async () => {
+      // Fetches full profile fields + all nested active tiers
       const { data } = await supabase
         .from("specialist_profiles")
-        .select("id, display_name, headline, country, country_flag, specialities, qualifications, timezone, avatar_url, availability_status")
+        .select(`
+          id, display_name, headline, bio, country, country_flag, 
+          specialities, qualifications, timezone, avatar_url, availability_status,
+          specialist_tiers(id, label, duration_minutes, price_cents, currency)
+        `)
         .eq("is_published", true)
-        .order("availability_status", { ascending: false })
-        .order("created_at", { ascending: false });
-      setItems(data ?? []);
+        .eq("specialist_tiers.is_active", true) // Only grab active tiers
+        .order("availability_status", { ascending: false });
+        
+      setItems((data as unknown as SpecialistRow[]) ?? []);
       setLoading(false);
     })();
   }, []);
 
   return (
-    <section className="bg-gradient-page px-4 py-14 sm:py-16">
+    <section className="bg-gradient-page min-h-screen px-4 py-14 sm:py-16">
       <div className="container mx-auto">
         <div className="mx-auto max-w-3xl text-center">
           <div className="inline-flex items-center gap-2 rounded-lg border bg-card/85 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-brand backdrop-blur">
-            <Wifi className="h-3.5 w-3.5 text-teal" /> Live availability is shown on each profile
+            <Wifi className="h-3.5 w-3.5 text-emerald-500" /> Live availability updates instantly
           </div>
-          <h1 className="mt-5 text-4xl font-bold sm:text-5xl">Meet our specialists</h1>
-          <p className="mt-4 text-muted-foreground">
-            Browse vetted coaches and clinicians, then book from the public flow once you are signed in.
+          <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl">Meet our world-class specialists</h1>
+          <p className="mt-4 text-lg text-muted-foreground">
+            Browse fully vetted coaches and clinicians, view their rates across tiers, and instantly book live sessions.
           </p>
         </div>
 
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        {/* Grid layout adapts seamlessly from 1 to 3 columns depending on scale */}
+        <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {loading && Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-72 animate-pulse rounded-lg bg-card/70 shadow-brand" />
+            <div key={i} className="h-[500px] animate-pulse rounded-xl bg-card/70 shadow-brand" />
           ))}
+          
           {!loading && items.length === 0 && (
-            <Card className="col-span-full border-white/55 bg-card/90 p-10 text-center text-muted-foreground shadow-brand backdrop-blur">
-              No specialists are published yet. Check back soon.
+            <Card className="col-span-full border-white/10 bg-card/90 p-12 text-center text-muted-foreground shadow-brand backdrop-blur-md">
+              <UserRound className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <p className="mt-4 text-lg font-medium">No specialists are available right now.</p>
+              <p className="text-sm">Please check back later or refresh your session dashboard.</p>
             </Card>
           )}
-          {items.map((specialist) => <SpecialistCard key={specialist.id} specialist={specialist} />)}
+          
+          {!loading && items.map((specialist) => (
+            <SpecialistCard key={specialist.id} specialist={specialist} />
+          ))}
         </div>
       </div>
     </section>
@@ -67,13 +93,16 @@ export default function Specialists() {
 
 function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
   const isOnline = specialist.availability_status === "online";
+  const tiers = specialist.specialist_tiers ?? [];
 
   return (
-    <Card className="group overflow-hidden border-white/55 bg-card/90 p-0 shadow-brand backdrop-blur transition-all hover:-translate-y-1 hover:shadow-glow">
-      <div className="bg-gradient-to-br from-accent/70 via-card to-card p-5">
+    <Card className="group flex flex-col overflow-hidden border-white/20 bg-card/80 shadow-brand backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 hover:shadow-glow">
+      
+      {/* Top Profile Banner area */}
+      <div className="border-b border-white/10 bg-gradient-to-br from-accent/40 via-card/50 to-card/90 p-6">
         <div className="flex items-start gap-4">
-          <div className="relative h-20 w-20 shrink-0 overflow-visible rounded-lg bg-gradient-vivid p-0.5 shadow-brand">
-            <div className="h-full w-full overflow-hidden rounded-md bg-card">
+          <div className="relative h-20 w-20 shrink-0 overflow-visible rounded-xl bg-gradient-vivid p-0.5 shadow-brand">
+            <div className="h-full w-full overflow-hidden rounded-lg bg-card">
               {specialist.avatar_url ? (
                 <img src={specialist.avatar_url} alt={specialist.display_name} className="h-full w-full object-cover" />
               ) : (
@@ -84,39 +113,122 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
             </div>
             {isOnline && <OnlineDot />}
           </div>
+          
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="min-w-0 flex-1 truncate text-lg font-semibold">{specialist.display_name}</h3>
-              <Badge variant={isOnline ? "default" : "secondary"} className="gap-1 capitalize">
-                {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                {specialist.availability_status ?? "offline"}
-              </Badge>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="truncate text-xl font-bold tracking-tight text-foreground">{specialist.display_name}</h3>
             </div>
-            <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5" />
-              <span>{specialist.country_flag} {specialist.country || "Global"}</span>
+            
+            {specialist.headline && (
+              <p className="mt-1 text-sm font-medium text-emerald-400/90 line-clamp-1">{specialist.headline}</p>
+            )}
+            
+            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                <span>{specialist.country_flag} {specialist.country || "Global"}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Globe className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate max-w-[120px]">{specialist.timezone}</span>
+              </div>
             </div>
           </div>
         </div>
-
-        {specialist.headline && <p className="mt-4 text-sm text-muted-foreground">{specialist.headline}</p>}
       </div>
 
-      <div className="space-y-4 p-5">
-        {specialist.specialities && specialist.specialities.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {specialist.specialities.slice(0, 4).map((speciality) => (
-              <Badge key={speciality} variant="secondary">{speciality}</Badge>
-            ))}
+      {/* Main Details Body */}
+      <div className="flex flex-1 flex-col space-y-5 p-6">
+        
+        {/* Full un-truncated Bio */}
+        {specialist.bio && (
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">About Specialist</h4>
+            <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-muted-foreground/90">
+              {specialist.bio}
+            </p>
           </div>
         )}
-        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>{specialist.timezone ?? "Timezone pending"}</span>
-          <span>{specialist.qualifications?.length ?? 0} qualifications</span>
+
+        {/* Dynamic Display of All Specialities */}
+        {specialist.specialities && specialist.specialities.length > 0 && (
+          <div>
+            <h4 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Briefcase className="h-3 w-3" /> Specialities
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {specialist.specialities.map((speciality) => (
+                <Badge key={speciality} variant="outline" className="border-emerald-500/20 bg-emerald-500/5 text-emerald-400">
+                  {speciality}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Dynamic Display of All Qualifications */}
+        {specialist.qualifications && specialist.qualifications.length > 0 && (
+          <div>
+            <h4 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <GraduationCap className="h-3.5 w-3.5" /> Qualifications
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {specialist.qualifications.map((qualification) => (
+                <Badge key={qualification} variant="secondary" className="bg-muted text-foreground/90 border border-white/5">
+                  {qualification}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tier Pricing Cards Section */}
+        <div className="mt-auto pt-2">
+          <h4 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5" /> Available Session Tiers
+          </h4>
+          {tiers.length > 0 ? (
+            <div className="grid gap-2">
+              {tiers.map((tier) => (
+                <div 
+                  key={tier.id} 
+                  className="flex items-center justify-between rounded-lg border border-white/5 bg-background/50 p-2.5 text-xs shadow-sm transition-colors hover:bg-background/80"
+                >
+                  <div className="font-medium text-foreground">{tier.label}</div>
+                  <div className="text-right text-muted-foreground">
+                    <span className="font-bold text-foreground">
+                      {tier.currency} {(tier.price_cents / 100).toFixed(2)}
+                    </span>
+                    {` / ${tier.duration_minutes} min`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-white/10 p-3 text-center text-xs text-muted-foreground">
+              No public consultation tiers active.
+            </div>
+          )}
         </div>
-        <Button asChild size="sm" className="w-full bg-gradient-brand text-primary-foreground shadow-brand">
-          <Link to={`/book?specialist=${specialist.id}`}>Book a session <ArrowRight className="ml-2 h-4 w-4" /></Link>
-        </Button>
+      </div>
+
+      {/* Conditional Action Footer based on Live Availability */}
+      <div className="border-t border-white/10 bg-accent/20 p-5">
+        {isOnline ? (
+          <Button asChild size="default" className="w-full bg-gradient-brand font-semibold text-primary-foreground shadow-brand transition-transform active:scale-95">
+            <Link to={`/book?specialist=${specialist.id}`}>
+              Book a session now <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-400">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            <div className="flex-1 text-xs leading-normal">
+              <span className="font-semibold block text-amber-300">Specialist Offline</span>
+              Reservations are locked until this specialist returns active online.
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   );
