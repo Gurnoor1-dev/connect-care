@@ -27,37 +27,6 @@ interface Specialist {
   timezone: string | null;
 }
 
-/** Extract a human-readable message from a supabase.functions.invoke error or response body */
-function extractPayuError(error: unknown, data: unknown): string {
-  // error object from the SDK (non-2xx response)
-  if (error && typeof error === "object" && "message" in error) {
-    const msg = String((error as { message: string }).message);
-    if (msg.includes("non-2xx")) {
-      // Try to get the body's error field
-      if (
-        data &&
-        typeof data === "object" &&
-        "error" in data &&
-        typeof (data as Record<string, unknown>).error === "string"
-      ) {
-        return (data as Record<string, string>).error;
-      }
-      return "Payment service error — check that PayU secrets are configured on the server.";
-    }
-    return msg;
-  }
-  // 2xx response but body has { error: "..." }
-  if (
-    data &&
-    typeof data === "object" &&
-    "error" in data &&
-    typeof (data as Record<string, unknown>).error === "string"
-  ) {
-    return (data as Record<string, string>).error;
-  }
-  return "Payment initialisation failed. Please try again.";
-}
-
 export default function BookAppointment() {
   const [params] = useSearchParams();
   const preselect = params.get("specialist") ?? "";
@@ -124,42 +93,26 @@ export default function BookAppointment() {
       return;
     }
 
-    // 2. Call payu-initiate edge function
+    // 2. Call payu-initiate — expect { redirect_url: string } back
     const { data: payu, error: payuErr } = await supabase.functions.invoke("payu-initiate", {
       body: { appointment_id: appt.id },
     });
 
-    // Check both SDK error (non-2xx) and body-level error (2xx with { error: "..." })
-    const hasError = !!payuErr || !payu?.formHtml || !!payu?.error;
-
-    if (hasError) {
+    if (payuErr || !payu?.redirect_url) {
       setSubmitting(false);
-      toast.error(extractPayuError(payuErr, payu));
+      const msg =
+        payu?.error ??
+        payuErr?.message ??
+        "Payment initialisation failed. Please try again.";
+      toast.error(msg);
       // Clean up the orphaned pending_payment row
       await supabase.from("appointments").delete().eq("id", appt.id);
       return;
     }
 
-    // 3. Inject form and submit to PayU
-    try {
-      const tmp = document.createElement("div");
-      tmp.style.cssText = "display:none;position:absolute;left:-9999px;";
-      tmp.innerHTML = payu.formHtml as string;
-      document.body.appendChild(tmp);
-
-      const form = tmp.querySelector("form") as HTMLFormElement | null;
-      if (!form) throw new Error("PayU form HTML was empty or malformed");
-
-      // Move form to body before submit (avoids CSP issues with nested containers)
-      document.body.appendChild(form);
-      tmp.remove();
-      form.submit();
-      // Page navigates away — keep spinner showing
-    } catch (err: unknown) {
-      setSubmitting(false);
-      toast.error(err instanceof Error ? err.message : "Could not redirect to payment page");
-      await supabase.from("appointments").delete().eq("id", appt.id);
-    }
+    // 3. Hard-navigate to PayU's hosted checkout URL
+    window.location.href = payu.redirect_url as string;
+    // Keep spinner — page will unload momentarily
   };
 
   const minDateTime = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16);

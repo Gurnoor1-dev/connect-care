@@ -13,7 +13,9 @@ export function ProtectedRoute({ requireRole }: { requireRole?: AppRole }) {
       </div>
     );
   }
-  if (!user) return <Navigate to={`/login?redirect=${encodeURIComponent(loc.pathname)}`} replace />;
+
+  const redirectTarget = `${loc.pathname}${loc.search}`;
+  if (!user) return <Navigate to={`/login?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   if (requireRole && role !== requireRole) return <Navigate to="/dashboard" replace />;
   return <Outlet />;
 }

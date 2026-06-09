@@ -1,0 +1,2 @@
+[functions.payu-webhook]
+verify_jwt = false
