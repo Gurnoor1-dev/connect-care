@@ -107,34 +107,54 @@ export default function AdminTiers() {
   };
 
   const save = async () => {
-    if (!selectedId) return;
-    setSaving(true);
-    const payload = tiers.map((tier) => {
-      const base = {
-        specialist_id: selectedId,
-        label: tier.label.trim() || "Session",
-        duration_minutes: Number.isFinite(tier.duration_minutes) ? tier.duration_minutes : 50,
-        price_cents: Number.isFinite(tier.price_cents) ? tier.price_cents : 0,
-        currency: tier.currency || "USD",
-        is_active: tier.is_active,
-        tier_type: tier.tier_type ?? "single",
-        session_count: tier.tier_type === "bundle" ? (tier.session_count ?? 4) : 1,
-        savings_label: tier.savings_label?.trim() || null,
-        credit_points: Math.max(
-          tier.tier_type === "bundle" ? (tier.session_count ?? 4) * 2 : 2,
-          2
-        ),
-      };
-      return tier.id ? { id: tier.id, ...base } : base;
-    });
-    const { error } = await supabase.from("specialist_tiers").upsert(payload);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Tiers saved");
-      loadTiers(selectedId);
-    }
+  if (!selectedId) return;
+  setSaving(true);
+
+  const newTiers = tiers.filter((t) => !t.id);
+  const existingTiers = tiers.filter((t) => t.id);
+
+  const buildPayload = (tier: Tier, includeId: boolean) => {
+    const base = {
+      specialist_id: selectedId,
+      label: tier.label.trim() || "Session",
+      duration_minutes: Number.isFinite(tier.duration_minutes) ? tier.duration_minutes : 50,
+      price_cents: Number.isFinite(tier.price_cents) ? tier.price_cents : 0,
+      currency: tier.currency || "USD",
+      is_active: tier.is_active,
+      tier_type: tier.tier_type ?? "single",
+      session_count: tier.tier_type === "bundle" ? (tier.session_count ?? 4) : 1,
+      savings_label: tier.savings_label?.trim() || null,
+      credit_points: Math.max(
+        tier.tier_type === "bundle" ? (tier.session_count ?? 4) * 2 : 2,
+        2
+      ),
+    };
+    return includeId && tier.id ? { id: tier.id, ...base } : base;
   };
+
+  let error: { message: string } | null = null;
+
+  if (existingTiers.length > 0) {
+    const { error: updateErr } = await supabase
+      .from("specialist_tiers")
+      .upsert(existingTiers.map((t) => buildPayload(t, true)));
+    if (updateErr) error = updateErr;
+  }
+
+  if (!error && newTiers.length > 0) {
+    const { error: insertErr } = await supabase
+      .from("specialist_tiers")
+      .insert(newTiers.map((t) => buildPayload(t, false)));
+    if (insertErr) error = insertErr;
+  }
+
+  setSaving(false);
+  if (error) toast.error(error.message);
+  else {
+    toast.success("Tiers saved");
+    loadTiers(selectedId);
+  }
+};
 
   const singles = tiers.filter((t) => (t.tier_type ?? "single") === "single");
   const bundles = tiers.filter((t) => t.tier_type === "bundle");
