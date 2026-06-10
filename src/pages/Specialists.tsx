@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { 
-  ArrowRight, MapPin, UserRound, Wifi, WifiOff, 
-  GraduationCap, Briefcase, Calendar, Globe, AlertCircle 
+  ArrowRight, MapPin, UserRound, Wifi, 
+  GraduationCap, Briefcase, Calendar, Globe, AlertCircle  
 } from "lucide-react";
 
 interface Tier {
@@ -38,55 +38,43 @@ export default function Specialists() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  (async () => {
-    // We add !specialist_tiers to break the ambiguity loop
-    const { data, error } = await supabase
-      .from("specialist_profiles")
-      .select(`
-        id, display_name, headline, bio, country, country_flag, 
-        specialities, qualifications, timezone, avatar_url, availability_status,
-        specialist_tiers!specialist_tiers_specialist_id_fkey(id, label, duration_minutes, price_cents, currency, is_active)
-      `)
-      .eq("is_published", true)
-      .order("availability_status", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching specialists:", error.message);
-      
-      // FALLBACK: If your foreign key constraint name is named differently, 
-      // let's try the table name fallback so your UI doesn't break.
-      const fallback = await supabase
+    (async () => {
+      // We add !specialist_tiers to break the ambiguity loop
+      const { data, error } = await supabase
         .from("specialist_profiles")
         .select(`
           id, display_name, headline, bio, country, country_flag, 
           specialities, qualifications, timezone, avatar_url, availability_status,
-          specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active)
+          specialist_tiers!specialist_tiers_specialist_id_fkey(id, label, duration_minutes, price_cents, currency, is_active)
         `)
-        .eq("is_published", true);
+        .eq("is_published", true)
+        .order("availability_status", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching specialists:", error.message);
         
-      if (!fallback.error && fallback.data) {
-        const formattedData = ((fallback.data as unknown as SpecialistRow[]) ?? []).map(specialist => ({
-          ...specialist,
-          specialist_tiers: (specialist.specialist_tiers ?? []).filter(tier => tier.is_active)
-        }));
-        setItems(formattedData);
+        // FALLBACK: If your foreign key constraint name is named differently, 
+        // let's try the table name fallback so your UI doesn't break.
+        const fallback = await supabase
+          .from("specialist_profiles")
+          .select(`
+            id, display_name, headline, bio, country, country_flag, 
+            specialities, qualifications, timezone, avatar_url, availability_status,
+            specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active)
+          `)
+          .eq("is_published", true);
+          
+        if (!fallback.error && fallback.data) {
+          const formattedData = ((fallback.data as unknown as SpecialistRow[]) ?? []).map(specialist => ({
+            ...specialist,
+            specialist_tiers: (specialist.specialist_tiers ?? []).filter(tier => tier.is_active)
+          }));
+          setItems(formattedData);
+        }
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-      return;
-    }
 
-    const formattedData = ((data as unknown as SpecialistRow[]) ?? []).map(specialist => ({
-      ...specialist,
-      specialist_tiers: (specialist.specialist_tiers ?? []).filter(tier => tier.is_active)
-    }));
-
-    setItems(formattedData);
-    setLoading(false);
-  })();
-}, []);
-
-
-      // 2. Safely cast data and filter out inactive tiers programmatically 
       const formattedData = ((data as unknown as SpecialistRow[]) ?? []).map(specialist => ({
         ...specialist,
         specialist_tiers: (specialist.specialist_tiers ?? []).filter(tier => tier.is_active)
@@ -95,7 +83,7 @@ export default function Specialists() {
       setItems(formattedData);
       setLoading(false);
     })();
-  }, []);
+  }, []); // Cleanly closes the real useEffect
 
   return (
     <section className="bg-gradient-page min-h-screen px-4 py-14 sm:py-16">
@@ -132,6 +120,7 @@ export default function Specialists() {
   );
 }
 
+// ... Keep the SpecialistCard and OnlineDot functions exactly as they were!
 function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
   const isOnline = specialist.availability_status === "online";
   const tiers = specialist.specialist_tiers ?? [];
