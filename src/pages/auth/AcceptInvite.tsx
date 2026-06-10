@@ -36,16 +36,13 @@ export default function AcceptInvite() {
     e.preventDefault();
     if (!invite) return;
     setSubmitting(true);
-    // Call edge function to create the specialist account + assign role atomically
-    const { error } = await supabase.functions.invoke("accept-specialist-invite", {
+    const { data, error } = await supabase.functions.invoke("accept-specialist-invite", {
       body: { token, password, full_name: fullName },
     });
     setSubmitting(false);
-    if (error) return toast.error(error.message);
-    toast.success("Account created. Signing you in…");
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: invite.email, password });
-    if (signInError) return toast.error(signInError.message);
-    navigate("/dashboard/specialist");
+    if (error || data?.error) return toast.error(data?.error ?? error?.message);
+    toast.success("Account created. Check your email for the verification code.");
+    navigate(`/verify-otp?email=${encodeURIComponent(invite.email)}&redirect=${encodeURIComponent("/dashboard/specialist")}`);
   };
 
   if (loading) {
@@ -74,7 +71,7 @@ export default function AcceptInvite() {
           <Label>Create a password</Label>
           <Input type="password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} className="mt-2" />
         </div>
-        <Button type="submit" disabled={submitting} className="w-full bg-gradient-brand text-primary-foreground">
+        <Button type="submit" disabled={submitting} className="w-full bg-gradient-brand text-primary-foreground shadow-brand">
           {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Accept invitation
         </Button>
       </form>
