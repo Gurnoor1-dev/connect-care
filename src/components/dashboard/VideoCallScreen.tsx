@@ -1,54 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ClipboardList, FileText, Loader2, PhoneOff } from "lucide-react";
+import { ClipboardList, FileText, Loader2, ExternalLink, Video } from "lucide-react";
 import { toast } from "sonner";
-
-// Jitsi injects a global JitsiMeetExternalAPI via script tag
-declare global {
-  interface Window {
-    JitsiMeetExternalAPI: new (
-      domain: string,
-      options: Record<string, unknown>,
-    ) => {
-      dispose: () => void;
-      addListener: (event: string, handler: () => void) => void;
-    };
-  }
-}
-
-const JITSI_DOMAIN = "meet.jit.si";
-const JITSI_SCRIPT = "https://meet.jit.si/external_api.js";
-
-function loadJitsiScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (window.JitsiMeetExternalAPI) { resolve(); return; }
-    const script = document.createElement("script");
-    script.src = JITSI_SCRIPT;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load Jitsi script"));
-    document.head.appendChild(script);
-  });
-}
 
 export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
   const { appointmentId } = useParams<{ appointmentId: string }>();
   const { user } = useAuth();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const apiRef = useRef<ReturnType<typeof window.JitsiMeetExternalAPI> | null>(null);
 
   const [appointment, setAppointment] = useState<any>(null);
   const [joining, setJoining] = useState(false);
-  const [joined, setJoined] = useState(false);
   const [notes, setNotes] = useState("");
   const [prescription, setPrescription] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const [roomUrl, setRoomUrl] = useState<string | null>(null);
 
-  // Load appointment data
   useEffect(() => {
     if (!appointmentId || !user) return;
     (async () => {
@@ -64,92 +33,29 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
         setPrescription(data?.prescription ?? "");
       }
     })();
-
-    // Cleanup Jitsi on unmount
-    return () => {
-      apiRef.current?.dispose();
-      apiRef.current = null;
-    };
   }, [appointmentId, user, role]);
 
   const join = async () => {
-    if (!appointmentId || !containerRef.current) return;
+    if (!appointmentId) return;
     setJoining(true);
 
-    // Ask our edge function for the room name + display name
     const { data, error } = await supabase.functions.invoke("jitsi-token", {
       body: { appointment_id: appointmentId, role },
     });
 
-    if (error || !data?.room_name) {
-      setJoining(false);
-      toast.error(data?.error ?? error?.message ?? "Could not join the call");
-      return;
-    }
-
-    try {
-      await loadJitsiScript();
-    } catch {
-      setJoining(false);
-      toast.error("Could not load Jitsi. Check your network connection.");
-      return;
-    }
-
-    // Destroy any existing instance
-    apiRef.current?.dispose();
-
-    apiRef.current = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, {
-      roomName: data.room_name,
-      parentNode: containerRef.current,
-      width: "100%",
-      height: "100%",
-      userInfo: {
-        displayName: data.display_name,
-      },
-      configOverwrite: {
-        startWithAudioMuted: false,
-        startWithVideoMuted: false,
-        disableDeepLinking: true,
-        // Hide the Jitsi watermark and lobby branding
-        hideConferenceSubject: true,
-        hideConferenceTimer: false,
-        // Moderators (specialists) start unmuted
-        startAudioOnly: false,
-      },
-      interfaceConfigOverwrite: {
-        SHOW_JITSI_WATERMARK: false,
-        SHOW_WATERMARK_FOR_GUESTS: false,
-        TOOLBAR_BUTTONS: [
-          "microphone",
-          "camera",
-          "closedcaptions",
-          "desktop",
-          "fullscreen",
-          "fodeviceselection",
-          "hangup",
-          "chat",
-          "raisehand",
-          "videoquality",
-          "tileview",
-          "settings",
-        ],
-      },
-    });
-
-    apiRef.current.addListener("videoConferenceLeft", () => {
-      setJoined(false);
-      apiRef.current?.dispose();
-      apiRef.current = null;
-    });
-
-    setJoined(true);
     setJoining(false);
-  };
 
-  const leave = () => {
-    apiRef.current?.dispose();
-    apiRef.current = null;
-    setJoined(false);
+    if (error || !data?.room_name) {
+      toast.error(data?.error ?? error?.message ?? "Could not get call details");
+      return;
+    }
+
+    // Build the Jitsi URL with display name and open in new tab
+    const displayName = encodeURIComponent(data.display_name ?? (role === "specialist" ? "Specialist" : "Customer"));
+    const jitsiUrl = `https://meet.jit.si/${data.room_name}#userInfo.displayName="${displayName}"`;
+
+    setRoomUrl(jitsiUrl);
+    window.open(jitsiUrl, "_blank", "noopener,noreferrer");
   };
 
   const saveSessionText = async () => {
@@ -205,31 +111,43 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
           </Button>
         </header>
 
-        {/* Video container — Jitsi mounts here */}
-        <Card className="overflow-hidden border-white/55 bg-black p-0 shadow-glow" style={{ height: "520px" }}>
-          <div ref={containerRef} className="h-full w-full">
-            {!joined && (
-              <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 text-primary-foreground">
-                <p className="mb-4 text-sm opacity-80">Ready when you are.</p>
-                <Button
-                  onClick={join}
-                  disabled={joining}
-                  size="lg"
-                  className="bg-gradient-brand shadow-brand"
+        {/* Call launch area */}
+        <Card className="overflow-hidden border-white/55 shadow-glow" style={{ minHeight: "320px" }}>
+          <div className="flex h-full min-h-[320px] w-full flex-col items-center justify-center gap-6 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-10 text-primary-foreground">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 ring-2 ring-white/20">
+              <Video className="h-10 w-10 opacity-80" />
+            </div>
+            <div className="text-center">
+              <h2 className="text-xl font-semibold">Your session room is ready</h2>
+              <p className="mt-2 max-w-sm text-sm opacity-70">
+                The call opens in a new browser tab. Keep this page open to save notes and prescriptions.
+              </p>
+            </div>
+            <div className="flex flex-col items-center gap-3">
+              <Button
+                onClick={join}
+                disabled={joining}
+                size="lg"
+                className="bg-gradient-brand px-8 shadow-brand"
+              >
+                {joining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Join call
+              </Button>
+              {roomUrl && (
+                <a
+                  href={roomUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-white/50 underline-offset-4 hover:text-white/80 hover:underline"
                 >
-                  {joining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Join call
-                </Button>
-              </div>
-            )}
+                  <ExternalLink className="h-3 w-3" />
+                  Re-open call link
+                </a>
+              )}
+            </div>
           </div>
         </Card>
-
-        {joined && (
-          <Button onClick={leave} variant="destructive" className="w-full sm:w-auto">
-            <PhoneOff className="mr-2 h-4 w-4" /> Leave call
-          </Button>
-        )}
 
         {role === "customer" && appointment.prescription && (
           <Card className="border-white/55 bg-card/90 p-5 shadow-brand backdrop-blur">
