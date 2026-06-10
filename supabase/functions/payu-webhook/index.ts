@@ -30,6 +30,53 @@ function textResponse(body: string, status = 200) {
   return new Response(body, { status, headers: corsHeaders });
 }
 
+async function awardBundleCredits(admin: ReturnType<typeof createClient>, txnid: string) {
+  const { data: appointment, error: appointmentError } = await admin
+    .from("appointments")
+    .select("id, customer_id, specialist_id, tier_id, bundle_credits_awarded_at")
+    .eq("payu_txn_id", txnid)
+    .maybeSingle();
+
+  if (appointmentError || !appointment || appointment.bundle_credits_awarded_at) return;
+
+  const { data: tier } = await admin
+    .from("specialist_tiers")
+    .select("session_count, credit_points, tier_type")
+    .eq("id", appointment.tier_id)
+    .maybeSingle();
+
+  const creditPoints = Math.max(Number(tier?.credit_points ?? 2), Number(tier?.session_count ?? 1) * 2);
+  const remainingCredits = Math.max(0, creditPoints - 2);
+
+  if (remainingCredits > 0) {
+    const { data: existing } = await admin
+      .from("customer_specialist_credits")
+      .select("id, credit_points")
+      .eq("customer_id", appointment.customer_id)
+      .eq("specialist_id", appointment.specialist_id)
+      .maybeSingle();
+
+    if (existing) {
+      await admin
+        .from("customer_specialist_credits")
+        .update({ credit_points: existing.credit_points + remainingCredits, updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+    } else {
+      await admin.from("customer_specialist_credits").insert({
+        customer_id: appointment.customer_id,
+        specialist_id: appointment.specialist_id,
+        credit_points: remainingCredits,
+      });
+    }
+  }
+
+  await admin
+    .from("appointments")
+    .update({ bundle_credits_awarded_at: new Date().toISOString() })
+    .eq("id", appointment.id)
+    .is("bundle_credits_awarded_at", null);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -54,15 +101,9 @@ Deno.serve(async (req) => {
       return textResponse("PayU webhook is not configured", 500);
     }
 
-    if (!postedHash || !txnid || !status) {
-      return textResponse("missing PayU fields", 400);
-    }
+    if (!postedHash || !txnid || !status) return textResponse("missing PayU fields", 400);
+    if (key && key !== merchantKey) return textResponse("invalid merchant key", 400);
 
-    if (key && key !== merchantKey) {
-      return textResponse("invalid merchant key", 400);
-    }
-
-    // Reverse hash: salt|status|||||||||||email|firstname|productinfo|amount|txnid|key
     const calculatedHash = await sha512(
       `${salt}|${status}|||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${merchantKey}`,
     );
@@ -87,6 +128,8 @@ Deno.serve(async (req) => {
       console.error("PayU appointment update failed", error);
       return textResponse("appointment update failed", 500);
     }
+
+    if (nextStatus === "confirmed") await awardBundleCredits(admin, txnid);
 
     const redirectUrl = buildRedirect(
       req,
