@@ -4,9 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { 
-  ArrowRight, MapPin, UserRound, Wifi, 
-  GraduationCap, Briefcase, Calendar, Globe, AlertCircle  
+import {
+  ArrowRight, MapPin, UserRound, Wifi,
+  GraduationCap, Briefcase, Globe, Check, Star,
+  Zap, Clock
 } from "lucide-react";
 
 interface Tier {
@@ -16,6 +17,9 @@ interface Tier {
   price_cents: number;
   currency: string;
   is_active: boolean;
+  tier_type?: string;
+  session_count?: number;
+  savings_label?: string;
 }
 
 interface SpecialistRow {
@@ -33,85 +37,132 @@ interface SpecialistRow {
   specialist_tiers: Tier[];
 }
 
+// Colour accent per specialty tag
+const SPECIALTY_COLORS: Record<string, string> = {
+  anxiety: "bg-violet-500/15 text-violet-400 border-violet-500/25",
+  sleep: "bg-indigo-500/15 text-indigo-400 border-indigo-500/25",
+  leadership: "bg-amber-500/15 text-amber-400 border-amber-500/25",
+  relationships: "bg-rose-500/15 text-rose-400 border-rose-500/25",
+  burnout: "bg-sky-500/15 text-sky-400 border-sky-500/25",
+  mindfulness: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
+  stress: "bg-violet-500/15 text-violet-400 border-violet-500/25",
+  default: "bg-teal/15 text-teal border-teal/25",
+};
+
+function specialtyColor(s: string) {
+  const key = Object.keys(SPECIALTY_COLORS).find((k) => s.toLowerCase().includes(k));
+  return SPECIALTY_COLORS[key ?? "default"];
+}
+
+// Sort tiers: single first, then bundles ascending by price
+function sortTiers(tiers: Tier[]) {
+  return [...tiers].sort((a, b) => {
+    if ((a.tier_type ?? "single") === "single" && (b.tier_type ?? "single") !== "single") return -1;
+    if ((a.tier_type ?? "single") !== "single" && (b.tier_type ?? "single") === "single") return 1;
+    return a.price_cents - b.price_cents;
+  });
+}
+
 export default function Specialists() {
   const [items, setItems] = useState<SpecialistRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "online">("all");
 
   useEffect(() => {
     (async () => {
-      // We add !specialist_tiers to break the ambiguity loop
       const { data, error } = await supabase
         .from("specialist_profiles")
         .select(`
-          id, display_name, headline, bio, country, country_flag, 
+          id, display_name, headline, bio, country, country_flag,
           specialities, qualifications, timezone, avatar_url, availability_status,
-          specialist_tiers!specialist_tiers_specialist_id_fkey(id, label, duration_minutes, price_cents, currency, is_active)
+          specialist_tiers!specialist_tiers_specialist_id_fkey(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label)
         `)
         .eq("is_published", true)
         .order("availability_status", { ascending: false });
 
       if (error) {
-        console.error("Error fetching specialists:", error.message);
-        
-        // FALLBACK: If your foreign key constraint name is named differently, 
-        // let's try the table name fallback so your UI doesn't break.
         const fallback = await supabase
           .from("specialist_profiles")
           .select(`
-            id, display_name, headline, bio, country, country_flag, 
+            id, display_name, headline, bio, country, country_flag,
             specialities, qualifications, timezone, avatar_url, availability_status,
-            specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active)
+            specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label)
           `)
           .eq("is_published", true);
-          
         if (!fallback.error && fallback.data) {
-          const formattedData = ((fallback.data as unknown as SpecialistRow[]) ?? []).map(specialist => ({
-            ...specialist,
-            specialist_tiers: (specialist.specialist_tiers ?? []).filter(tier => tier.is_active)
-          }));
-          setItems(formattedData);
+          setItems(
+            (fallback.data as unknown as SpecialistRow[]).map((s) => ({
+              ...s,
+              specialist_tiers: (s.specialist_tiers ?? []).filter((t) => t.is_active),
+            }))
+          );
         }
         setLoading(false);
         return;
       }
 
-      const formattedData = ((data as unknown as SpecialistRow[]) ?? []).map(specialist => ({
-        ...specialist,
-        specialist_tiers: (specialist.specialist_tiers ?? []).filter(tier => tier.is_active)
-      }));
-
-      setItems(formattedData);
+      setItems(
+        (data as unknown as SpecialistRow[]).map((s) => ({
+          ...s,
+          specialist_tiers: (s.specialist_tiers ?? []).filter((t) => t.is_active),
+        }))
+      );
       setLoading(false);
     })();
-  }, []); // Cleanly closes the real useEffect
+  }, []);
+
+  const visible = filter === "online" ? items.filter((s) => s.availability_status === "online") : items;
+  const onlineCount = items.filter((s) => s.availability_status === "online").length;
 
   return (
-    <section className="bg-gradient-page min-h-screen px-4 py-14 sm:py-16">
+    <section className="min-h-screen bg-gradient-page px-4 py-14 sm:py-16">
       <div className="container mx-auto">
+        {/* Header */}
         <div className="mx-auto max-w-3xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-lg border bg-card/85 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-brand backdrop-blur">
-            <Wifi className="h-3.5 w-3.5 text-emerald-500" /> Live availability updates instantly
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-medium text-emerald-400">
+            <Wifi className="h-3.5 w-3.5" />
+            {onlineCount} specialist{onlineCount !== 1 ? "s" : ""} live now
           </div>
-          <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl">Meet our world-class specialists</h1>
+          <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl">
+            Meet our world-class specialists
+          </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            Browse fully vetted coaches and clinicians, view their rates across tiers, and instantly book live sessions.
+            Each specialist is vetted, credentialled, and ready. Browse tiers and book a session in seconds.
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {loading && Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-[500px] animate-pulse rounded-xl bg-card/70 shadow-brand" />
+        {/* Filter pills */}
+        <div className="mt-8 flex justify-center gap-2">
+          {(["all", "online"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-all ${
+                filter === f
+                  ? "border-primary bg-primary text-primary-foreground shadow-brand"
+                  : "border-white/15 bg-card/60 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {f === "all" ? `All specialists (${items.length})` : `Online now (${onlineCount})`}
+            </button>
           ))}
-          
-          {!loading && items.length === 0 && (
+        </div>
+
+        {/* Grid */}
+        <div className="mt-10 grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+          {loading &&
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-[580px] animate-pulse rounded-2xl bg-card/70 shadow-brand" />
+            ))}
+
+          {!loading && visible.length === 0 && (
             <Card className="col-span-full border-white/10 bg-card/90 p-12 text-center text-muted-foreground shadow-brand backdrop-blur-md">
               <UserRound className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <p className="mt-4 text-lg font-medium">No specialists are available right now.</p>
-              <p className="text-sm">Make sure profiles are marked "Publish Profile" in their configuration panels.</p>
+              <p className="mt-4 text-lg font-medium">No specialists available right now.</p>
             </Card>
           )}
-          
-          {!loading && items.map((specialist) => (
+
+          {!loading && visible.map((specialist) => (
             <SpecialistCard key={specialist.id} specialist={specialist} />
           ))}
         </div>
@@ -120,143 +171,164 @@ export default function Specialists() {
   );
 }
 
-// ... Keep the SpecialistCard and OnlineDot functions exactly as they were!
 function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
   const isOnline = specialist.availability_status === "online";
-  const tiers = specialist.specialist_tiers ?? [];
+  const tiers = sortTiers(specialist.specialist_tiers ?? []);
+  const singleTier = tiers.find((t) => (t.tier_type ?? "single") === "single");
+  const bundleTiers = tiers.filter((t) => t.tier_type === "bundle");
+  const [activeTier, setActiveTier] = useState<string>(tiers[0]?.id ?? "");
+
+  const selectedTier = tiers.find((t) => t.id === activeTier) ?? tiers[0];
 
   return (
-    <Card className="group flex flex-col overflow-hidden border-white/20 bg-card/80 shadow-brand backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 hover:shadow-glow">
-      
-      {/* Top Profile Banner */}
-      <div className="border-b border-white/10 bg-gradient-to-br from-accent/40 via-card/50 to-card/90 p-6">
+    <Card className="group flex flex-col overflow-hidden border-white/15 bg-card/85 shadow-brand backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-glow">
+      {/* ── HEADER BAND ── */}
+      <div className="relative border-b border-white/10 p-5">
+        {/* Online/offline pill */}
+        <div className={`absolute right-4 top-4 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+          isOnline ? "bg-emerald-500/15 text-emerald-400" : "bg-muted text-muted-foreground"
+        }`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? "bg-emerald-400" : "bg-muted-foreground"} ${isOnline ? "animate-pulse" : ""}`} />
+          {isOnline ? "Live now" : "Offline"}
+        </div>
+
         <div className="flex items-start gap-4">
-          <div className="relative h-20 w-20 shrink-0 overflow-visible rounded-xl bg-gradient-vivid p-0.5 shadow-brand">
-            <div className="h-full w-full overflow-hidden rounded-lg bg-card">
-              {specialist.avatar_url ? (
-                <img src={specialist.avatar_url} alt={specialist.display_name} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-brand text-2xl font-bold text-primary-foreground">
-                  {specialist.display_name?.[0] ?? <UserRound className="h-7 w-7" />}
-                </div>
-              )}
-            </div>
-            {isOnline && <OnlineDot />}
-          </div>
-          
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="truncate text-xl font-bold tracking-tight text-foreground">{specialist.display_name || "Anonymous Specialist"}</h3>
-            </div>
-            
-            {specialist.headline && (
-              <p className="mt-1 text-sm font-medium text-emerald-400/90 line-clamp-1">{specialist.headline}</p>
+          {/* Avatar */}
+          <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden ring-2 ring-white/10">
+            {specialist.avatar_url ? (
+              <img src={specialist.avatar_url} alt={specialist.display_name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-brand text-2xl font-bold text-white">
+                {specialist.display_name?.[0] ?? <UserRound className="h-7 w-7" />}
+              </div>
             )}
-            
-            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5 shrink-0" />
-                <span>{specialist.country_flag} {specialist.country || "Global"}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Globe className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate max-w-[120px]">{specialist.timezone || "UTC"}</span>
-              </div>
+          </div>
+
+          <div className="min-w-0 flex-1 pr-16">
+            <h3 className="truncate text-lg font-bold">{specialist.display_name}</h3>
+            {specialist.headline && (
+              <p className="mt-0.5 truncate text-sm text-teal">{specialist.headline}</p>
+            )}
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {specialist.country && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {specialist.country_flag} {specialist.country}
+                </span>
+              )}
+              {specialist.timezone && (
+                <span className="flex items-center gap-1">
+                  <Globe className="h-3 w-3" />
+                  {specialist.timezone}
+                </span>
+              )}
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Main Details Body */}
-      <div className="flex flex-1 flex-col space-y-5 p-6">
-        
-        {/* Full Bio */}
-        {specialist.bio && (
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">About Specialist</h4>
-            <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-muted-foreground/90">
-              {specialist.bio}
-            </p>
-          </div>
-        )}
 
         {/* Specialities */}
         {specialist.specialities && specialist.specialities.length > 0 && (
-          <div>
-            <h4 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <Briefcase className="h-3 w-3" /> Specialities
-            </h4>
-            <div className="flex flex-wrap gap-1.5">
-              {specialist.specialities.map((speciality) => (
-                <Badge key={speciality} variant="outline" className="border-emerald-500/20 bg-emerald-500/5 text-emerald-400">
-                  {speciality}
-                </Badge>
-              ))}
-            </div>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {specialist.specialities.slice(0, 4).map((s) => (
+              <span
+                key={s}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${specialtyColor(s)}`}
+              >
+                {s}
+              </span>
+            ))}
+            {specialist.specialities.length > 4 && (
+              <span className="rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] text-muted-foreground">
+                +{specialist.specialities.length - 4} more
+              </span>
+            )}
           </div>
         )}
-
-        {/* Qualifications */}
-        {specialist.qualifications && specialist.qualifications.length > 0 && (
-          <div>
-            <h4 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <GraduationCap className="h-3.5 w-3.5" /> Qualifications
-            </h4>
-            <div className="flex flex-wrap gap-1.5">
-              {specialist.qualifications.map((qualification) => (
-                <Badge key={qualification} variant="secondary" className="bg-muted text-foreground/90 border border-white/5">
-                  {qualification}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tier Pricing Section */}
-        <div className="mt-auto pt-2">
-          <h4 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5" /> Available Session Tiers
-          </h4>
-          {tiers.length > 0 ? (
-            <div className="grid gap-2">
-              {tiers.map((tier) => (
-                <div 
-                  key={tier.id} 
-                  className="flex items-center justify-between rounded-lg border border-white/5 bg-background/50 p-2.5 text-xs shadow-sm transition-colors hover:bg-background/80"
-                >
-                  <div className="font-medium text-foreground">{tier.label}</div>
-                  <div className="text-right text-muted-foreground">
-                    <span className="font-bold text-foreground">
-                      {tier.currency} {(tier.price_cents / 100).toFixed(2)}
-                    </span>
-                    {` / ${tier.duration_minutes} min`}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-white/10 p-3 text-center text-xs text-muted-foreground">
-              No active consultation tiers available.
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Dynamic Action Footer */}
-      <div className="border-t border-white/10 bg-accent/20 p-5">
+      {/* ── BIO ── */}
+      {specialist.bio && (
+        <div className="border-b border-white/10 px-5 py-4">
+          <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{specialist.bio}</p>
+        </div>
+      )}
+
+      {/* ── QUALIFICATIONS ── */}
+      {specialist.qualifications && specialist.qualifications.length > 0 && (
+        <div className="border-b border-white/10 px-5 py-3">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <GraduationCap className="h-3.5 w-3.5" /> Qualifications
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {specialist.qualifications.slice(0, 3).map((q) => (
+              <span key={q} className="rounded-md border border-white/10 bg-muted/60 px-2 py-0.5 text-xs text-foreground/80">
+                {q}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── PRICING TIERS ── */}
+      <div className="flex-1 px-5 py-4">
+        <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <Briefcase className="h-3.5 w-3.5" /> Session tiers
+        </div>
+
+        {tiers.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-muted-foreground">
+            No active tiers yet.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {/* Single session */}
+            {singleTier && (
+              <TierPill
+                tier={singleTier}
+                selected={activeTier === singleTier.id}
+                onSelect={() => setActiveTier(singleTier.id)}
+                badge={null}
+              />
+            )}
+
+            {/* Bundle tiers */}
+            {bundleTiers.map((t, i) => (
+              <TierPill
+                key={t.id}
+                tier={t}
+                selected={activeTier === t.id}
+                onSelect={() => setActiveTier(t.id)}
+                badge={t.savings_label ?? (i === 0 ? "SAVE 12%" : i === 1 ? "SAVE 20%" : null)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── CTA FOOTER ── */}
+      <div className="border-t border-white/10 bg-gradient-to-b from-transparent to-accent/10 p-4">
         {isOnline ? (
-          <Button asChild size="default" className="w-full bg-gradient-brand font-semibold text-primary-foreground shadow-brand transition-transform active:scale-95">
-            <Link to={`/book?specialist=${specialist.id}`}>
-              Book a session now <ArrowRight className="ml-2 h-4 w-4" />
+          <Button
+            asChild
+            className="w-full bg-gradient-brand font-semibold text-primary-foreground shadow-brand transition-transform active:scale-95"
+          >
+            <Link to={`/book?specialist=${specialist.id}${selectedTier ? `&tier=${selectedTier.id}` : ""}`}>
+              <Zap className="mr-2 h-4 w-4" />
+              Book now
+              {selectedTier && (
+                <span className="ml-auto pl-2 font-bold">
+                  {selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}
+                </span>
+              )}
+              <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </Button>
         ) : (
-          <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-400">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <div className="flex-1 text-xs leading-normal">
-              <span className="font-semibold block text-amber-300">Specialist Offline</span>
-              Reservations are locked until this specialist returns active online.
-            </div>
+          <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-muted/40 p-3">
+            <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              Currently offline — check back shortly or browse other specialists.
+            </span>
           </div>
         )}
       </div>
@@ -264,11 +336,68 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
   );
 }
 
-function OnlineDot() {
+function TierPill({
+  tier,
+  selected,
+  onSelect,
+  badge,
+}: {
+  tier: Tier;
+  selected: boolean;
+  onSelect: () => void;
+  badge: string | null;
+}) {
+  const isBundle = tier.tier_type === "bundle";
+
   return (
-    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-card bg-emerald-500 shadow-glow">
-      <span className="absolute h-3.5 w-3.5 animate-ping rounded-full bg-emerald-300 opacity-70" />
-      <span className="relative h-3 w-3 rounded-full bg-emerald-300" />
-    </span>
+    <button
+      onClick={onSelect}
+      className={`group/tier w-full rounded-xl border p-3 text-left transition-all ${
+        selected
+          ? "border-primary/60 bg-primary/8 ring-1 ring-primary/30"
+          : "border-white/10 bg-muted/30 hover:border-white/20 hover:bg-muted/50"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+            selected ? "border-primary bg-primary" : "border-white/20"
+          }`}>
+            {selected && <Check className="h-2.5 w-2.5 text-white" />}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium truncate">{tier.label}</span>
+              {badge && (
+                <span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">
+                  {badge}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              {tier.duration_minutes} min
+              {isBundle && tier.session_count && tier.session_count > 1 && (
+                <>
+                  <span className="text-white/20">·</span>
+                  <Star className="h-3 w-3 text-amber-400" />
+                  {tier.session_count} sessions
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-base font-bold">
+            {tier.currency} {(tier.price_cents / 100).toFixed(0)}
+          </div>
+          {isBundle && tier.session_count && tier.session_count > 1 && (
+            <div className="text-[10px] text-muted-foreground">
+              {tier.currency} {(tier.price_cents / tier.session_count / 100).toFixed(0)}/session
+            </div>
+          )}
+        </div>
+      </div>
+    </button>
   );
 }
