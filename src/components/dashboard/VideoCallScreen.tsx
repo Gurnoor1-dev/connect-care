@@ -146,7 +146,7 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
         console.error("[Daily]", e);
       });
 
-      await frame.join({ url: data.room_url, token: data.token ?? undefined });
+      await frame.join({ url: data.room_url, token: data.token ? data.token : undefined });
 
       callFrameRef.current = frame;
       setInCall(true);
