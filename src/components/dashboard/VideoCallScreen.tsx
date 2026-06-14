@@ -113,6 +113,7 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
       return;
     }
 
+    // Invoking your updated 'daily-token' edge function
     const { data, error } = await supabase.functions.invoke("daily-token", {
       body: { appointment_id: appointmentId, role },
     });
@@ -131,7 +132,7 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
           border: "none",
           borderRadius: "0.5rem",
         },
-        showLeaveButton: false,    // we render our own controls
+        showLeaveButton: false,    // Custom UI controls are rendered below instead
         showFullscreenButton: true,
       });
 
@@ -146,7 +147,16 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
         console.error("[Daily]", e);
       });
 
-      await frame.join({ url: data.room_url, token: data.token ? data.token : undefined });
+      // Secure payload construction preventing TypeScript parameter validations from throwing errors
+      const joinOptions: { url: string; token?: string } = {
+        url: data.room_url,
+      };
+
+      if (data.token && typeof data.token === "string") {
+        joinOptions.token = data.token;
+      }
+
+      await frame.join(joinOptions);
 
       callFrameRef.current = frame;
       setInCall(true);
