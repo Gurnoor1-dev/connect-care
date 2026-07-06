@@ -42,7 +42,7 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
   const join = async () => {
     if (!appointmentId || !containerRef.current) return;
     setJoining(true);
-    const { data, error } = await supabase.functions.invoke("daily-token", {
+    const { data, error } = await supabase.functions.invoke("smart-handler", {
       body: { appointment_id: appointmentId, role },
     });
     const roomUrl = data?.room_url ?? data?.roomUrl;
