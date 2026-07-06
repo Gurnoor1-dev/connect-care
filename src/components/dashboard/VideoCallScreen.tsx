@@ -147,6 +147,10 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
         console.error("[Daily]", e);
       });
 
+      // 1. Assign the frame and make it visible BEFORE joining
+      callFrameRef.current = frame;
+      setInCall(true);
+
       // Secure payload construction preventing TypeScript parameter validations from throwing errors
       const joinOptions: { url: string; token?: string } = {
         url: data.room_url,
@@ -156,12 +160,16 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
         joinOptions.token = data.token;
       }
 
+      // 2. Now await the join process while the iframe is visible
       await frame.join(joinOptions);
 
-      callFrameRef.current = frame;
-      setInCall(true);
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to join the call");
+      
+      // 3. Hide and clean up if the join fails
+      setInCall(false);
+      callFrameRef.current?.destroy();
+      callFrameRef.current = null;
     }
 
     setJoining(false);
