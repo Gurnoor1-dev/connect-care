@@ -114,7 +114,7 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
     }
 
     // Invoking your updated 'daily-token' edge function
-    const { data, error } = await supabase.functions.invoke("daily-token", {
+    const { data, error } = await supabase.functions.invoke("smart-handler", {
       body: { appointment_id: appointmentId, role },
     });
 
