@@ -42,8 +42,6 @@
   --card-foreground: oklch(0.205 0.035 165);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.205 0.035 165);
-
-  /* BreatheRise palette: deep teal + calm blue with warm neutrals. */
   --primary: oklch(0.43 0.11 171);
   --primary-foreground: oklch(0.99 0 0);
   --brand: oklch(0.43 0.11 171);
@@ -60,7 +58,6 @@
   --border: oklch(0.88 0.02 165);
   --input: oklch(0.88 0.02 165);
   --ring: oklch(0.55 0.11 174);
-
   --gradient-brand: linear-gradient(135deg, oklch(0.43 0.11 171), oklch(0.58 0.12 184));
   --gradient-soft: linear-gradient(180deg, oklch(0.985 0.012 90), oklch(0.96 0.025 165));
   --shadow-soft: 0 20px 60px -34px color-mix(in oklab, var(--primary) 42%, transparent);
@@ -170,28 +167,4 @@
 
 @utility shadow-card {
   box-shadow: var(--shadow-card);
-}
-
-@utility container {
-  width: 100%;
-  margin-inline: auto;
-  padding-inline: 1.25rem;
-
-  @media (min-width: 640px) {
-    max-width: 640px;
-  }
-  @media (min-width: 768px) {
-    max-width: 768px;
-    padding-inline: 1.5rem;
-  }
-  @media (min-width: 1024px) {
-    max-width: 1024px;
-    padding-inline: 2rem;
-  }
-  @media (min-width: 1280px) {
-    max-width: 1180px;
-  }
-  @media (min-width: 1536px) {
-    max-width: 1280px;
-  }
 }
