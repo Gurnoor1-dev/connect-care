@@ -1,2 +1,5 @@
 [functions.payu-webhook]
 verify_jwt = false
+
+[functions.jitsi-token]
+verify_jwt = false
