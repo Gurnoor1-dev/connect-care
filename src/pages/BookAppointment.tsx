@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { addDays, format, getDay, isBefore, isSameDay, startOfDay } from "date-fns";
+import { addDays, format, getDay, startOfDay } from "date-fns";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,129 +30,23 @@ function nextWorkingDays(from = new Date()) {
   return result;
 }
 
-function timeToMinutes(value: string) {
-  const [h, m] = value.slice(0, 5).split(":").map(Number);
-  return h * 60 + m;
-}
-
-function localDateTime(date: Date, minutes: number) {
-  const h = String(Math.floor(minutes / 60)).padStart(2, "0");
-  const m = String(minutes % 60).padStart(2, "0");
-  return `${format(date, "yyyy-MM-dd")}T${h}:${m}`;
-}
+function timeToMinutes(value: string) { const [h, m] = value.slice(0, 5).split(":").map(Number); return h * 60 + m; }
+function localDateTime(date: Date, minutes: number) { const h = String(Math.floor(minutes / 60)).padStart(2, "0"); const m = String(minutes % 60).padStart(2, "0"); return `${format(date, "yyyy-MM-dd")}T${h}:${m}`; }
 
 export default function BookAppointment() {
-  const [params] = useSearchParams();
-  const preselect = params.get("specialist") ?? "";
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [specialists, setSpecialists] = useState<Specialist[]>([]);
-  const [specialistId, setSpecialistId] = useState(preselect);
-  const [tiers, setTiers] = useState<Tier[]>([]);
-  const [tierId, setTierId] = useState("");
-  const [availability, setAvailability] = useState<Availability[]>([]);
-  const [booked, setBooked] = useState<any[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [scheduledAt, setScheduledAt] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const allowedDays = useMemo(() => nextWorkingDays(), []);
-  const allowedSet = useMemo(() => allowedDays.map((d) => format(d, "yyyy-MM-dd")), [allowedDays]);
+  const [params] = useSearchParams(); const preselect = params.get("specialist") ?? ""; const navigate = useNavigate(); const { user } = useAuth();
+  const [specialists, setSpecialists] = useState<Specialist[]>([]); const [specialistId, setSpecialistId] = useState(preselect); const [tiers, setTiers] = useState<Tier[]>([]); const [tierId, setTierId] = useState(""); const [availability, setAvailability] = useState<Availability[]>([]); const [booked, setBooked] = useState<any[]>([]); const [selectedDate, setSelectedDate] = useState<Date | undefined>(); const [scheduledAt, setScheduledAt] = useState(""); const [submitting, setSubmitting] = useState(false);
+  const allowedDays = useMemo(() => nextWorkingDays(), []); const allowedSet = useMemo(() => allowedDays.map((d) => format(d, "yyyy-MM-dd")), [allowedDays]);
 
-  useEffect(() => { (async () => {
-    const { data, error } = await supabase.from("specialist_profiles").select("id, display_name, headline, country, country_flag, timezone, avatar_url, availability_status").eq("is_published", true).order("availability_status", { ascending: false }).order("display_name");
-    if (error) toast.error(error.message); setSpecialists(data ?? []);
-  })(); }, []);
+  useEffect(() => { (async () => { const { data, error } = await supabase.from("specialist_profiles").select("id, display_name, headline, country, country_flag, timezone, avatar_url, availability_status").eq("is_published", true).order("availability_status", { ascending: false }).order("display_name"); if (error) toast.error(error.message); setSpecialists(data ?? []); })(); }, []);
+  useEffect(() => { if (!specialistId) { setTiers([]); setAvailability([]); return; } (async () => { const [{ data: tierData, error: tierError }, { data: availabilityData, error: availabilityError }] = await Promise.all([supabase.from("specialist_tiers").select("id, label, duration_minutes, price_cents, currency").eq("specialist_id", specialistId).eq("is_active", true).order("price_cents"), supabase.from("specialist_availability").select("day_of_week, start_time, end_time").eq("specialist_id", specialistId).eq("is_active", true)]); if (tierError) toast.error(tierError.message); if (availabilityError) toast.error(availabilityError.message); setTiers(tierData ?? []); setAvailability(availabilityData ?? []); setTierId(""); setScheduledAt(""); })(); }, [specialistId]);
+  useEffect(() => { if (!specialistId) return; (async () => { const { data, error } = await supabase.from("appointments").select("scheduled_at, duration_minutes, status").eq("specialist_id", specialistId).in("status", ["pending_payment", "confirmed"]).gte("scheduled_at", new Date().toISOString()); if (error) toast.error(error.message); setBooked(data ?? []); })(); }, [specialistId, tierId]);
 
-  useEffect(() => {
-    if (!specialistId) { setTiers([]); setAvailability([]); return; }
-    (async () => {
-      const [{ data: tierData, error: tierError }, { data: availabilityData, error: availabilityError }] = await Promise.all([
-        supabase.from("specialist_tiers").select("id, label, duration_minutes, price_cents, currency").eq("specialist_id", specialistId).eq("is_active", true).order("price_cents"),
-        supabase.from("specialist_availability").select("day_of_week, start_time, end_time").eq("specialist_id", specialistId).eq("is_active", true),
-      ]);
-      if (tierError) toast.error(tierError.message); if (availabilityError) toast.error(availabilityError.message);
-      setTiers(tierData ?? []); setAvailability(availabilityData ?? []); setTierId(""); setScheduledAt("");
-    })();
-  }, [specialistId]);
+  const selectedSpecialist = specialists.find((s) => s.id === specialistId); const selectedTier = tiers.find((t) => t.id === tierId); const dateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : "";
+  const slots = useMemo(() => { if (!selectedDate || !selectedTier) return []; const day = getDay(selectedDate); const rules = availability.filter((a) => a.day_of_week === day); const ranges = rules.length ? rules : (day !== 0 && day !== 6 ? [{ day_of_week: day, start_time: "09:00", end_time: "17:00" }] : []); const result: string[] = []; const now = Date.now(); for (const range of ranges) { const start = timeToMinutes(range.start_time); const end = timeToMinutes(range.end_time); for (let minute = start; minute + selectedTier.duration_minutes <= end; minute += SLOT_MINUTES) { const value = localDateTime(selectedDate, minute); const candidate = new Date(value).getTime(); if (candidate <= now + 5 * 60_000) continue; const candidateEnd = candidate + selectedTier.duration_minutes * 60_000; const overlaps = booked.some((b) => { const bs = new Date(b.scheduled_at).getTime(); const be = bs + Number(b.duration_minutes) * 60_000; return candidate < be && candidateEnd > bs; }); if (!overlaps) result.push(value); } } return [...new Set(result)]; }, [selectedDate, selectedTier, availability, booked]);
+  const submitPayuForm = (formHtml: string) => { const container = document.createElement("div"); container.innerHTML = formHtml; const form = container.querySelector<HTMLFormElement>("form"); if (!form) throw new Error("PayU form was not returned by the server"); form.style.display = "none"; document.body.appendChild(form); form.submit(); };
+  const onBook = async (e: React.FormEvent) => { e.preventDefault(); if (!user || !specialistId || !selectedTier || !scheduledAt) return; setSubmitting(true); const { data: appt, error: apptErr } = await supabase.from("appointments").insert({ customer_id: user.id, specialist_id: specialistId, tier_id: selectedTier.id, scheduled_at: new Date(scheduledAt).toISOString(), duration_minutes: selectedTier.duration_minutes, amount_cents: selectedTier.price_cents, currency: selectedTier.currency, status: "pending_payment", customer_name: user.user_metadata?.full_name ?? user.email ?? "Customer" }).select().single(); if (apptErr || !appt) { setSubmitting(false); toast.error(apptErr?.message ?? "Could not create appointment"); return; } const { data: payu, error: payuErr } = await supabase.functions.invoke("payu-initiate", { body: { appointment_id: appt.id } }); if (payuErr || (!payu?.formHtml && !payu?.redirect_url)) { setSubmitting(false); toast.error(payu?.error ?? payuErr?.message ?? "Payment initialisation failed. Please try again."); return; } try { if (payu.formHtml) submitPayuForm(payu.formHtml as string); else window.location.href = payu.redirect_url as string; } catch (error) { setSubmitting(false); toast.error(error instanceof Error ? error.message : "Could not open PayU checkout"); } };
 
-  useEffect(() => {
-    if (!specialistId) return;
-    (async () => {
-      const { data, error } = await supabase.from("appointments").select("scheduled_at, duration_minutes, status").eq("specialist_id", specialistId).in("status", ["pending_payment", "confirmed"]).gte("scheduled_at", new Date().toISOString());
-      if (error) toast.error(error.message); setBooked(data ?? []);
-    })();
-  }, [specialistId, tierId]);
-
-  const selectedSpecialist = specialists.find((s) => s.id === specialistId);
-  const selectedTier = tiers.find((t) => t.id === tierId);
-  const dateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : "";
-
-  const slots = useMemo(() => {
-    if (!selectedDate || !selectedTier) return [];
-    const day = getDay(selectedDate);
-    const rules = availability.filter((a) => a.day_of_week === day);
-    const ranges = rules.length ? rules : (day !== 0 && day !== 6 ? [{ day_of_week: day, start_time: "09:00", end_time: "17:00" }] : []);
-    const result: string[] = [];
-    const now = Date.now();
-    for (const range of ranges) {
-      const start = timeToMinutes(range.start_time);
-      const end = timeToMinutes(range.end_time);
-      for (let minute = start; minute + selectedTier.duration_minutes <= end; minute += SLOT_MINUTES) {
-        const value = localDateTime(selectedDate, minute);
-        const candidate = new Date(value).getTime();
-        if (candidate <= now + 5 * 60_000) continue;
-        const candidateEnd = candidate + selectedTier.duration_minutes * 60_000;
-        const overlaps = booked.some((b) => {
-          const bs = new Date(b.scheduled_at).getTime();
-          const be = bs + Number(b.duration_minutes) * 60_000;
-          return candidate < be && candidateEnd > bs;
-        });
-        if (!overlaps) result.push(value);
-      }
-    }
-    return [...new Set(result)];
-  }, [selectedDate, selectedTier, availability, booked]);
-
-  const submitPayuForm = (formHtml: string) => {
-    const container = document.createElement("div"); container.innerHTML = formHtml;
-    const form = container.querySelector<HTMLFormElement>("form");
-    if (!form) throw new Error("PayU form was not returned by the server");
-    form.style.display = "none"; document.body.appendChild(form); form.submit();
-  };
-
-  const onBook = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !specialistId || !selectedTier || !scheduledAt) return;
-    setSubmitting(true);
-    const { data: appt, error: apptErr } = await supabase.from("appointments").insert({ customer_id: user.id, specialist_id: specialistId, tier_id: selectedTier.id, scheduled_at: new Date(scheduledAt).toISOString(), duration_minutes: selectedTier.duration_minutes, amount_cents: selectedTier.price_cents, currency: selectedTier.currency, status: "pending_payment", customer_name: user.user_metadata?.full_name ?? user.email ?? "Customer" }).select().single();
-    if (apptErr || !appt) { setSubmitting(false); toast.error(apptErr?.message ?? "Could not create appointment"); return; }
-    const { data: payu, error: payuErr } = await supabase.functions.invoke("payu-initiate", { body: { appointment_id: appt.id } });
-    if (payuErr || (!payu?.formHtml && !payu?.redirect_url)) { setSubmitting(false); toast.error(payu?.error ?? payuErr?.message ?? "Payment initialisation failed. Please try again."); return; }
-    try { if (payu.formHtml) submitPayuForm(payu.formHtml as string); else window.location.href = payu.redirect_url as string; }
-    catch (error) { setSubmitting(false); toast.error(error instanceof Error ? error.message : "Could not open PayU checkout"); }
-  };
-
-  return <section className="relative overflow-hidden bg-gradient-page px-4 py-10 sm:py-14 lg:py-16">
-    <div className="container mx-auto grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
-      <div className="space-y-6">
-        <div className="inline-flex items-center gap-2 rounded-lg border bg-card/85 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-brand backdrop-blur"><Sparkles className="h-3.5 w-3.5 text-teal" /> Protected booking & secure checkout</div>
-        <div><h1 className="max-w-2xl text-4xl font-bold leading-tight sm:text-5xl">Book a specialist session</h1><p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">Pick a specialist, plan, date and an available time slot. Only the next five working days are bookable.</p></div>
-        <div className="grid gap-3 sm:grid-cols-3">{[{ icon: ShieldCheck, label: "Auth required", value: "Protected" }, { icon: CalendarClock, label: "Booking window", value: "5 workdays" }, { icon: CheckCircle2, label: "Payment", value: "PayU verified" }].map((item) => <Card key={item.label} className="border-white/55 bg-card/85 p-4 shadow-brand backdrop-blur"><item.icon className="h-5 w-5 text-teal" /><div className="mt-3 text-sm font-semibold">{item.value}</div><div className="text-xs text-muted-foreground">{item.label}</div></Card>)}</div>
-        {selectedSpecialist && <SpecialistPreview specialist={selectedSpecialist} />}
-      </div>
-      <Card className="border-white/60 bg-card/90 p-5 shadow-glow backdrop-blur sm:p-6">
-        <form onSubmit={onBook} className="space-y-5">
-          <div><Label>Specialist</Label><Select value={specialistId} onValueChange={setSpecialistId}><SelectTrigger className="mt-2"><SelectValue placeholder="Select a specialist" /></SelectTrigger><SelectContent>{specialists.map((s) => <SelectItem key={s.id} value={s.id}>{s.country_flag} {s.display_name}{s.availability_status === "online" ? " · Online" : ""}</SelectItem>)}</SelectContent></Select></div>
-          <div><Label>Session plan</Label><Select value={tierId} onValueChange={setTierId} disabled={!specialistId || tiers.length === 0}><SelectTrigger className="mt-2"><SelectValue placeholder={!specialistId ? "Pick a specialist first" : tiers.length === 0 ? "No active plans" : "Select a plan"} /></SelectTrigger><SelectContent>{tiers.map((t) => <SelectItem key={t.id} value={t.id}>{t.label} · {t.currency} {(t.price_cents / 100).toFixed(2)} / {t.duration_minutes} min</SelectItem>)}</SelectContent></Select></div>
-          <div className="rounded-2xl border bg-gradient-to-br from-accent/50 via-card to-card p-4"><div className="mb-3 flex items-center gap-2 font-semibold"><CalendarClock className="h-4 w-4 text-teal" /> Choose your date</div><DayPicker mode="single" selected={selectedDate} onSelect={(d) => { setSelectedDate(d); setScheduledAt(""); }} disabled={(date) => !allowedSet.includes(format(date, "yyyy-MM-dd"))} startMonth={allowedDays[0]} endMonth={allowedDays[allowedDays.length - 1]} showOutsideDays={false} className="mx-auto" /></div>
-          <div><div className="mb-2 flex items-center justify-between"><Label>Available time</Label>{selectedSpecialist?.timezone && <span className="text-xs text-muted-foreground">{selectedSpecialist.timezone}</span>}</div>{!selectedDate || !selectedTier ? <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">Select a plan and date to see available times.</div> : slots.length === 0 ? <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No slots are available for this date. Try another working day.</div> : <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{slots.map((slot) => <button key={slot} type="button" onClick={() => setScheduledAt(slot)} className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition ${scheduledAt === slot ? "border-teal bg-teal/10 text-foreground shadow-sm" : "bg-background hover:border-teal/50 hover:bg-accent"}`}><Clock3 className="mr-1 inline h-3.5 w-3.5" />{format(new Date(slot), "h:mm a")}</button>)}</div>}</div>
-          {scheduledAt && <div className="rounded-xl border bg-background p-3 text-sm"><div className="font-semibold">Selected appointment</div><div className="mt-1 text-muted-foreground">{format(new Date(scheduledAt), "EEEE, MMM d · h:mm a")} · {selectedTier?.duration_minutes} minutes</div></div>}
-          {selectedTier && <div className="space-y-2 rounded-lg border bg-gradient-to-br from-accent/55 via-card to-card p-4 text-sm"><div className="flex justify-between gap-3 text-muted-foreground"><span>Plan</span><span className="text-right text-foreground">{selectedTier.label}</span></div><div className="flex justify-between gap-3 text-muted-foreground"><span>Duration</span><span className="text-foreground">{selectedTier.duration_minutes} minutes</span></div><div className="flex justify-between gap-3 border-t border-border pt-2 font-semibold"><span>Total</span><span>{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(2)}</span></div></div>}
-          <div className="flex flex-col gap-3 pt-1 sm:flex-row"><Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={submitting}>Cancel</Button><Button type="submit" disabled={submitting || !specialistId || !tierId || !scheduledAt} className="flex-1 bg-gradient-brand text-primary-foreground shadow-brand">{submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Opening PayU</> : "Continue to payment"}</Button></div>
-        </form><p className="mt-5 text-center text-xs text-muted-foreground">New here? <Link to="/signup" className="text-foreground underline-offset-4 hover:underline">Create an account</Link> before booking.</p>
-      </Card>
-    </div>
-  </section>;
+  return <section className="relative overflow-hidden bg-gradient-page px-4 py-10 sm:py-14 lg:py-16"><div className="container mx-auto grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start"><div className="space-y-6"><div className="inline-flex items-center gap-2 rounded-lg border bg-card/85 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-brand backdrop-blur"><Sparkles className="h-3.5 w-3.5 text-teal" /> Protected booking & secure checkout</div><div><h1 className="max-w-2xl text-4xl font-bold leading-tight sm:text-5xl">Book a specialist session</h1><p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">Pick a specialist, plan, date and an available time slot. Only the next five working days are bookable.</p></div><div className="grid gap-3 sm:grid-cols-3">{[{ icon: ShieldCheck, label: "Auth required", value: "Protected" }, { icon: CalendarClock, label: "Booking window", value: "5 workdays" }, { icon: CheckCircle2, label: "Payment", value: "PayU verified" }].map((item) => <Card key={item.label} className="border-white/55 bg-card/85 p-4 shadow-brand backdrop-blur"><item.icon className="h-5 w-5 text-teal" /><div className="mt-3 text-sm font-semibold">{item.value}</div><div className="text-xs text-muted-foreground">{item.label}</div></Card>)}</div>{selectedSpecialist && <SpecialistPreview specialist={selectedSpecialist} />}</div><Card className="border-white/60 bg-card/90 p-5 shadow-glow backdrop-blur sm:p-6"><form onSubmit={onBook} className="space-y-5"><div><Label>Specialist</Label><Select value={specialistId} onValueChange={setSpecialistId}><SelectTrigger className="mt-2"><SelectValue placeholder="Select a specialist" /></SelectTrigger><SelectContent>{specialists.map((s) => <SelectItem key={s.id} value={s.id}>{s.country_flag} {s.display_name}{s.availability_status === "online" ? " · Online" : ""}</SelectItem>)}</SelectContent></Select></div><div><Label>Session plan</Label><Select value={tierId} onValueChange={setTierId} disabled={!specialistId || tiers.length === 0}><SelectTrigger className="mt-2"><SelectValue placeholder={!specialistId ? "Pick a specialist first" : tiers.length === 0 ? "No active plans" : "Select a plan"} /></SelectTrigger><SelectContent>{tiers.map((t) => <SelectItem key={t.id} value={t.id}>{t.label} · {t.currency} {(t.price_cents / 100).toFixed(2)} / {t.duration_minutes} min</SelectItem>)}</SelectContent></Select></div><div className="rounded-2xl border bg-gradient-to-br from-accent/50 via-card to-card p-4"><div className="mb-3 flex items-center gap-2 font-semibold"><CalendarClock className="h-4 w-4 text-teal" /> Choose your date</div><DayPicker mode="single" selected={selectedDate} onSelect={(d) => { setSelectedDate(d); setScheduledAt(""); }} disabled={(date) => !allowedSet.includes(format(date, "yyyy-MM-dd"))} startMonth={allowedDays[0]} endMonth={allowedDays[allowedDays.length - 1]} showOutsideDays={false} className="mx-auto" /></div><div><div className="mb-2 flex items-center justify-between"><Label>Available time</Label>{selectedSpecialist?.timezone && <span className="text-xs text-muted-foreground">{selectedSpecialist.timezone}</span>}</div>{!selectedDate || !selectedTier ? <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">Select a plan and date to see available times.</div> : slots.length === 0 ? <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No slots are available for this date. Try another working day.</div> : <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{slots.map((slot) => <button key={slot} type="button" onClick={() => setScheduledAt(slot)} className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition ${scheduledAt === slot ? "border-teal bg-teal/10 text-foreground shadow-sm" : "bg-background hover:border-teal/50 hover:bg-accent"}`}><Clock3 className="mr-1 inline h-3.5 w-3.5" />{format(new Date(slot), "h:mm a")}</button>)}</div>}</div>{scheduledAt && <div className="rounded-xl border bg-background p-3 text-sm"><div className="font-semibold">Selected appointment</div><div className="mt-1 text-muted-foreground">{format(new Date(scheduledAt), "EEEE, MMM d · h:mm a")} · {selectedTier?.duration_minutes} minutes</div></div>}{selectedTier && <div className="space-y-2 rounded-lg border bg-gradient-to-br from-accent/55 via-card to-card p-4 text-sm"><div className="flex justify-between gap-3 text-muted-foreground"><span>Plan</span><span className="text-right text-foreground">{selectedTier.label}</span></div><div className="flex justify-between gap-3 text-muted-foreground"><span>Duration</span><span className="text-foreground">{selectedTier.duration_minutes} minutes</span></div><div className="flex justify-between gap-3 border-t border-border pt-2 font-semibold"><span>Total</span><span>{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(2)}</span></div></div>}<div className="flex flex-col gap-3 pt-1 sm:flex-row"><Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={submitting}>Cancel</Button><Button type="submit" disabled={submitting || !specialistId || !tierId || !scheduledAt} className="flex-1 bg-gradient-brand text-primary-foreground shadow-brand">{submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Opening PayU</> : "Continue to payment"}</Button></div></form><p className="mt-5 text-center text-xs text-muted-foreground">New here? <Link to="/signup" className="text-foreground underline-offset-4 hover:underline">Create an account</Link> before booking.</p></Card></div></section>;
 }
-
 function SpecialistPreview({ specialist }: { specialist: Specialist }) { return <Card className="flex items-center gap-4 border-white/60 bg-card/90 p-4 shadow-brand backdrop-blur"><div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gradient-brand p-0.5 shadow-brand"><div className="h-full w-full overflow-hidden rounded-md bg-card">{specialist.avatar_url ? <img src={specialist.avatar_url} alt={specialist.display_name} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center bg-gradient-vivid text-xl font-bold text-primary-foreground">{specialist.display_name?.[0] ?? "S"}</div>}</div></div><div className="min-w-0"><div className="font-semibold">{specialist.display_name}</div><div className="text-sm text-muted-foreground">{specialist.country_flag} {specialist.country} · {specialist.timezone}</div>{specialist.headline && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{specialist.headline}</p>}</div></Card>; }
