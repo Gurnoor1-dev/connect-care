@@ -14,6 +14,7 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [notify, setNotify] = useState(true);
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -24,14 +25,21 @@ export default function Signup() {
     }
   };
 
+  const requirePolicyAcceptance = () => {
+    if (acceptedPolicies) return true;
+    toast.error("Please accept the Privacy Policy and Terms & Conditions to continue.");
+    return false;
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!requirePolicyAcceptance()) return;
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName, notifications_opt_in: notify },
+        data: { full_name: fullName, notifications_opt_in: notify, policies_accepted: true, policies_accepted_at: new Date().toISOString() },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
@@ -43,6 +51,7 @@ export default function Signup() {
   };
 
   const oauth = async (provider: "google" | "facebook") => {
+    if (!requirePolicyAcceptance()) return;
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -70,7 +79,14 @@ export default function Signup() {
           <Checkbox checked={notify} onCheckedChange={(v) => setNotify(!!v)} className="mt-0.5" />
           <span>Send me reminders and notifications for upcoming appointments.</span>
         </label>
-        <Button type="submit" disabled={loading} className="w-full bg-gradient-brand text-primary-foreground shadow-brand">
+        <label className="flex items-start gap-3 rounded-2xl border border-border/70 bg-secondary/35 p-3 text-sm leading-6">
+          <Checkbox checked={acceptedPolicies} onCheckedChange={(v) => setAcceptedPolicies(!!v)} className="mt-1" />
+          <span>
+            I agree to the <Link to="/privacy" target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link> and <Link to="/terms" target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-4">Terms & Conditions</Link>.
+            I confirm that I am 18 years or older.
+          </span>
+        </label>
+        <Button type="submit" disabled={loading || !acceptedPolicies} className="w-full bg-gradient-brand text-primary-foreground shadow-brand">
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create account
         </Button>
       </form>
