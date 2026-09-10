@@ -18,8 +18,8 @@ export function PublicLayout() {
   const { user } = useAuth(); const [mobileOpen,setMobileOpen]=useState(false);
   return <div className="flex min-h-screen min-w-0 flex-col overflow-x-clip bg-background">
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-xl">
-      <div className="container mx-auto flex h-16 min-w-0 items-center justify-between gap-3 sm:h-[72px]">
-        <Link to="/" aria-label="BreatheRise home" className="shrink-0"><Logo className="h-10 sm:h-11" /></Link>
+      <div className="container mx-auto flex h-20 min-w-0 items-center justify-between gap-3 sm:h-24">
+        <Link to="/" aria-label="BreatheRise home" className="shrink-0"><Logo className="h-14 sm:h-16" /></Link>
         <nav className="hidden items-center gap-0.5 lg:flex"><PublicNav /></nav>
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2"><div className="hidden xl:block"><CreditBadge /></div><ThemeToggle />
           {user ? <Button asChild size="sm" className="hidden rounded-full bg-primary px-4 text-primary-foreground shadow-brand sm:inline-flex"><Link to="/dashboard">Dashboard<ArrowUpRight className="ml-1.5 h-4 w-4" /></Link></Button> : <><Button asChild variant="ghost" size="sm" className="hidden rounded-full sm:inline-flex"><Link to="/login">Sign in</Link></Button><Button asChild size="sm" className="hidden rounded-full bg-primary px-4 text-primary-foreground shadow-brand sm:inline-flex"><Link to="/signup">Get started<ArrowUpRight className="ml-1.5 h-4 w-4" /></Link></Button></>}
