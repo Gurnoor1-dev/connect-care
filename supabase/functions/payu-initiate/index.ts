@@ -131,6 +131,9 @@ Deno.serve(async (req) => {
     const hashString = `${key}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${salt}`;
     const hash = await sha512(hashString);
 
+    // Persist the transaction id in its own update. Do not bundle optional
+    // reconciliation columns into this update because older schemas may not
+    // contain them; a missing optional column must never lose the txn id.
     const { error: updateErr } = await admin
       .from("appointments")
       .update({ payu_txn_id: txnid })
