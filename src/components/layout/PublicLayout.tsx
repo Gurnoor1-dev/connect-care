@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CreditBadge } from "@/components/CreditBadge";
+import { AIQuickChat } from "@/components/AIQuickChat";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,5 +40,6 @@ export function PublicLayout() {
       <div className="border-t border-border/70 bg-background/35 px-4 py-5"><div className="container mx-auto flex flex-col gap-3 text-xs leading-5 text-muted-foreground md:flex-row md:items-start md:justify-between"><p className="max-w-3xl"><strong className="text-foreground">Important:</strong> BreatheRise is a peer-support and coaching platform, not a substitute for clinical medical advice or emergency care. If you are in immediate danger or need urgent medical help, contact your local emergency service.</p><Link to="/trust" className="shrink-0 font-semibold text-primary hover:underline">Read our trust & safety guide →</Link></div></div>
       <div className="border-t border-border/70 px-4 py-5 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} BreatheRise. All rights reserved.</div>
     </footer>
+    <AIQuickChat />
   </div>;
 }
