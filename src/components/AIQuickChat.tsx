@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, ChevronRight, Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { ChevronRight, Loader2, Send, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import logo from "@/assets/square-logo.png";
@@ -67,7 +67,7 @@ export function AIQuickChat() {
       <div className="border-t border-border/70 p-3"><form onSubmit={e => { e.preventDefault(); void send(); }} className="flex items-center gap-2"><Input value={input} onChange={e => setInput(e.target.value)} placeholder="Ask a quick question…" className="h-10 rounded-xl bg-secondary/50" disabled={loading} /><Button type="submit" size="icon" className="h-10 w-10 shrink-0 rounded-xl" disabled={!input.trim() || loading} aria-label="Send message"><Send className="h-4 w-4" /></Button></form><p className="mt-2 text-center text-[10px] leading-4 text-muted-foreground">AI can make mistakes. Don’t share passwords, payment card details, or sensitive personal information.</p></div>
     </div>}
     <Button type="button" onClick={() => setOpen(v => !v)} aria-label={open ? "Close AI quick chat" : "Open AI quick chat"} className="fixed bottom-5 right-5 z-[71] h-16 w-16 rounded-full border border-border/80 bg-white p-0 text-foreground shadow-xl transition-all hover:scale-105 hover:shadow-2xl dark:bg-zinc-800 dark:text-white sm:bottom-6 sm:right-6 sm:h-[68px] sm:w-[68px]">
-      {open ? <X className="h-6 w-6" /> : <><img src={logo} alt="Open BreatheRise AI chat" className="h-10 w-10 object-contain sm:h-11 sm:w-11" /><MessageCircle className="absolute bottom-2 right-2 h-4 w-4 rounded-full bg-background p-0.5" /></>}
+      {open ? <X className="h-6 w-6" /> : <img src={logo} alt="Open BreatheRise AI chat" className="h-10 w-10 object-contain invert dark:invert-0 sm:h-11 sm:w-11" />}
     </Button>
   </>;
 }
