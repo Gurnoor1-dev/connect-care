@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, FileText, Video, Bell } from "lucide-react";
 import { format } from "date-fns";
+import { formatInTimeZone, getDeviceTimeZone, getTimeZoneLabel } from "@/lib/timezone";
 
 export default function CustomerOverview() {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ export default function CustomerOverview() {
       const nowIso = new Date().toISOString();
       const { data: up } = await supabase
         .from("appointments")
-        .select("*, specialist:specialist_profiles!appointments_specialist_id_fkey(display_name, country_flag)")
+        .select("*, specialist:specialist_profiles!appointments_specialist_id_fkey(display_name, country_flag, timezone)")
         .eq("customer_id", user.id)
         .gte("scheduled_at", nowIso)
         .order("scheduled_at", { ascending: true })
@@ -79,7 +80,7 @@ export default function CustomerOverview() {
                   <FileText className="h-4 w-4 text-teal" /> {a.specialist?.display_name ?? "Specialist"}
                 </div>
                 <p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm text-muted-foreground">{a.prescription}</p>
-                <div className="mt-3 text-xs text-muted-foreground">{format(new Date(a.scheduled_at), "MMM d, yyyy")}</div>
+                <div className="mt-3 text-xs text-muted-foreground">{formatInTimeZone(a.scheduled_at, getDeviceTimeZone(), { month: "short", day: "numeric", year: "numeric" })}</div>
               </Card>
             ))}
           </div>
@@ -118,6 +119,7 @@ function StatCard({ icon: Icon, label, value }: { icon: any; label: string; valu
 
 export function AppointmentRow({ a, role, past }: { a: any; role: "customer" | "specialist"; past?: boolean }) {
   const dt = new Date(a.scheduled_at);
+  const timeZone = role === "customer" ? getDeviceTimeZone() : (a.specialist?.timezone ?? getDeviceTimeZone());
   const now = new Date();
   const minsToStart = (dt.getTime() - now.getTime()) / 60000;
   const callOpen = minsToStart <= 5 && minsToStart >= -Math.max(15, a.duration_minutes ?? 30);
@@ -131,7 +133,7 @@ export function AppointmentRow({ a, role, past }: { a: any; role: "customer" | "
             {a.specialist?.country_flag ? <span className="ml-2">{a.specialist.country_flag}</span> : null}
           </div>
           <div className="mt-0.5 text-sm text-muted-foreground">
-            {format(dt, "EEE, MMM d · h:mm a")} · {a.duration_minutes} min
+            {formatInTimeZone(dt, timeZone, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {a.duration_minutes} min
           </div>
         </div>
         <div className="flex items-center gap-2">

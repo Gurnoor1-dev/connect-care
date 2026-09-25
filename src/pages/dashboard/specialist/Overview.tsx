@@ -18,7 +18,7 @@ export default function SpecialistOverview() {
       const nowIso = new Date().toISOString();
       const { data: up } = await supabase
         .from("appointments")
-        .select("*")
+        .select("*, specialist:specialist_profiles!appointments_specialist_id_fkey(timezone)")
         .eq("specialist_id", user.id)
         .gte("scheduled_at", nowIso)
         .order("scheduled_at", { ascending: true })

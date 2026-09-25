@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { getDeviceTimeZone, getTimeZoneLabel } from "@/lib/timezone";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -14,9 +15,12 @@ interface Slot { id?: string; day_of_week: number; start_time: string; end_time:
 export default function SpecialistAvailability() {
   const { user } = useAuth();
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [timeZone, setTimeZone] = useState(getDeviceTimeZone());
 
   const load = async () => {
     if (!user) return;
+    const { data: profile } = await supabase.from("specialist_profiles").select("timezone").eq("id", user.id).maybeSingle();
+    if (profile?.timezone) setTimeZone(profile.timezone);
     const { data } = await supabase
       .from("specialist_availability")
       .select("*")
@@ -42,7 +46,7 @@ export default function SpecialistAvailability() {
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
         <h1 className="text-3xl font-bold">Availability</h1>
-        <p className="mt-1 text-muted-foreground">Weekly recurring slots in your timezone.</p>
+        <p className="mt-1 text-muted-foreground">Weekly recurring slots in your specialist timezone ({getTimeZoneLabel(timeZone)}).</p><div className="mt-3 rounded-2xl border bg-accent/40 p-4 text-sm leading-6 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> Your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}) is being used while you enter these times. Make sure your profile timezone matches your actual location so clients see the correct converted hours.</div>
       </header>
       <div className="rounded-2xl border bg-muted/30 p-4 text-sm text-muted-foreground">Add one or more recurring time ranges for each day. Customers will only see slots that fall inside an active range for the selected day.</div>
       <div className="flex flex-wrap gap-2">

@@ -3,14 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { format } from "date-fns";
+import { formatInTimeZone, getDeviceTimeZone, getTimeZoneLabel } from "@/lib/timezone";
 
 export default function SpecialistPatients() {
   const { user } = useAuth();
   const [rows, setRows] = useState<any[]>([]);
+  const [timeZone, setTimeZone] = useState(getDeviceTimeZone());
 
   useEffect(() => {
     if (!user) return;
     (async () => {
+      const { data: profile } = await supabase.from("specialist_profiles").select("timezone").eq("id", user.id).maybeSingle();
+      if (profile?.timezone) setTimeZone(profile.timezone);
       const { data } = await supabase
         .from("appointments")
         .select("id, customer_name, scheduled_at, duration_minutes, session_notes, status")
@@ -36,7 +40,7 @@ export default function SpecialistPatients() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="font-medium">{r.customer_name ?? "Patient"}</div>
-                  <div className="text-xs text-muted-foreground">{format(new Date(r.scheduled_at), "PPP · p")} · {r.duration_minutes} min</div>
+                  <div className="text-xs text-muted-foreground">{formatInTimeZone(r.scheduled_at, timeZone, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {r.duration_minutes} min</div>
                 </div>
                 <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{r.status}</span>
               </div>

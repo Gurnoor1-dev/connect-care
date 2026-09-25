@@ -16,7 +16,7 @@ export default function CustomerAppointments() {
     if (!user) return;
     (async () => {
       const nowIso = new Date().toISOString();
-      const select = "*, specialist:specialist_profiles!appointments_specialist_id_fkey(display_name, country_flag)";
+      const select = "*, specialist:specialist_profiles!appointments_specialist_id_fkey(display_name, country_flag, timezone)";
       const [{ data: up }, { data: ps }] = await Promise.all([
         supabase
           .from("appointments")
