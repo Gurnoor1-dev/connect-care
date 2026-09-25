@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getDeviceTimeZone, getTimeZoneLabel, formatInTimeZone, zonedTimeToUtc, getZonedDateKey, getZonedDayOfWeek } from "@/lib/timezone";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ interface SpecialistRow {
   avatar_url: string | null;
   availability_status: "online" | "offline" | null;
   specialist_tiers: Tier[];
+  specialist_availability?: { day_of_week: number; start_time: string; end_time: string; is_active: boolean }[];
 }
 
 // Colour accent per specialty tag
@@ -75,7 +77,7 @@ export default function Specialists() {
         .select(`
           id, display_name, headline, bio, country, country_flag,
           specialities, qualifications, timezone, avatar_url, availability_status,
-          specialist_tiers!specialist_tiers_specialist_id_fkey(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label)
+          specialist_tiers!specialist_tiers_specialist_id_fkey(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label), specialist_availability(day_of_week, start_time, end_time, is_active)
         `)
         .eq("is_published", true)
         .order("availability_status", { ascending: false });
@@ -86,7 +88,7 @@ export default function Specialists() {
           .select(`
             id, display_name, headline, bio, country, country_flag,
             specialities, qualifications, timezone, avatar_url, availability_status,
-            specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label)
+            specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label), specialist_availability(day_of_week, start_time, end_time, is_active)
           `)
           .eq("is_published", true);
         if (!fallback.error && fallback.data) {
@@ -226,6 +228,9 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
           </div>
         </div>
 
+        <div className="mt-3 rounded-xl border bg-accent/30 p-3 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> availability is shown in your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}).</div>
+        <AvailabilityPreview specialist={specialist} />
+
         {/* Specialities */}
         {specialist.specialities && specialist.specialities.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -334,6 +339,30 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
       </div>
     </Card>
   );
+}
+
+function AvailabilityPreview({ specialist }: { specialist: SpecialistRow }) {
+  const rows = (specialist.specialist_availability ?? []).filter((r) => r.is_active);
+  if (!rows.length) return null;
+  const tz = specialist.timezone ?? "UTC";
+  const viewerTz = getDeviceTimeZone();
+  const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const now = new Date();
+  const entries: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(now.getTime() + i * 86400000);
+    const day = getZonedDayOfWeek(date, tz);
+    const key = getZonedDateKey(date, tz);
+    const ranges = rows.filter((r) => r.day_of_week === day).map((r) => {
+      const start = zonedTimeToUtc(key, r.start_time, tz);
+      const end = zonedTimeToUtc(key, r.end_time, tz);
+      if (end <= start) return null;
+      return formatInTimeZone(start, viewerTz, { hour: "numeric", minute: "2-digit" }) + "–" + formatInTimeZone(end, viewerTz, { hour: "numeric", minute: "2-digit" });
+    }).filter(Boolean) as string[];
+    if (ranges.length) entries.push(names[day] + ": " + ranges.join(", "));
+  }
+  if (!entries.length) return null;
+  return <div className="mt-3 rounded-xl border bg-background p-3"><div className="text-xs font-semibold">Weekly availability</div><div className="mt-2 grid grid-cols-2 gap-1.5 text-xs sm:grid-cols-3">{entries.map((entry) => <div key={entry} className="text-muted-foreground">{entry}</div>)}</div></div>;
 }
 
 function TierPill({
