@@ -4,6 +4,7 @@ import { getDeviceTimeZone, getTimeZoneLabel, formatInTimeZone, zonedTimeToUtc, 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Link } from "react-router-dom";
 import {
   ArrowRight, MapPin, UserRound, Wifi,
@@ -179,6 +180,8 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
   const singleTier = tiers.find((t) => (t.tier_type ?? "single") === "single");
   const bundleTiers = tiers.filter((t) => t.tier_type === "bundle");
   const [activeTier, setActiveTier] = useState<string>(tiers[0]?.id ?? "");
+  const [showSpecialities, setShowSpecialities] = useState(false);
+  const [showBio, setShowBio] = useState(false);
 
   const selectedTier = tiers.find((t) => t.id === activeTier) ?? tiers[0];
 
@@ -243,9 +246,7 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
               </span>
             ))}
             {specialist.specialities.length > 4 && (
-              <span className="rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] text-muted-foreground">
-                +{specialist.specialities.length - 4} more
-              </span>
+              <button type="button" onClick={() => setShowSpecialities(true)} className="cursor-pointer rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40" aria-label={`View ${specialist.specialities.length - 4} more specialties`}>+{specialist.specialities.length - 4} more</button>
             )}
           </div>
         )}
@@ -253,10 +254,11 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
 
       {/* ── BIO ── */}
       {specialist.bio && (
-        <div className="border-b border-white/10 px-5 py-4">
-          <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{specialist.bio}</p>
-        </div>
+        <div className="border-b border-white/10 px-5 py-4"><button type="button" onClick={() => setShowBio(true)} className="w-full cursor-pointer rounded-md text-left focus:outline-none focus:ring-2 focus:ring-primary/40" aria-label={`Read full bio for ${specialist.display_name}`}><p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{specialist.bio}{specialist.bio.length > 180 ? "..." : ""}</p></button></div>
       )}
+
+      <Dialog open={showSpecialities} onOpenChange={setShowSpecialities}><DialogContent className="max-h-[80vh] overflow-y-auto"><DialogHeader><DialogTitle>{specialist.display_name}&apos;s specialties</DialogTitle></DialogHeader><div className="flex flex-wrap gap-2">{(specialist.specialities ?? []).map((s) => <span key={s} className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${specialtyColor(s)}`}>{s}</span>)}</div></DialogContent></Dialog>
+      <Dialog open={showBio} onOpenChange={setShowBio}><DialogContent className="max-h-[80vh] overflow-y-auto"><DialogHeader><DialogTitle>About {specialist.display_name}</DialogTitle></DialogHeader><p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{specialist.bio}</p></DialogContent></Dialog>
 
       {/* ── QUALIFICATIONS ── */}
       {specialist.qualifications && specialist.qualifications.length > 0 && (
