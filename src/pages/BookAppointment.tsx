@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { addDays, format, getDay, startOfDay } from "date-fns";
+import { addDays, format, startOfDay } from "date-fns";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,8 +37,10 @@ function timeToMinutes(value: string) {
   return hours * 60 + minutes;
 }
 
-function localDateTime(date: Date, minutes: number) {
-  return `${format(date, "yyyy-MM-dd")}T${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+function localDateTime(date: Date, minutes: number, timeZone: string) {
+  const dateKey = getZonedDateKey(date, timeZone);
+  const time = String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0");
+  return zonedTimeToUtc(dateKey, time, timeZone);
 }
 
 function sameDayMinimum(immediateSessions: boolean, now = new Date()) {
@@ -145,8 +147,8 @@ export default function BookAppointment() {
     const day = getZonedDayOfWeek(selectedDate, specialist.timezone ?? "UTC");
     const rules = availability.filter((item) => item.day_of_week === day);
     const ranges = rules;
-    const todayKey = format(new Date(), "yyyy-MM-dd");
-    const selectedKey = format(selectedDate, "yyyy-MM-dd");
+    const todayKey = getZonedDateKey(new Date(), specialist.timezone ?? "UTC");
+    const selectedKey = getZonedDateKey(selectedDate, specialist.timezone ?? "UTC");
     const minimum = sameDayMinimum(!!specialist.immediate_sessions);
     const output: string[] = [];
 
@@ -154,8 +156,8 @@ export default function BookAppointment() {
       const rangeStart = timeToMinutes(range.start_time);
       const rangeEnd = timeToMinutes(range.end_time);
       for (let minutes = rangeStart; minutes + tier.duration_minutes <= rangeEnd; minutes += SLOT_MINUTES) {
-        const value = localDateTime(selectedDate, minutes);
-        const startMs = new Date(value).getTime();
+        const value = localDateTime(selectedDate, minutes, specialist.timezone ?? "UTC");
+        const startMs = value.getTime();
         const endMs = startMs + tier.duration_minutes * 60000;
         const slotEnd = minutes + tier.duration_minutes;
 
@@ -218,7 +220,7 @@ export default function BookAppointment() {
 
       const { data: appointment, error: appointmentError } = await supabase.from("appointments").insert({
         customer_id: user.id, specialist_id: specialistId, tier_id: tier.id,
-        scheduled_at: new Date(scheduledAt).toISOString(), duration_minutes: tier.duration_minutes,
+        scheduled_at: scheduledAt, duration_minutes: tier.duration_minutes,
         amount_cents: tier.price_cents, currency: tier.currency, status: "pending_payment",
         customer_name: user.user_metadata?.full_name ?? user.email ?? "Customer",
       }).select().single();
