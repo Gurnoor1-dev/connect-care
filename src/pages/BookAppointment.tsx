@@ -48,11 +48,22 @@ function sameDayMinimum(immediateSessions: boolean, now = new Date()) {
 }
 
 function overlapsOfflinePeriod(slotStart: number, slotEnd: number, period: OfflinePeriod, dayOfWeek: number) {
-  if (period.day_of_week !== null && period.day_of_week !== dayOfWeek) return false;
+  const configuredDay = period.day_of_week;
+  if (configuredDay === null) {
+    const start = timeToMinutes(period.start_time);
+    const end = timeToMinutes(period.end_time);
+    if (start < end) return slotStart < end && slotEnd > start;
+    return (slotStart < 1440 && slotEnd > start) || (slotStart < end && slotEnd > 0);
+  }
+
   const start = timeToMinutes(period.start_time);
   const end = timeToMinutes(period.end_time);
-  if (start < end) return slotStart < end && slotEnd > start;
-  return (slotStart < 1440 && slotEnd > start) || (slotStart < end && slotEnd > 0);
+  if (start < end) return configuredDay === dayOfWeek && slotStart < end && slotEnd > start;
+
+  const previousDay = (dayOfWeek + 6) % 7;
+  if (configuredDay === dayOfWeek) return slotStart < 1440 && slotEnd > start;
+  if (configuredDay === previousDay) return slotStart < end && slotEnd > 0;
+  return false;
 }
 
 export default function BookAppointment() {
