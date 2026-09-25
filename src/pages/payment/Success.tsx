@@ -14,6 +14,7 @@ export default function PaymentSuccess() {
   const [specialistName, setSpecialistName] = useState("");
   const [loading, setLoading] = useState(!!apptId);
   const processed = useRef(false);
+  const conversionSent = useRef(false);
 
   useEffect(() => {
     if (!apptId || !user || processed.current) return;
@@ -25,7 +26,7 @@ export default function PaymentSuccess() {
         .from("appointments")
         .select(
           `
-          id, status, specialist_id, tier_id,
+          id, status, specialist_id, tier_id, amount_cents, currency,
           specialist:specialist_profiles!appointments_specialist_id_fkey(display_name),
           tier:specialist_tiers!appointments_tier_id_fkey(tier_type, session_count, credit_points)
         `,
@@ -41,6 +42,17 @@ export default function PaymentSuccess() {
       const tierData = (appt as any).tier;
       const specData = (appt as any).specialist;
       setSpecialistName(specData?.display_name ?? "your specialist");
+
+      const gtag = (window as Window & { gtag?: (...args: unknown[]) => void }).gtag;
+      if (!conversionSent.current && appt.status === "confirmed" && Number((appt as any).amount_cents ?? 0) > 0 && gtag) {
+        gtag("event", "conversion", {
+          send_to: "AW-18464359511/wdQoCNLTlP8cENeIv-RE",
+          value: Number((appt as any).amount_cents) / 100,
+          currency: (appt as any).currency ?? "INR",
+          transaction_id: appt.id,
+        });
+        conversionSent.current = true;
+      }
 
       /* 2. Grant credits only for bundle tiers & only if not already done */
       const isBundle = tierData?.tier_type === "bundle";

@@ -23,7 +23,8 @@ type ProfileState = {
   specialities: string[]; qualifications: string[]; is_published: boolean; avatar_url: string;
   availability_status: "online" | "offline"; immediate_sessions: boolean;
 };
-type OfflinePeriod = { id?: string; start_time: string; end_time: string; is_active: boolean; };
+type OfflinePeriod = { id?: string; day_of_week: number | null; start_time: string; end_time: string; is_active: boolean; };
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const emptyProfile: ProfileState = {
   display_name: "", headline: "", bio: "", country: "", country_flag: "",
@@ -46,7 +47,7 @@ export default function SpecialistProfile() {
     (async () => {
       const [{ data, error }, { data: periods, error: periodsError }] = await Promise.all([
         supabase.from("specialist_profiles").select("*").eq("id", user.id).maybeSingle(),
-        supabase.from("specialist_offline_periods").select("id,start_time,end_time,is_active").eq("specialist_id", user.id).order("start_time"),
+        supabase.from("specialist_offline_periods").select("id,day_of_week,start_time,end_time,is_active").eq("specialist_id", user.id).order("day_of_week").order("start_time"),
       ]);
       if (error) toast.error(error.message);
       if (periodsError) toast.error(periodsError.message);
@@ -82,7 +83,7 @@ export default function SpecialistProfile() {
     const unsaved = offlinePeriods.filter((period) => !period.id);
     if (unsaved.length) {
       const { data: inserted, error } = await supabase.from("specialist_offline_periods").insert(
-        unsaved.map((period) => ({ specialist_id: user.id, start_time: period.start_time, end_time: period.end_time, is_active: period.is_active }))
+        unsaved.map((period) => ({ specialist_id: user.id, day_of_week: period.day_of_week, start_time: period.start_time, end_time: period.end_time, is_active: period.is_active }))
       ).select("id,start_time,end_time,is_active");
       if (error) { setSaving(false); toast.error(error.message); return; }
       if (inserted) setOfflinePeriods((current) => [...current.filter((period) => period.id), ...(inserted as OfflinePeriod[])]);
@@ -90,7 +91,7 @@ export default function SpecialistProfile() {
 
     for (const period of offlinePeriods.filter((item) => item.id)) {
       const { error } = await supabase.from("specialist_offline_periods").update({
-        start_time: period.start_time, end_time: period.end_time, is_active: period.is_active,
+        day_of_week: period.day_of_week, start_time: period.start_time, end_time: period.end_time, is_active: period.is_active,
       }).eq("id", period.id).eq("specialist_id", user.id);
       if (error) { setSaving(false); toast.error(error.message); return; }
     }
@@ -117,7 +118,7 @@ export default function SpecialistProfile() {
     if (error) toast.error(error.message); else toast.success("Profile photo updated");
   };
 
-  const addOfflinePeriod = () => setOfflinePeriods((current) => [...current, { start_time: "17:30", end_time: "23:30", is_active: true }]);
+  const addOfflinePeriod = () => setOfflinePeriods((current) => [...current, { day_of_week: 1, start_time: "17:30", end_time: "23:30", is_active: true }]);
 
   const updateOfflinePeriod = (index: number, patch: Partial<OfflinePeriod>) =>
     setOfflinePeriods((current) => current.map((period, i) => i === index ? { ...period, ...patch } : period));
@@ -177,13 +178,14 @@ export default function SpecialistProfile() {
         </Card>
 
         <Card className="space-y-5 border-white/55 bg-card/90 p-5 shadow-brand backdrop-blur sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex items-center gap-2"><Clock3 className="h-5 w-5 text-teal" /><h2 className="text-lg font-semibold">Offline for time</h2></div><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Add recurring daily periods when customers cannot book you. Multiple periods and overnight periods such as 11:00 PM â†’ 2:00 AM are supported.</p></div><Button type="button" variant="outline" onClick={addOfflinePeriod} className="shrink-0"><Plus className="mr-2 h-4 w-4" />Add period</Button></div>
-          {offlinePeriods.length === 0 ? <div className="rounded-2xl border border-dashed p-5 text-sm text-muted-foreground">No offline periods configured. Customers can book during your normal availability schedule.</div> : <div className="space-y-3">{offlinePeriods.map((period, index) => <div key={period.id ?? `new-${index}`} className="rounded-2xl border bg-background p-4"><div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex items-center gap-2"><Clock3 className="h-5 w-5 text-teal" /><h2 className="text-lg font-semibold">Offline for time</h2></div><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Add recurring offline periods for specific days. Multiple periods and overnight periods such as 11:00 PM → 2:00 AM are supported. Legacy “Every day” periods remain available until you change them.</p></div><Button type="button" variant="outline" onClick={addOfflinePeriod} className="shrink-0"><Plus className="mr-2 h-4 w-4" />Add period</Button></div>
+          {offlinePeriods.length === 0 ? <div className="rounded-2xl border border-dashed p-5 text-sm text-muted-foreground">No offline periods configured. Customers can book during your normal availability schedule.</div> : <div className="space-y-3">{offlinePeriods.map((period, index) => <div key={period.id ?? `new-${index}`} className="rounded-2xl border bg-background p-4"><div className="grid gap-4 sm:grid-cols-[1.2fr_1fr_1fr_auto_auto] sm:items-end">
+            <Field label="Day"><select value={period.day_of_week === null ? "all" : String(period.day_of_week)} onChange={(event) => updateOfflinePeriod(index, { day_of_week: event.target.value === "all" ? null : Number(event.target.value) })} className="h-10 w-full rounded-lg border bg-background px-3 text-sm"><option value="all">Every day</option>{DAYS.map((day, dayIndex) => <option key={day} value={dayIndex}>{day}</option>)}</select></Field>
             <Field label="Start time"><Input type="time" value={period.start_time.slice(0, 5)} onChange={(event) => updateOfflinePeriod(index, { start_time: event.target.value })} /></Field>
             <Field label="End time"><Input type="time" value={period.end_time.slice(0, 5)} onChange={(event) => updateOfflinePeriod(index, { end_time: event.target.value })} /></Field>
             <div className="flex items-center gap-3 rounded-xl border px-3 py-2.5"><Switch checked={period.is_active} onCheckedChange={(value) => updateOfflinePeriod(index, { is_active: value })} /><span className="text-sm font-medium">Active</span></div>
             <Button type="button" variant="outline" size="icon" onClick={() => removeOfflinePeriod(index)} aria-label="Remove offline period" className="shrink-0"><Trash2 className="h-4 w-4" /></Button>
-          </div><div className="mt-3 text-xs text-muted-foreground">{period.start_time.slice(0, 5) === period.end_time.slice(0, 5) ? "Start and end time must be different." : "This period repeats each day while Active is enabled."}</div></div>)}</div>}
+          </div><div className="mt-3 text-xs text-muted-foreground">{period.start_time.slice(0, 5) === period.end_time.slice(0, 5) ? "Start and end time must be different." : period.day_of_week === null ? "This legacy period repeats every day while Active is enabled." : `This period repeats every ${DAYS[period.day_of_week]} while Active is enabled.`}</div></div>)}</div>}
         </Card>
 
         <Card className="space-y-5 border-white/55 bg-card/90 p-5 shadow-brand backdrop-blur sm:p-6">

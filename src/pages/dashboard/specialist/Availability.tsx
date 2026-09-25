@@ -44,6 +44,7 @@ export default function SpecialistAvailability() {
         <h1 className="text-3xl font-bold">Availability</h1>
         <p className="mt-1 text-muted-foreground">Weekly recurring slots in your timezone.</p>
       </header>
+      <div className="rounded-2xl border bg-muted/30 p-4 text-sm text-muted-foreground">Add one or more recurring time ranges for each day. Customers will only see slots that fall inside an active range for the selected day.</div>
       <div className="flex flex-wrap gap-2">
         {DAYS.map((d, i) => (
           <Button key={d} variant="outline" size="sm" onClick={() => addDay(i)}>+ {d}</Button>
