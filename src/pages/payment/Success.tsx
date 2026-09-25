@@ -43,8 +43,9 @@ export default function PaymentSuccess() {
       const specData = (appt as any).specialist;
       setSpecialistName(specData?.display_name ?? "your specialist");
 
-      if (!conversionSent.current && appt.status === "confirmed" && Number((appt as any).amount_cents ?? 0) > 0 && typeof window.gtag === "function") {
-        window.gtag("event", "conversion", {
+      const gtag = (window as Window & { gtag?: (...args: unknown[]) => void }).gtag;
+      if (!conversionSent.current && appt.status === "confirmed" && Number((appt as any).amount_cents ?? 0) > 0 && gtag) {
+        gtag("event", "conversion", {
           send_to: "AW-18464359511/wdQoCNLTlP8cENeIv-RE",
           value: Number((appt as any).amount_cents) / 100,
           currency: (appt as any).currency ?? "INR",
