@@ -84,7 +84,7 @@ export default function SpecialistProfile() {
     if (unsaved.length) {
       const { data: inserted, error } = await supabase.from("specialist_offline_periods").insert(
         unsaved.map((period) => ({ specialist_id: user.id, day_of_week: period.day_of_week, start_time: period.start_time, end_time: period.end_time, is_active: period.is_active }))
-      ).select("id,start_time,end_time,is_active");
+      ).select("id,day_of_week,start_time,end_time,is_active");
       if (error) { setSaving(false); toast.error(error.message); return; }
       if (inserted) setOfflinePeriods((current) => [...current.filter((period) => period.id), ...(inserted as OfflinePeriod[])]);
     }
