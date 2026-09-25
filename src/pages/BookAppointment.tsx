@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { CalendarClock, CheckCircle2, Clock3, Coins, Loader2, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { getDeviceTimeZone, getTimeZoneLabel, formatInTimeZone, zonedTimeToUtc, getZonedDateKey, getZonedDayOfWeek } from "@/lib/timezone";
 
 interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; }
 interface Specialist { id: string; display_name: string; headline: string | null; country: string | null; country_flag: string | null; timezone: string | null; avatar_url: string | null; availability_status: "online" | "offline" | null; immediate_sessions: boolean; }
@@ -141,7 +142,7 @@ export default function BookAppointment() {
 
   const slots = useMemo(() => {
     if (!selectedDate || !tier || !specialist) return [];
-    const day = getDay(selectedDate);
+    const day = getZonedDayOfWeek(selectedDate, specialist.timezone ?? "UTC");
     const rules = availability.filter((item) => item.day_of_week === day);
     const ranges = rules;
     const todayKey = format(new Date(), "yyyy-MM-dd");
@@ -166,7 +167,7 @@ export default function BookAppointment() {
           return startMs < bookedEnd && endMs > bookedStart;
         })) continue;
 
-        output.push(value);
+        output.push(value.toISOString());
       }
     }
     return [...new Set(output)];
@@ -201,7 +202,7 @@ export default function BookAppointment() {
 
         const { error: appointmentError } = await supabase.from("appointments").insert({
           customer_id: user.id, specialist_id: specialistId, tier_id: tier.id,
-          scheduled_at: new Date(scheduledAt).toISOString(), duration_minutes: tier.duration_minutes,
+          scheduled_at: scheduledAt, duration_minutes: tier.duration_minutes,
           amount_cents: 0, currency: tier.currency, status: "confirmed",
           customer_name: user.user_metadata?.full_name ?? user.email ?? "Customer", payment_method: "credits",
         });
@@ -257,15 +258,15 @@ export default function BookAppointment() {
 
           <div><Label>Session plan</Label><Select value={tierId} onValueChange={setTierId} disabled={!specialistId || !tiers.length}><SelectTrigger className="mt-2 w-full"><SelectValue placeholder={!specialistId ? "Pick a specialist first" : !tiers.length ? "No active plans" : "Select a plan"} /></SelectTrigger><SelectContent>{tiers.map((item) => <SelectItem key={item.id} value={item.id}>{item.label} · {item.currency} {(item.price_cents / 100).toFixed(2)} / {item.duration_minutes} min</SelectItem>)}</SelectContent></Select></div>
 
-          <div className="overflow-hidden rounded-3xl border bg-gradient-soft p-3 sm:p-4"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 font-semibold"><CalendarClock className="h-4 w-4 text-teal" />Choose your date</div><span className="text-[11px] text-muted-foreground">Today + 7 days</span></div><DayPicker mode="single" selected={selectedDate} onSelect={(date) => { setSelectedDate(date); setScheduledAt(""); }} disabled={(date) => !allowedSet.has(format(date, "yyyy-MM-dd"))} startMonth={allowedDays[0]} endMonth={allowedDays[allowedDays.length - 1]} showOutsideDays={false} className="booking-calendar mx-auto" /></div>
+          <div className="overflow-hidden rounded-3xl border bg-gradient-soft p-3 sm:p-4"><div className="mb-3 rounded-xl border bg-accent/40 px-3 py-2 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}) is being used. Booking times are converted from the specialist&#39;s timezone.</div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 font-semibold"><CalendarClock className="h-4 w-4 text-teal" />Choose your date</div><span className="text-[11px] text-muted-foreground">Today + 7 days</span></div><DayPicker mode="single" selected={selectedDate} onSelect={(date) => { setSelectedDate(date); setScheduledAt(""); }} disabled={(date) => !allowedSet.has(format(date, "yyyy-MM-dd"))} startMonth={allowedDays[0]} endMonth={allowedDays[allowedDays.length - 1]} showOutsideDays={false} className="booking-calendar mx-auto" /></div>
 
-          <div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><Label>Available time</Label>{specialist?.timezone && <span className="text-xs text-muted-foreground">{specialist.timezone}</span>}</div>
+          <div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><Label>Available time</Label>{specialist?.timezone && <span className="text-xs text-muted-foreground">Your device timezone: {getTimeZoneLabel(getDeviceTimeZone())}</span>}</div>
             {todaySelected && specialist && <p className="mb-3 rounded-xl bg-accent/45 px-3 py-2 text-xs leading-5 text-muted-foreground">{specialist.immediate_sessions ? <><span className="font-semibold text-foreground">Immediate Sessions are enabled.</span> Same-day booking can start 5 minutes after the current time.</> : <>For today, booking opens <span className="font-semibold text-foreground">5 hours after the current time</span>, rounded down to the nearest 15 minutes.</>}</p>}
             {offlinePeriods.length > 0 && <p className="mb-3 rounded-xl border bg-background px-3 py-2 text-xs leading-5 text-muted-foreground">Some times may be unavailable because this specialist has scheduled offline periods.</p>}
-            {!selectedDate || !tier ? <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">Select a plan and date to see available times.</div> : !slots.length ? <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">No slots are available for this date.</div> : <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">{slots.map((slot) => <button key={slot} type="button" onClick={() => setScheduledAt(slot)} className={`rounded-2xl border px-3 py-2.5 text-sm font-medium transition-colors ${scheduledAt === slot ? "border-teal bg-teal/10" : "bg-background hover:border-teal/50"}`}><Clock3 className="mr-1 inline h-3.5 w-3.5" />{format(new Date(slot), "h:mm a")}</button>)}</div>}
+            {!selectedDate || !tier ? <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">Select a plan and date to see available times.</div> : !slots.length ? <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">No slots are available for this date.</div> : <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">{slots.map((slot) => <button key={slot} type="button" onClick={() => setScheduledAt(slot)} className={`rounded-2xl border px-3 py-2.5 text-sm font-medium transition-colors ${scheduledAt === slot ? "border-teal bg-teal/10" : "bg-background hover:border-teal/50"}`}><Clock3 className="mr-1 inline h-3.5 w-3.5" />{formatInTimeZone(slot, getDeviceTimeZone(), { hour: "numeric", minute: "2-digit" })}</button>)}</div>}
           </div>
 
-          {scheduledAt && <div className="rounded-2xl border bg-background p-4 text-sm"><div className="font-semibold">Selected appointment</div><div className="mt-1 break-words text-muted-foreground">{format(new Date(scheduledAt), "EEEE, MMM d · h:mm a")} · {tier?.duration_minutes} minutes</div></div>}
+          {scheduledAt && <div className="rounded-2xl border bg-background p-4 text-sm"><div className="font-semibold">Selected appointment</div><div className="mt-1 break-words text-muted-foreground">{formatInTimeZone(scheduledAt, getDeviceTimeZone(), { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {tier?.duration_minutes} minutes</div></div>}
           {tier && <div className="rounded-2xl border bg-accent/40 p-4 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="text-muted-foreground">Total</span><span className="font-semibold">{useCredits && credits > 0 ? "1 credit" : `${tier.currency} ${(tier.price_cents / 100).toFixed(2)}`}</span></div></div>}
 
           <label className="flex items-start gap-3 rounded-2xl border bg-background p-4 text-sm"><Checkbox checked={acceptPolicies} onCheckedChange={(value) => setAcceptPolicies(!!value)} className="mt-0.5 shrink-0" /><span className="leading-6 text-muted-foreground">I have read and agree to the <Link to="/terms" target="_blank" className="font-medium text-foreground underline underline-offset-4">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link>, <Link to="/trust" target="_blank" className="font-medium text-foreground underline underline-offset-4">Trust & Safety Policy</Link>, and <Link to="/cancellation" target="_blank" className="font-medium text-foreground underline underline-offset-4">Cancellation & Refund Policy</Link>.</span></label>
