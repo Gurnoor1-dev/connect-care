@@ -18,14 +18,14 @@ interface Specialist { id: string; display_name: string; headline: string | null
 interface Availability { day_of_week: number; start_time: string; end_time: string; }
 interface OfflinePeriod { id: string; day_of_week: number | null; start_time: string; end_time: string; is_active: boolean; }
 
-const FUTURE_WORKING_DAYS = 5;
+const FUTURE_BOOKING_DAYS = 7;
 const SLOT_MINUTES = 15;
 
 function bookingDays(from = new Date()) {
   const result: Date[] = [];
   let date = startOfDay(from);
-  while (result.length < FUTURE_WORKING_DAYS + 1) {
-    if (getDay(date) !== 0 && getDay(date) !== 6) result.push(date);
+  while (result.length < FUTURE_BOOKING_DAYS + 1) {
+    result.push(date);
     date = addDays(date, 1);
   }
   return result;
@@ -240,7 +240,7 @@ export default function BookAppointment() {
     <div className="container mx-auto grid min-w-0 gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:gap-8">
       <div className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
         <div className="inline-flex max-w-full items-center gap-2 rounded-full border bg-card/85 px-3 py-2 text-xs font-semibold text-primary shadow-brand"><Sparkles className="h-3.5 w-3.5 shrink-0" />Protected booking & secure checkout</div>
-        <div><h1 className="text-3xl font-semibold leading-tight sm:text-5xl lg:text-6xl">Book a specialist session</h1><p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">Choose a specialist, plan, today or one of the next five working days, and an available time.</p></div>
+        <div><h1 className="text-3xl font-semibold leading-tight sm:text-5xl lg:text-6xl">Book a specialist session</h1><p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">Choose a specialist, plan, today or one of the next seven days, and an available time.</p></div>
         <div className="grid gap-3 sm:grid-cols-3">{[[ShieldCheck, "Protected", "Auth required"], [CalendarClock, "Today + 5", "workdays"], [CheckCircle2, "PayU verified", "Payment"]].map(([Icon, value, label]) => <Card key={String(label)} className="min-w-0 border-white/55 bg-card/85 p-3 shadow-brand sm:p-4"><Icon className="h-5 w-5 text-teal" /><div className="mt-2 text-sm font-semibold">{String(value)}</div><div className="text-xs text-muted-foreground">{String(label)}</div></Card>)}</div>
         {specialist && <Card className="flex min-w-0 items-center gap-3 border-white/60 bg-card/90 p-4 shadow-brand"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-brand">{specialist.avatar_url ? <img src={specialist.avatar_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xl font-bold text-white">{specialist.display_name[0]}</div>}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><div className="truncate font-semibold">{specialist.display_name}</div>{specialist.immediate_sessions && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary"><Zap className="h-3 w-3" />Immediate</span>}</div><div className="truncate text-sm text-muted-foreground">{specialist.country_flag} {specialist.country} · {specialist.timezone}</div><div className="mt-1 line-clamp-2 text-sm text-muted-foreground">{specialist.headline}</div></div></Card>}
         {credits > 0 && <Card className="border-teal/30 bg-teal/5 p-4 shadow-brand"><div className="flex items-center gap-2 font-semibold text-teal"><Coins className="h-4 w-4" />{credits} specialist credit{credits === 1 ? "" : "s"} available</div></Card>}
@@ -257,7 +257,7 @@ export default function BookAppointment() {
 
           <div><Label>Session plan</Label><Select value={tierId} onValueChange={setTierId} disabled={!specialistId || !tiers.length}><SelectTrigger className="mt-2 w-full"><SelectValue placeholder={!specialistId ? "Pick a specialist first" : !tiers.length ? "No active plans" : "Select a plan"} /></SelectTrigger><SelectContent>{tiers.map((item) => <SelectItem key={item.id} value={item.id}>{item.label} · {item.currency} {(item.price_cents / 100).toFixed(2)} / {item.duration_minutes} min</SelectItem>)}</SelectContent></Select></div>
 
-          <div className="overflow-hidden rounded-3xl border bg-gradient-soft p-3 sm:p-4"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 font-semibold"><CalendarClock className="h-4 w-4 text-teal" />Choose your date</div><span className="text-[11px] text-muted-foreground">Today + 5 working days</span></div><DayPicker mode="single" selected={selectedDate} onSelect={(date) => { setSelectedDate(date); setScheduledAt(""); }} disabled={(date) => !allowedSet.has(format(date, "yyyy-MM-dd"))} startMonth={allowedDays[0]} endMonth={allowedDays[allowedDays.length - 1]} showOutsideDays={false} className="booking-calendar mx-auto" /></div>
+          <div className="overflow-hidden rounded-3xl border bg-gradient-soft p-3 sm:p-4"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 font-semibold"><CalendarClock className="h-4 w-4 text-teal" />Choose your date</div><span className="text-[11px] text-muted-foreground">Today + 7 days</span></div><DayPicker mode="single" selected={selectedDate} onSelect={(date) => { setSelectedDate(date); setScheduledAt(""); }} disabled={(date) => !allowedSet.has(format(date, "yyyy-MM-dd"))} startMonth={allowedDays[0]} endMonth={allowedDays[allowedDays.length - 1]} showOutsideDays={false} className="booking-calendar mx-auto" /></div>
 
           <div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><Label>Available time</Label>{specialist?.timezone && <span className="text-xs text-muted-foreground">{specialist.timezone}</span>}</div>
             {todaySelected && specialist && <p className="mb-3 rounded-xl bg-accent/45 px-3 py-2 text-xs leading-5 text-muted-foreground">{specialist.immediate_sessions ? <><span className="font-semibold text-foreground">Immediate Sessions are enabled.</span> Same-day booking can start 5 minutes after the current time.</> : <>For today, booking opens <span className="font-semibold text-foreground">5 hours after the current time</span>, rounded down to the nearest 15 minutes.</>}</p>}
