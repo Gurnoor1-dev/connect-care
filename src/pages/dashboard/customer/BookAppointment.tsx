@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { getDeviceTimeZone, getTimeZoneLabel } from "@/lib/timezone";
 
 interface Tier {
   id: string;
@@ -115,13 +116,13 @@ export default function BookAppointment() {
     // Keep spinner — page will unload momentarily
   };
 
-  const minDateTime = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16);
+  const minDate = new Date(Date.now() + 5 * 60 * 1000);\n  const minDateTime = new Intl.DateTimeFormat("sv-SE", { timeZone: getDeviceTimeZone(), year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(minDate).replace(" ", "T");
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <header>
         <h1 className="text-3xl font-bold">Book a session</h1>
-        <p className="mt-1 text-muted-foreground">Choose your specialist, tier and time.</p>
+        <p className="mt-1 text-muted-foreground">Choose your specialist, tier and time.</p><div className="mt-3 rounded-xl border bg-accent/40 p-3 text-sm text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}) is used for this booking time. The appointment is stored as an absolute time.</div>
       </header>
 
       <Card className="p-6">
