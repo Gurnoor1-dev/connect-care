@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Camera, Clock3, Loader2, Plus, Trash2, Upload, Wifi, WifiOff, Zap } from "lucide-react";
+import { getDeviceTimeZone, getTimeZoneLabel } from "@/lib/timezone";
 
 const COUNTRIES = [
   ["United States", "ðŸ‡ºðŸ‡¸"], ["United Kingdom", "ðŸ‡¬ðŸ‡§"], ["India", "ðŸ‡®ðŸ‡³"], ["Canada", "ðŸ‡¨ðŸ‡¦"],
@@ -28,7 +29,7 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const emptyProfile: ProfileState = {
   display_name: "", headline: "", bio: "", country: "", country_flag: "",
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, specialities: [], qualifications: [],
+  timezone: getDeviceTimeZone(), specialities: [], qualifications: [],
   is_published: false, avatar_url: "", availability_status: "offline", immediate_sessions: false,
 };
 
