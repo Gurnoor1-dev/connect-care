@@ -144,11 +144,14 @@ export default function BookAppointment() {
 
   const slots = useMemo(() => {
     if (!selectedDate || !tier || !specialist) return [];
-    const day = getZonedDayOfWeek(selectedDate, specialist.timezone ?? "UTC");
+    const userDateKey = format(selectedDate, "yyyy-MM-dd");
+    const specialistCalendarDate = new Date(userDateKey + "T12:00:00");
+    const day = getZonedDayOfWeek(specialistCalendarDate, specialist.timezone ?? "UTC");
+    const specialistDateKey = getZonedDateKey(specialistCalendarDate, specialist.timezone ?? "UTC");
     const rules = availability.filter((item) => item.day_of_week === day);
     const ranges = rules;
-    const todayKey = getZonedDateKey(new Date(), specialist.timezone ?? "UTC");
-    const selectedKey = getZonedDateKey(selectedDate, specialist.timezone ?? "UTC");
+    const todayKey = getZonedDateKey(new Date(), getDeviceTimeZone());
+    const selectedKey = userDateKey;
     const minimum = sameDayMinimum(!!specialist.immediate_sessions);
     const output: string[] = [];
 
@@ -156,7 +159,7 @@ export default function BookAppointment() {
       const rangeStart = timeToMinutes(range.start_time);
       const rangeEnd = timeToMinutes(range.end_time);
       for (let minutes = rangeStart; minutes + tier.duration_minutes <= rangeEnd; minutes += SLOT_MINUTES) {
-        const value = localDateTime(selectedDate, minutes, specialist.timezone ?? "UTC");
+        const value = zonedTimeToUtc(specialistDateKey, String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0"), specialist.timezone ?? "UTC");
         const startMs = value.getTime();
         const endMs = startMs + tier.duration_minutes * 60000;
         const slotEnd = minutes + tier.duration_minutes;
