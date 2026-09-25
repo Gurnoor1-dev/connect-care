@@ -16,7 +16,7 @@ import { CalendarClock, CheckCircle2, Clock3, Coins, Loader2, ShieldCheck, Spark
 interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; }
 interface Specialist { id: string; display_name: string; headline: string | null; country: string | null; country_flag: string | null; timezone: string | null; avatar_url: string | null; availability_status: "online" | "offline" | null; immediate_sessions: boolean; }
 interface Availability { day_of_week: number; start_time: string; end_time: string; }
-interface OfflinePeriod { id: string; start_time: string; end_time: string; is_active: boolean; }
+interface OfflinePeriod { id: string; day_of_week: number | null; start_time: string; end_time: string; is_active: boolean; }
 
 const FUTURE_WORKING_DAYS = 5;
 const SLOT_MINUTES = 15;
@@ -47,7 +47,8 @@ function sameDayMinimum(immediateSessions: boolean, now = new Date()) {
   return new Date(rounded.getTime() + 5 * 60 * 60 * 1000);
 }
 
-function overlapsOfflinePeriod(slotStart: number, slotEnd: number, period: OfflinePeriod) {
+function overlapsOfflinePeriod(slotStart: number, slotEnd: number, period: OfflinePeriod, dayOfWeek: number) {
+  if (period.day_of_week !== null && period.day_of_week !== dayOfWeek) return false;
   const start = timeToMinutes(period.start_time);
   const end = timeToMinutes(period.end_time);
   if (start < end) return slotStart < end && slotEnd > start;
@@ -101,7 +102,7 @@ export default function BookAppointment() {
           supabase.from("specialist_tiers").select("id,label,duration_minutes,price_cents,currency").eq("specialist_id", specialistId).eq("is_active", true).order("price_cents"),
           supabase.from("specialist_availability").select("day_of_week,start_time,end_time").eq("specialist_id", specialistId).eq("is_active", true),
           user ? supabase.from("customer_specialist_credits").select("credit_points").eq("customer_id", user.id).eq("specialist_id", specialistId).maybeSingle() : Promise.resolve({ data: null } as any),
-          supabase.from("specialist_offline_periods").select("id,start_time,end_time,is_active").eq("specialist_id", specialistId).eq("is_active", true).order("start_time"),
+          supabase.from("specialist_offline_periods").select("id,day_of_week,start_time,end_time,is_active").eq("specialist_id", specialistId).eq("is_active", true).order("day_of_week").order("start_time"),
         ]);
       if (tierError) toast.error(tierError.message);
       if (availabilityError) toast.error(availabilityError.message);
@@ -131,7 +132,7 @@ export default function BookAppointment() {
     if (!selectedDate || !tier || !specialist) return [];
     const day = getDay(selectedDate);
     const rules = availability.filter((item) => item.day_of_week === day);
-    const ranges = rules.length ? rules : [{ day_of_week: day, start_time: "09:00", end_time: "17:00" }];
+    const ranges = rules;
     const todayKey = format(new Date(), "yyyy-MM-dd");
     const selectedKey = format(selectedDate, "yyyy-MM-dd");
     const minimum = sameDayMinimum(!!specialist.immediate_sessions);
@@ -147,7 +148,7 @@ export default function BookAppointment() {
         const slotEnd = minutes + tier.duration_minutes;
 
         if (selectedKey === todayKey ? startMs < minimum.getTime() : startMs <= Date.now() + 300000) continue;
-        if (offlinePeriods.some((period) => overlapsOfflinePeriod(minutes, slotEnd, period))) continue;
+        if (offlinePeriods.some((period) => overlapsOfflinePeriod(minutes, slotEnd, period, day))) continue;
         if (booked.some((appointment) => {
           const bookedStart = new Date(appointment.scheduled_at).getTime();
           const bookedEnd = bookedStart + Number(appointment.duration_minutes) * 60000;
