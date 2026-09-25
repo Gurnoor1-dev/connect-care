@@ -30,10 +30,10 @@ function offsetMs(date: Date, timeZone: string) {
 export function zonedTimeToUtc(localDate: string, localTime: string, timeZone: string) {
   const [year, month, day] = localDate.split("-").map(Number);
   const [hour, minute] = localTime.slice(0, 5).split(":").map(Number);
-  let candidate = new Date(Date.UTC(year, month - 1, day, hour, minute));
-  candidate = new Date(candidate.getTime() - offsetMs(candidate, timeZone));
-  const correction = offsetMs(candidate, timeZone);
-  return new Date(candidate.getTime() - correction);
+  const wallClockUtc = Date.UTC(year, month - 1, day, hour, minute);
+  let candidate = new Date(wallClockUtc);
+  for (let i = 0; i < 3; i++) candidate = new Date(wallClockUtc - offsetMs(candidate, timeZone));
+  return candidate;
 }
 
 export function formatInTimeZone(
