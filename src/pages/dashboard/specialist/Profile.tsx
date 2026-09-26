@@ -72,14 +72,32 @@ export default function SpecialistProfile() {
       }
     }
     setSaving(true);
-    const { error: profileError } = await supabase.from("specialist_profiles").upsert({
-      id: user.id, display_name: p.display_name, headline: p.headline, bio: p.bio,
+    const profileValues = {
+      display_name: p.display_name, headline: p.headline, bio: p.bio,
       country: p.country, country_flag: p.country_flag, timezone: p.timezone,
       specialities: p.specialities, qualifications: p.qualifications,
       is_published: p.is_published, avatar_url: p.avatar_url || null,
       availability_status: p.availability_status, immediate_sessions: p.immediate_sessions,
-    });
+    };
+
+    // Use an explicit WHERE clause for updates. This avoids the database rejecting
+    // an implicit upsert/update and keeps the specialist scoped to their own row.
+    const { data: updatedProfile, error: profileError } = await supabase
+      .from("specialist_profiles")
+      .update(profileValues)
+      .eq("id", user.id)
+      .select("id")
+      .maybeSingle();
+
     if (profileError) { setSaving(false); toast.error(profileError.message); return; }
+
+    // A profile may not exist yet for a newly-created specialist.
+    if (!updatedProfile) {
+      const { error: insertError } = await supabase
+        .from("specialist_profiles")
+        .insert({ id: user.id, ...profileValues });
+      if (insertError) { setSaving(false); toast.error(insertError.message); return; }
+    }
 
     const unsaved = offlinePeriods.filter((period) => !period.id);
     if (unsaved.length) {
@@ -112,9 +130,25 @@ export default function SpecialistProfile() {
     const avatarUrl = data.publicUrl;
     setP((state) => ({ ...state, avatar_url: avatarUrl }));
     await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
-    const { error } = await supabase.from("specialist_profiles").upsert({
-      id: user.id, avatar_url: avatarUrl, availability_status: p.availability_status, immediate_sessions: p.immediate_sessions,
-    });
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from("specialist_profiles")
+      .update({ avatar_url: avatarUrl, availability_status: p.availability_status, immediate_sessions: p.immediate_sessions })
+      .eq("id", user.id)
+      .select("id")
+      .maybeSingle();
+
+    let error = updateError;
+    if (!error && !updatedProfile) {
+      const { error: insertError } = await supabase
+        .from("specialist_profiles")
+        .insert({
+          id: user.id,
+          avatar_url: avatarUrl,
+          availability_status: p.availability_status,
+          immediate_sessions: p.immediate_sessions,
+        });
+      error = insertError;
+    }
     setUploadingAvatar(false);
     if (error) toast.error(error.message); else toast.success("Profile photo updated");
   };
