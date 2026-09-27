@@ -14,6 +14,13 @@ import { toast } from "sonner";
 import { CalendarClock, CheckCircle2, Clock3, Coins, Loader2, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { getDeviceTimeZone, getTimeZoneLabel, formatInTimeZone, zonedTimeToUtc, getZonedDateKey, getZonedDayOfWeek } from "@/lib/timezone";
 
+type RazorpayInstance = { open: () => void };
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => RazorpayInstance;
+  }
+}
+
 interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; }
 interface Specialist { id: string; display_name: string; headline: string | null; country: string | null; country_flag: string | null; timezone: string | null; avatar_url: string | null; availability_status: "online" | "offline" | null; immediate_sessions: boolean; }
 interface Availability { day_of_week: number; start_time: string; end_time: string; }
@@ -206,7 +213,7 @@ export default function BookAppointment() {
       throw new Error(data?.error ?? error?.message ?? "Payment initialisation failed");
     }
 
-    const razorpay = new window.Razorpay!({
+    const razorpay = new (window.Razorpay!)({
       key: data.key_id,
       amount: data.amount,
       currency: data.currency,
