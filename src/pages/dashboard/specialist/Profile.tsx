@@ -183,6 +183,3 @@ function ChipList({ label, items, input, setInput, onAdd, onRemove, placeholder 
   return <div><Label className="mb-2 block">{label}</Label><div className="flex flex-col gap-2 sm:flex-row"><Input placeholder={placeholder} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); onAdd(); } }} /><Button type="button" onClick={onAdd} variant="outline">Add</Button></div><div className="mt-2 flex flex-wrap gap-1.5">{items.map((item, index) => <span key={`${item}-${index}`} className="inline-flex items-center gap-1 rounded-lg bg-secondary px-3 py-1 text-xs">{item}<button type="button" onClick={() => onRemove(index)} className="text-muted-foreground hover:text-foreground" aria-label={`Remove ${item}`}>x</button></span>)}</div></div>;
 }
 
-function OnlineDot() {
-  return <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-emerald-500 shadow-glow"><span className="absolute h-4 w-4 animate-ping rounded-full bg-emerald-300 opacity-70" /><span className="relative h-3.5 w-3.5 rounded-full bg-emerald-300" /></span>;
-}
