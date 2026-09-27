@@ -5,19 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Users as UsersIcon, X } from "lucide-react";
 
-type UserRole = "specialist" | "customer";
+type UserRole = string;
 type UserRow = {
   id: string;
   full_name: string | null;
   email: string | null;
   created_at: string;
-  user_roles?: { role: UserRole }[];
+  roles: UserRole[];
 };
 
 export default function AdminUsers() {
   const [rows, setRows] = useState<UserRow[]>([]);
   const [q, setQ] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | UserRole>("all");
+  const [roleFilter, setRoleFilter] = useState<"all" | "specialist" | "customer">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -28,19 +28,37 @@ export default function AdminUsers() {
       setLoading(true);
       setError("");
 
-      const { data, error: queryError } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, created_at, user_roles(role)")
-        .order("created_at", { ascending: false });
+      const [{ data: profiles, error: profilesError }, { data: userRoles, error: rolesError }] =
+        await Promise.all([
+          supabase
+            .from("profiles")
+            .select("id, full_name, email, created_at")
+            .order("created_at", { ascending: false }),
+          supabase.from("user_roles").select("user_id, role"),
+        ]);
 
       if (cancelled) return;
 
-      if (queryError) {
+      if (profilesError || rolesError) {
         setRows([]);
-        setError(queryError.message);
-      } else {
-        setRows((data ?? []) as UserRow[]);
+        setError(profilesError?.message || rolesError?.message || "Could not load users.");
+        setLoading(false);
+        return;
       }
+
+      const rolesByUser = new Map<string, UserRole[]>();
+      (userRoles ?? []).forEach(({ user_id, role }) => {
+        const existing = rolesByUser.get(user_id) ?? [];
+        existing.push(role);
+        rolesByUser.set(user_id, existing);
+      });
+
+      setRows(
+        (profiles ?? []).map((profile) => ({
+          ...profile,
+          roles: rolesByUser.get(profile.id) ?? [],
+        })),
+      );
       setLoading(false);
     };
 
@@ -52,23 +70,25 @@ export default function AdminUsers() {
     const search = q.trim().toLowerCase();
 
     return rows.filter((user) => {
-      const roles = (user.user_roles ?? []).map((item) => item.role);
       const matchesRole =
         roleFilter === "all" ||
-        (roleFilter === "specialist" && roles.includes("specialist")) ||
-        (roleFilter === "customer" && roles.includes("customer"));
+        user.roles.includes(roleFilter);
 
       const matchesSearch =
         !search ||
         (user.full_name ?? "").toLowerCase().includes(search) ||
         (user.email ?? "").toLowerCase().includes(search) ||
-        roles.some((role) => role.toLowerCase().includes(search));
+        user.roles.some((role) => role.toLowerCase().includes(search)) ||
+        (user.roles.includes("customer") && "client".includes(search));
 
       return matchesRole && matchesSearch;
     });
   }, [rows, q, roleFilter]);
 
-  const roleLabel = roleFilter === "customer" ? "Client" : roleFilter === "specialist" ? "Specialist" : "All users";
+  const roleLabel =
+    roleFilter === "customer" ? "Client" :
+    roleFilter === "specialist" ? "Specialist" :
+    "All users";
 
   return (
     <div className="space-y-6">
@@ -139,17 +159,11 @@ export default function AdminUsers() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={4} className="p-10 text-center text-muted-foreground">Loading users...</td>
-                </tr>
+                <tr><td colSpan={4} className="p-10 text-center text-muted-foreground">Loading users...</td></tr>
               ) : error ? (
-                <tr>
-                  <td colSpan={4} className="p-10 text-center text-destructive">{error}</td>
-                </tr>
+                <tr><td colSpan={4} className="p-10 text-center text-destructive">{error}</td></tr>
               ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="p-10 text-center text-muted-foreground">No users match your filters.</td>
-                </tr>
+                <tr><td colSpan={4} className="p-10 text-center text-muted-foreground">No users match your filters.</td></tr>
               ) : (
                 filtered.map((user) => (
                   <tr key={user.id} className="border-b last:border-0 hover:bg-muted/20">
@@ -157,19 +171,14 @@ export default function AdminUsers() {
                     <td className="p-3 text-muted-foreground">{user.email || "—"}</td>
                     <td className="p-3">
                       <div className="flex flex-wrap gap-1">
-                        {(user.user_roles ?? []).map(({ role }) => (
-                          <span
-                            key={role}
-                            className="rounded-full bg-secondary px-2 py-0.5 text-xs capitalize"
-                          >
+                        {user.roles.length ? user.roles.map((role) => (
+                          <span key={role} className="rounded-full bg-secondary px-2 py-0.5 text-xs capitalize">
                             {role === "customer" ? "Client" : role}
                           </span>
-                        ))}
+                        )) : <span className="text-muted-foreground">—</span>}
                       </div>
                     </td>
-                    <td className="p-3 text-muted-foreground">
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </td>
+                    <td className="p-3 text-muted-foreground">{new Date(user.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))
               )}
