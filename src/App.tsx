@@ -37,7 +37,6 @@ import AdminTiers from "@/pages/dashboard/admin/Tiers";
 import DashboardRedirect from "@/pages/dashboard/DashboardRedirect";
 import PaymentSuccess from "@/pages/payment/Success";
 import PaymentFailure from "@/pages/payment/Failure";
-import PaymentBridge from "@/pages/payment/Bridge";
 
 const App = () => (
   <ThemeProvider><AuthProvider><TooltipProvider><Toaster richColors position="top-right" /><BrowserRouter><Routes>
@@ -54,7 +53,7 @@ const App = () => (
       <Route path="/cancellation" element={<Cancellation />} />
     </Route>
     <Route path="/login" element={<Login />} /><Route path="/signup" element={<Signup />} /><Route path="/verify-otp" element={<VerifyOtp />} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/auth/callback" element={<AuthCallback />} /><Route path="/invite/:token" element={<AcceptInvite />} />
-    <Route path="/payment/bridge" element={<PaymentBridge />} /><Route path="/payment/success" element={<PaymentSuccess />} /><Route path="/payment/failure" element={<PaymentFailure />} />
+    <Route path="/payment/success" element={<PaymentSuccess />} /><Route path="/payment/failure" element={<PaymentFailure />} />
     <Route path="/dashboard" element={<ProtectedRoute />}><Route element={<DashboardLayout />}><Route index element={<DashboardRedirect />} />
       <Route path="customer" element={<ProtectedRoute requireRole="customer" />}><Route index element={<CustomerOverview />} /><Route path="appointments" element={<CustomerAppointments />} /><Route path="book" element={<Navigate to="/book" replace />} /><Route path="call/:appointmentId" element={<CustomerVideoCall />} /></Route>
       <Route path="specialist" element={<ProtectedRoute requireRole="specialist" />}><Route index element={<SpecialistOverview />} /><Route path="availability" element={<SpecialistAvailability />} /><Route path="tiers" element={<SpecialistTiers />} /><Route path="profile" element={<SpecialistProfile />} /><Route path="patients" element={<SpecialistPatients />} /><Route path="call/:appointmentId" element={<SpecialistVideoCall />} /></Route>
