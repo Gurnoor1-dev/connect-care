@@ -83,12 +83,12 @@ export default function BookAppointment() {
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase.from("specialist_profiles")
-        .select("id, display_name, headline, country, country_flag, timezone, avatar_url, availability_status, immediate_sessions")
+        .select("id, display_name, headline, country, country_flag, timezone, avatar_url, immediate_sessions")
         .eq("is_published", true).order("display_name");
       if (error) { toast.error(error.message); return; }
-      const online = (data ?? []) as Specialist[];
-      setSpecialists(online);
-      if (specialistId && !online.some((item) => item.id === specialistId)) {
+      const availableSpecialists = (data ?? []) as Specialist[];
+      setSpecialists(availableSpecialists);
+      if (specialistId && !availableSpecialists.some((item) => item.id === specialistId)) {
         setSpecialistId(""); setTierId(""); setScheduledAt("");
         toast.error("That specialist is no longer available.");
       }
