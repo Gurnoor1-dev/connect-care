@@ -86,7 +86,7 @@ export default function Specialists() {
           .from("specialist_profiles")
           .select(`
             id, display_name, headline, bio, country, country_flag,
-            specialities, qualifications, timezone, avatar_url, availability_status,
+            specialities, qualifications, timezone, avatar_url,
             specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label), specialist_availability(day_of_week, start_time, end_time, is_active)
           `)
           .eq("is_published", true);
