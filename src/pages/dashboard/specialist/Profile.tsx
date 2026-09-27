@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Camera, Clock3, Loader2, Plus, Trash2, Upload, Wifi, WifiOff, Zap } from "lucide-react";
+import { Camera, Loader2, Upload, Zap } from "lucide-react";
 import { getDeviceTimeZone, getTimeZoneLabel } from "@/lib/timezone";
 
 const COUNTRIES = [
@@ -22,22 +22,19 @@ const TIMEZONES = Intl.supportedValuesOf?.("timeZone") ?? ["UTC", "America/New_Y
 type ProfileState = {
   display_name: string; headline: string; bio: string; country: string; country_flag: string; timezone: string;
   specialities: string[]; qualifications: string[]; is_published: boolean; avatar_url: string;
-  availability_status: "online" | "offline"; immediate_sessions: boolean;
+  immediate_sessions: boolean;
 };
-type OfflinePeriod = { id?: string; day_of_week: number | null; start_time: string; end_time: string; is_active: boolean; };
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const emptyProfile: ProfileState = {
   display_name: "", headline: "", bio: "", country: "", country_flag: "",
   timezone: getDeviceTimeZone(), specialities: [], qualifications: [],
-  is_published: false, avatar_url: "", availability_status: "offline", immediate_sessions: false,
+  is_published: false, avatar_url: "", immediate_sessions: false,
 };
 
 export default function SpecialistProfile() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [p, setP] = useState<ProfileState>(emptyProfile);
-  const [offlinePeriods, setOfflinePeriods] = useState<OfflinePeriod[]>([]);
   const [specInput, setSpecInput] = useState("");
   const [qualInput, setQualInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -48,40 +45,29 @@ export default function SpecialistProfile() {
     (async () => {
       const [{ data, error }, { data: periods, error: periodsError }] = await Promise.all([
         supabase.from("specialist_profiles").select("*").eq("id", user.id).maybeSingle(),
-        supabase.from("specialist_offline_periods").select("id,day_of_week,start_time,end_time,is_active").eq("specialist_id", user.id).order("day_of_week").order("start_time"),
+        Promise.resolve({ data: [], error: null }),
       ]);
       if (error) toast.error(error.message);
-      if (periodsError) toast.error(periodsError.message);
       if (data) setP({
         ...emptyProfile, ...data, avatar_url: data.avatar_url ?? "",
-        availability_status: data.availability_status ?? "offline",
         immediate_sessions: !!data.immediate_sessions,
         specialities: data.specialities ?? [], qualifications: data.qualifications ?? [],
       });
-      setOfflinePeriods((periods ?? []) as OfflinePeriod[]);
       setLoading(false);
     })();
   }, [user]);
 
   const save = async () => {
     if (!user) return;
-    for (const period of offlinePeriods) {
-      if (!period.start_time || !period.end_time || period.start_time.slice(0, 5) === period.end_time.slice(0, 5)) {
-        toast.error("Each offline period must have different start and end times.");
-        return;
-      }
-    }
     setSaving(true);
     const profileValues = {
       display_name: p.display_name, headline: p.headline, bio: p.bio,
       country: p.country, country_flag: p.country_flag, timezone: p.timezone,
       specialities: p.specialities, qualifications: p.qualifications,
       is_published: p.is_published, avatar_url: p.avatar_url || null,
-      availability_status: p.availability_status, immediate_sessions: p.immediate_sessions,
+      immediate_sessions: p.immediate_sessions,
     };
 
-    // Use an explicit WHERE clause for updates. This avoids the database rejecting
-    // an implicit upsert/update and keeps the specialist scoped to their own row.
     const { data: updatedProfile, error: profileError } = await supabase
       .from("specialist_profiles")
       .update(profileValues)
@@ -91,7 +77,6 @@ export default function SpecialistProfile() {
 
     if (profileError) { setSaving(false); toast.error(profileError.message); return; }
 
-    // A profile may not exist yet for a newly-created specialist.
     if (!updatedProfile) {
       const { error: insertError } = await supabase
         .from("specialist_profiles")
@@ -99,23 +84,8 @@ export default function SpecialistProfile() {
       if (insertError) { setSaving(false); toast.error(insertError.message); return; }
     }
 
-    const unsaved = offlinePeriods.filter((period) => !period.id);
-    if (unsaved.length) {
-      const { data: inserted, error } = await supabase.from("specialist_offline_periods").insert(
-        unsaved.map((period) => ({ specialist_id: user.id, day_of_week: period.day_of_week, start_time: period.start_time, end_time: period.end_time, is_active: period.is_active }))
-      ).select("id,day_of_week,start_time,end_time,is_active");
-      if (error) { setSaving(false); toast.error(error.message); return; }
-      if (inserted) setOfflinePeriods((current) => [...current.filter((period) => period.id), ...(inserted as OfflinePeriod[])]);
-    }
-
-    for (const period of offlinePeriods.filter((item) => item.id)) {
-      const { error } = await supabase.from("specialist_offline_periods").update({
-        day_of_week: period.day_of_week, start_time: period.start_time, end_time: period.end_time, is_active: period.is_active,
-      }).eq("id", period.id).eq("specialist_id", user.id);
-      if (error) { setSaving(false); toast.error(error.message); return; }
-    }
     setSaving(false);
-    toast.success("Profile and availability settings saved");
+    toast.success("Profile saved");
   };
 
   const uploadAvatar = async (file?: File) => {
@@ -132,7 +102,7 @@ export default function SpecialistProfile() {
     await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
     const { data: updatedProfile, error: updateError } = await supabase
       .from("specialist_profiles")
-      .update({ avatar_url: avatarUrl, availability_status: p.availability_status, immediate_sessions: p.immediate_sessions })
+      .update({ avatar_url: avatarUrl, immediate_sessions: p.immediate_sessions })
       .eq("id", user.id)
       .select("id")
       .maybeSingle();
@@ -144,7 +114,6 @@ export default function SpecialistProfile() {
         .insert({
           id: user.id,
           avatar_url: avatarUrl,
-          availability_status: p.availability_status,
           immediate_sessions: p.immediate_sessions,
         });
       error = insertError;
@@ -180,12 +149,10 @@ export default function SpecialistProfile() {
     setP((state) => ({ ...state, [key]: state[key].filter((_, i) => i !== index) }));
 
   if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
-  const isOnline = p.availability_status === "online";
 
   return <div className="mx-auto max-w-5xl space-y-6">
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <header>
       <div><h1 className="text-3xl font-bold">Your profile</h1><p className="mt-1 text-muted-foreground">This is what customers see on the specialists page.</p></div>
-      <Badge variant={isOnline ? "default" : "secondary"} className="w-fit gap-1 capitalize">{isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}{p.availability_status}</Badge>
     </header>
 
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -193,34 +160,19 @@ export default function SpecialistProfile() {
         <div className="flex flex-col items-center text-center">
           <div className="relative h-32 w-32 overflow-visible rounded-lg bg-gradient-vivid p-1 shadow-brand"><div className="h-full w-full overflow-hidden rounded-md bg-card">
             {p.avatar_url ? <img src={p.avatar_url} alt={p.display_name || "Specialist"} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center bg-gradient-brand text-4xl font-bold text-primary-foreground">{p.display_name?.[0] ?? <Camera className="h-10 w-10" />}</div>}
-          </div>{isOnline && <OnlineDot />}</div>
+          </div></div>
           <h2 className="mt-4 text-xl font-semibold">{p.display_name || "Profile photo"}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Add a photo and choose how customers see your availability.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Add a photo and set your profile and availability schedule.</p>
           <input id="avatar-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="sr-only" onChange={(event) => uploadAvatar(event.target.files?.[0])} />
           <Button asChild variant="outline" className="mt-4 w-full" disabled={uploadingAvatar}><label htmlFor="avatar-upload" className="cursor-pointer">{uploadingAvatar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Upload photo</label></Button>
         </div>
-        <div className="mt-6 rounded-lg border bg-gradient-to-br from-accent/70 via-card to-card p-3"><Label className="mb-2 block">Status</Label><div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => setP({ ...p, availability_status: "online" })} className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${isOnline ? "bg-emerald-500 text-white shadow-brand" : "bg-card text-muted-foreground hover:text-foreground"}`}>Online</button>
-          <button type="button" onClick={() => setP({ ...p, availability_status: "offline" })} className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${!isOnline ? "bg-muted text-foreground shadow-brand" : "bg-card text-muted-foreground hover:text-foreground"}`}>Offline</button>
-        </div></div>
       </Card>
 
       <div className="space-y-6">
         <Card className="space-y-5 border-white/55 bg-card/90 p-5 shadow-brand backdrop-blur sm:p-6">
           <div><div className="flex items-center gap-2"><Zap className="h-5 w-5 text-primary" /><h2 className="text-lg font-semibold">Immediate Sessions</h2></div>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">Allow customers to book same-day sessions without the normal 5-hour wait. When enabled, the earliest same-day booking is 5 minutes from the current time.</p></div>
-          <div className="flex items-center justify-between gap-4 rounded-2xl border bg-gradient-to-br from-accent/70 via-card to-card p-4"><div className="min-w-0"><div className="font-medium">{p.immediate_sessions ? "Immediate booking is ON" : "Immediate booking is OFF"}</div><div className="mt-1 text-xs leading-5 text-muted-foreground">Customers can only book you when your profile is published and you are online.</div></div><Switch checked={p.immediate_sessions} onCheckedChange={(value) => setP({ ...p, immediate_sessions: value })} /></div>
-        </Card>
-
-        <Card className="space-y-5 border-white/55 bg-card/90 p-5 shadow-brand backdrop-blur sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex items-center gap-2"><Clock3 className="h-5 w-5 text-teal" /><h2 className="text-lg font-semibold">Offline for time</h2></div><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Add recurring offline periods for specific days. Multiple periods and overnight periods such as 11:00 PM → 2:00 AM are supported. Legacy “Every day” periods remain available until you change them.</p></div><Button type="button" variant="outline" onClick={addOfflinePeriod} className="shrink-0"><Plus className="mr-2 h-4 w-4" />Add period</Button></div>
-          {offlinePeriods.length === 0 ? <div className="rounded-2xl border border-dashed p-5 text-sm text-muted-foreground">No offline periods configured. Customers can book during your normal availability schedule.</div> : <div className="space-y-3">{offlinePeriods.map((period, index) => <div key={period.id ?? `new-${index}`} className="rounded-2xl border bg-background p-4"><div className="grid gap-4 sm:grid-cols-[1.2fr_1fr_1fr_auto_auto] sm:items-end">
-            <Field label="Day"><select value={period.day_of_week === null ? "all" : String(period.day_of_week)} onChange={(event) => updateOfflinePeriod(index, { day_of_week: event.target.value === "all" ? null : Number(event.target.value) })} className="h-10 w-full rounded-lg border bg-background px-3 text-sm"><option value="all">Every day</option>{DAYS.map((day, dayIndex) => <option key={day} value={dayIndex}>{day}</option>)}</select></Field>
-            <Field label="Start time"><Input type="time" value={period.start_time.slice(0, 5)} onChange={(event) => updateOfflinePeriod(index, { start_time: event.target.value })} /></Field>
-            <Field label="End time"><Input type="time" value={period.end_time.slice(0, 5)} onChange={(event) => updateOfflinePeriod(index, { end_time: event.target.value })} /></Field>
-            <div className="flex items-center gap-3 rounded-xl border px-3 py-2.5"><Switch checked={period.is_active} onCheckedChange={(value) => updateOfflinePeriod(index, { is_active: value })} /><span className="text-sm font-medium">Active</span></div>
-            <Button type="button" variant="outline" size="icon" onClick={() => removeOfflinePeriod(index)} aria-label="Remove offline period" className="shrink-0"><Trash2 className="h-4 w-4" /></Button>
-          </div><div className="mt-3 text-xs text-muted-foreground">{period.start_time.slice(0, 5) === period.end_time.slice(0, 5) ? "Start and end time must be different." : period.day_of_week === null ? "This legacy period repeats every day while Active is enabled." : `This period repeats every ${DAYS[period.day_of_week]} while Active is enabled.`}</div></div>)}</div>}
+          <div className="flex items-center justify-between gap-4 rounded-2xl border bg-gradient-to-br from-accent/70 via-card to-card p-4"><div className="min-w-0"><div className="font-medium">{p.immediate_sessions ? "Immediate booking is ON" : "Immediate booking is OFF"}</div><div className="mt-1 text-xs leading-5 text-muted-foreground">Customers can book you only during the availability you set in the Availability section.</div></div><Switch checked={p.immediate_sessions} onCheckedChange={(value) => setP({ ...p, immediate_sessions: value })} /></div>
         </Card>
 
         <Card className="space-y-5 border-white/55 bg-card/90 p-5 shadow-brand backdrop-blur sm:p-6">
