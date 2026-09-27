@@ -209,7 +209,6 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 APP_BASE_URL          Your production domain, e.g. https://breatherise.com
 RAZORPAY_KEY_ID     From Razorpay merchant dashboard
 RAZORPAY_KEY_SECRET    From Razorpay merchant dashboard
-RAZORPAY_MODE             "test" or "live"
 DAILY_API_KEY         From daily.co developer dashboard
 ```
 
@@ -312,7 +311,7 @@ supabase/functions/
 - [ ] Google OAuth configured (optional)
 - [ ] Facebook OAuth configured (optional)
 - [ ] Supabase CLI installed and project linked
-- [ ] All 5 Edge Functions deployed
+- [ ] All 6 Edge Functions deployed
 - [ ] All function secrets set
 - [ ] Razorpay test credentials configured
 - [ ] Razorpay webhook URL registered in Razorpay dashboard
