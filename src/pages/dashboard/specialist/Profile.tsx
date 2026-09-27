@@ -122,22 +122,6 @@ export default function SpecialistProfile() {
     if (error) toast.error(error.message); else toast.success("Profile photo updated");
   };
 
-  const addOfflinePeriod = () => setOfflinePeriods((current) => [...current, { day_of_week: 1, start_time: "17:30", end_time: "23:30", is_active: true }]);
-
-  const updateOfflinePeriod = (index: number, patch: Partial<OfflinePeriod>) =>
-    setOfflinePeriods((current) => current.map((period, i) => i === index ? { ...period, ...patch } : period));
-
-  const removeOfflinePeriod = async (index: number) => {
-    const period = offlinePeriods[index];
-    if (!period) return;
-    if (period.id && user) {
-      const { error } = await supabase.from("specialist_offline_periods").delete().eq("id", period.id).eq("specialist_id", user.id);
-      if (error) { toast.error(error.message); return; }
-    }
-    setOfflinePeriods((current) => current.filter((_, i) => i !== index));
-    toast.success("Offline period removed");
-  };
-
   const addArr = (key: "specialities" | "qualifications", value: string, clear: () => void) => {
     const trimmed = value.trim();
     if (!trimmed) return;
