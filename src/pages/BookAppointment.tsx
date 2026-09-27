@@ -22,9 +22,8 @@ declare global {
 }
 
 interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; }
-interface Specialist { id: string; display_name: string; headline: string | null; country: string | null; country_flag: string | null; timezone: string | null; avatar_url: string | null; availability_status: "online" | "offline" | null; immediate_sessions: boolean; }
+interface Specialist { id: string; display_name: string; headline: string | null; country: string | null; country_flag: string | null; timezone: string | null; avatar_url: string | null; immediate_sessions: boolean; }
 interface Availability { day_of_week: number; start_time: string; end_time: string; }
-interface OfflinePeriod { id: string; day_of_week: number | null; start_time: string; end_time: string; is_active: boolean; }
 
 const FUTURE_BOOKING_DAYS = 7;
 const SLOT_MINUTES = 15;
@@ -57,25 +56,6 @@ function sameDayMinimum(immediateSessions: boolean, now = new Date()) {
   return new Date(rounded.getTime() + 5 * 60 * 60 * 1000);
 }
 
-function overlapsOfflinePeriod(slotStart: number, slotEnd: number, period: OfflinePeriod, dayOfWeek: number) {
-  const configuredDay = period.day_of_week;
-  if (configuredDay === null) {
-    const start = timeToMinutes(period.start_time);
-    const end = timeToMinutes(period.end_time);
-    if (start < end) return slotStart < end && slotEnd > start;
-    return (slotStart < 1440 && slotEnd > start) || (slotStart < end && slotEnd > 0);
-  }
-
-  const start = timeToMinutes(period.start_time);
-  const end = timeToMinutes(period.end_time);
-  if (start < end) return configuredDay === dayOfWeek && slotStart < end && slotEnd > start;
-
-  const previousDay = (dayOfWeek + 6) % 7;
-  if (configuredDay === dayOfWeek) return slotStart < 1440 && slotEnd > start;
-  if (configuredDay === previousDay) return slotStart < end && slotEnd > 0;
-  return false;
-}
-
 export default function BookAppointment() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -85,7 +65,6 @@ export default function BookAppointment() {
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [tierId, setTierId] = useState(params.get("tier") ?? "");
   const [availability, setAvailability] = useState<Availability[]>([]);
-  const [offlinePeriods, setOfflinePeriods] = useState<OfflinePeriod[]>([]);
   const [booked, setBooked] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [scheduledAt, setScheduledAt] = useState("");
@@ -105,33 +84,32 @@ export default function BookAppointment() {
     (async () => {
       const { data, error } = await supabase.from("specialist_profiles")
         .select("id, display_name, headline, country, country_flag, timezone, avatar_url, availability_status, immediate_sessions")
-        .eq("is_published", true).eq("availability_status", "online").order("display_name");
+        .eq("is_published", true).order("display_name");
       if (error) { toast.error(error.message); return; }
       const online = (data ?? []) as Specialist[];
       setSpecialists(online);
       if (specialistId && !online.some((item) => item.id === specialistId)) {
         setSpecialistId(""); setTierId(""); setScheduledAt("");
-        toast.error("That specialist is currently unavailable for booking.");
+        toast.error("That specialist is no longer available.");
       }
     })();
   }, [specialistId]);
 
   useEffect(() => {
     if (!specialistId) {
-      setTiers([]); setAvailability([]); setOfflinePeriods([]); setCredits(0); setUseCredits(false); return;
+      setTiers([]); setAvailability([]); setCredits(0); setUseCredits(false); return;
     }
     (async () => {
-      const [{ data: tierData, error: tierError }, { data: availabilityData, error: availabilityError }, { data: creditData }, { data: offlineData, error: offlineError }] =
+      const [{ data: tierData, error: tierError }, { data: availabilityData, error: availabilityError }, { data: creditData }] =
         await Promise.all([
           supabase.from("specialist_tiers").select("id,label,duration_minutes,price_cents,currency").eq("specialist_id", specialistId).eq("is_active", true).eq("currency", "USD").order("price_cents"),
           supabase.from("specialist_availability").select("day_of_week,start_time,end_time").eq("specialist_id", specialistId).eq("is_active", true),
           user ? supabase.from("customer_specialist_credits").select("credit_points").eq("customer_id", user.id).eq("specialist_id", specialistId).maybeSingle() : Promise.resolve({ data: null } as any),
-          supabase.from("specialist_offline_periods").select("id,day_of_week,start_time,end_time,is_active").eq("specialist_id", specialistId).eq("is_active", true).order("day_of_week").order("start_time"),
+
         ]);
       if (tierError) toast.error(tierError.message);
       if (availabilityError) toast.error(availabilityError.message);
-      if (offlineError) toast.error(offlineError.message);
-      setTiers(tierData ?? []); setAvailability(availabilityData ?? []); setOfflinePeriods((offlineData ?? []) as OfflinePeriod[]);
+      setTiers(tierData ?? []); setAvailability(availabilityData ?? []);
       const balance = Number((creditData as any)?.credit_points ?? 0);
       setCredits(balance); setUseCredits(balance > 0);
       if (!(tierData ?? []).some((tier: Tier) => tier.id === tierId)) setTierId("");
@@ -175,7 +153,6 @@ export default function BookAppointment() {
         const slotEnd = minutes + tier.duration_minutes;
 
         if (selectedKey === todayKey ? startMs < minimum.getTime() : startMs <= Date.now() + 300000) continue;
-        if (offlinePeriods.some((period) => overlapsOfflinePeriod(minutes, slotEnd, period, day))) continue;
         if (booked.some((appointment) => {
           const bookedStart = new Date(appointment.scheduled_at).getTime();
           const bookedEnd = bookedStart + Number(appointment.duration_minutes) * 60000;
@@ -331,7 +308,6 @@ export default function BookAppointment() {
 
           <div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><Label>Available time</Label>{specialist?.timezone && <span className="text-xs text-muted-foreground">Your device timezone: {getTimeZoneLabel(getDeviceTimeZone())}</span>}</div>
             {todaySelected && specialist && <p className="mb-3 rounded-xl bg-accent/45 px-3 py-2 text-xs leading-5 text-muted-foreground">{specialist.immediate_sessions ? <><span className="font-semibold text-foreground">Immediate Sessions are enabled.</span> Same-day booking can start 5 minutes after the current time.</> : <>For today, booking opens <span className="font-semibold text-foreground">5 hours after the current time</span>, rounded down to the nearest 15 minutes.</>}</p>}
-            {offlinePeriods.length > 0 && <p className="mb-3 rounded-xl border bg-background px-3 py-2 text-xs leading-5 text-muted-foreground">Some times may be unavailable because this specialist has scheduled offline periods.</p>}
             {!selectedDate || !tier ? <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">Select a plan and date to see available times.</div> : !slots.length ? <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">No slots are available for this date.</div> : <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">{slots.map((slot) => <button key={slot} type="button" onClick={() => setScheduledAt(slot)} className={`rounded-2xl border px-3 py-2.5 text-sm font-medium transition-colors ${scheduledAt === slot ? "border-teal bg-teal/10" : "bg-background hover:border-teal/50"}`}><Clock3 className="mr-1 inline h-3.5 w-3.5" />{formatInTimeZone(slot, getDeviceTimeZone(), { hour: "numeric", minute: "2-digit" })}</button>)}</div>}
           </div>
 
