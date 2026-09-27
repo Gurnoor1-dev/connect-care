@@ -26,7 +26,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 
 Open **Supabase → SQL Editor** and run the files in order:
 
-### `db/001_initial.sql`
+### `supabase/sql-files/1.sql`
 
 Paste the entire file and click **Run**. This creates:
 
@@ -42,7 +42,7 @@ Paste the entire file and click **Run**. This creates:
 | `specialist_profiles` table | Public-facing specialist info |
 | `specialist_tiers` table | Pricing tiers per specialist |
 | `specialist_availability` table | Weekly recurring availability slots |
-| `appointments` table | Core booking table with PayU + Daily.co fields |
+| `appointments` table | Core booking table with Razorpay + Daily.co fields |
 | `specialist_invitations` table | Invite-only specialist onboarding |
 | `handle_new_user` trigger | Auto-creates profile + assigns `customer` role on signup |
 | `stamp_customer_name` trigger | Denormalises customer name onto each appointment |
@@ -50,7 +50,7 @@ Paste the entire file and click **Run**. This creates:
 | All RLS policies | Row-level security for every table |
 | Performance indexes | On all foreign keys, scheduled_at, status, payu_txn_id, token |
 
-### `db/002_promote_admin.sql`
+### `supabase/sql-files/Admin-Promotion.sql`
 
 **After your first signup**, open this file, replace `YOUR@EMAIL.com` with your email, then run it in the SQL Editor. Sign out and back in — you'll land on `/dashboard/admin`.
 
@@ -109,17 +109,17 @@ Your project ref is the string in your Supabase dashboard URL: `https://supabase
 
 ```bash
 # Standard functions (JWT verification on)
-supabase functions deploy payu-initiate
+supabase functions deploy razorpay-create-order
 supabase functions deploy daily-token
 supabase functions deploy invite-specialist
 
 # No JWT — these receive unauthenticated requests
-supabase functions deploy payu-webhook --no-verify-jwt
+supabase functions deploy razorpay-webhook --no-verify-jwt
 supabase functions deploy accept-specialist-invite --no-verify-jwt
 ```
 
 `--no-verify-jwt` is required because:
-- `payu-webhook` receives server-to-server POST requests from PayU (no Supabase JWT)
+- `razorpay-webhook` receives server-to-server POST requests from Razorpay (no Supabase JWT)
 - `accept-specialist-invite` is called before the invitee has an account
 
 ### Set function secrets
@@ -127,9 +127,9 @@ supabase functions deploy accept-specialist-invite --no-verify-jwt
 ```bash
 supabase secrets set \
   APP_BASE_URL=https://yourdomain.com \
-  PAYU_MERCHANT_KEY=your_payu_key \
-  PAYU_MERCHANT_SALT=your_payu_salt \
-  PAYU_MODE=test \
+  RAZORPAY_KEY_ID=your_payu_key \
+  RAZORPAY_KEY_SECRET=your_payu_salt \
+  RAZORPAY_MODE=test \
   DAILY_API_KEY=your_daily_api_key
 ```
 
@@ -142,28 +142,28 @@ supabase secrets set \
 
 | Function | Trigger | JWT | What it does |
 |----------|---------|-----|-------------|
-| `payu-initiate` | Customer clicks "Continue to payment" | ✅ Required | Creates appointment, builds PayU hash, returns self-submitting HTML form |
-| `payu-webhook` | PayU server-to-server POST after payment | ❌ None | Verifies reverse hash, flips appointment to `confirmed` or `cancelled` |
+| `razorpay-create-order` | Customer clicks "Continue to payment" | ✅ Required | Creates appointment, builds Razorpay hash, returns self-submitting HTML form |
+| `razorpay-webhook` | Razorpay server-to-server POST after payment | ❌ None | Verifies reverse hash, flips appointment to `confirmed` or `cancelled` |
 | `daily-token` | Customer/specialist clicks "Join call" | ✅ Required | Checks 5-min window + confirmed status, lazily creates Daily.co room, returns meeting token |
 | `invite-specialist` | Admin submits invite form | ✅ Required (admin) | Inserts `specialist_invitations` row, returns invite URL |
 | `accept-specialist-invite` | Specialist opens `/invite/:token` and submits | ❌ None | Validates token, creates auth user, assigns `specialist` role, seeds `specialist_profiles` |
 
 ---
 
-## Step 5 — PayU hosted checkout
+## Step 5 — Razorpay Web Standard Checkout
 
 1. Sign up at https://payu.in → **Merchant Dashboard → Integration Details** for test credentials
-2. Set secrets as shown above (`PAYU_MERCHANT_KEY`, `PAYU_MERCHANT_SALT`, `PAYU_MODE=test`)
-3. In the PayU dashboard → **Webhooks** add: `https://YOUR-PROJECT.functions.supabase.co/payu-webhook`
+2. Set secrets as shown above (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_MODE=test`)
+3. In the Razorpay dashboard → **Webhooks** add: `https://YOUR-PROJECT.functions.supabase.co/razorpay-webhook`
 4. Payment flow:
    - Customer fills booking form → clicks "Continue to payment"
-   - Frontend calls `payu-initiate` edge function
+   - Frontend calls `razorpay-create-order` edge function
    - Function returns an auto-submit HTML form
-   - App injects the form into the DOM and submits it to PayU's hosted page
-   - User completes payment on PayU's page
-   - PayU redirects to `/payment/success` or `/payment/failure`
-   - PayU also POSTs to `payu-webhook` which verifies the hash and updates appointment status
-5. To go live: change `PAYU_MODE=live`
+   - App injects the form into the DOM and submits it to Razorpay's hosted page
+   - User completes payment on Razorpay's page
+   - Razorpay redirects to `/payment/success` or `/payment/failure`
+   - Razorpay also POSTs to `razorpay-webhook` which verifies the hash and updates appointment status
+5. To go live: change `RAZORPAY_MODE=live`
 
 ---
 
@@ -222,9 +222,9 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 
 ```
 APP_BASE_URL          Your production domain, e.g. https://breatherise.com
-PAYU_MERCHANT_KEY     From PayU merchant dashboard
-PAYU_MERCHANT_SALT    From PayU merchant dashboard
-PAYU_MODE             "test" or "live"
+RAZORPAY_KEY_ID     From Razorpay merchant dashboard
+RAZORPAY_KEY_SECRET    From Razorpay merchant dashboard
+RAZORPAY_MODE             "test" or "live"
 DAILY_API_KEY         From daily.co developer dashboard
 ```
 
@@ -267,7 +267,7 @@ auth.users (Supabase managed)
   │    └─ specialist_availability (1:many) — weekly slots
   │
   ├─ appointments (many:many via customer_id + specialist_id)
-  │    └─ PayU + Daily.co fields, session_notes, customer_name (denorm)
+  │    └─ Razorpay + Daily.co fields, session_notes, customer_name (denorm)
   │
   └─ specialist_invitations — invite tokens, status, expiry
 ```
@@ -307,8 +307,8 @@ db/
   002_promote_admin.sql      ← run after first signup
 
 supabase/functions/
-  payu-initiate/index.ts
-  payu-webhook/index.ts
+  razorpay-create-order/index.ts
+  razorpay-webhook/index.ts
   daily-token/index.ts
   invite-specialist/index.ts
   accept-specialist-invite/index.ts
@@ -328,8 +328,8 @@ supabase/functions/
 - [ ] Supabase CLI installed and project linked
 - [ ] All 5 Edge Functions deployed
 - [ ] All function secrets set
-- [ ] PayU test credentials configured
-- [ ] PayU webhook URL registered in PayU dashboard
+- [ ] Razorpay test credentials configured
+- [ ] Razorpay webhook URL registered in Razorpay dashboard
 - [ ] Daily.co API key configured
 - [ ] App running at localhost:8080 and login/signup tested
 - [ ] Specialist invitation flow tested end-to-end
