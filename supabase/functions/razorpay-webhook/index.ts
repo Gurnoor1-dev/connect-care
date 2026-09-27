@@ -19,6 +19,21 @@ function safeEqual(a: string, b: string) {
   return result === 0;
 }
 
+async function notifyBooking(appointmentId: string) {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!url || !key) return;
+  try {
+    await fetch(`${url}/functions/v1/appointment-notifications`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, apikey: key },
+      body: JSON.stringify({ action: "booking", appointment_id: appointmentId }),
+    });
+  } catch (error) {
+    console.error("[razorpay-webhook] booking notification failed:", error);
+  }
+}
+
 async function awardBundleCredits(admin: ReturnType<typeof createClient>, appointment: any) {
   if (appointment.bundle_credits_awarded_at) return;
   const { data: tier } = await admin.from("specialist_tiers").select("session_count,credit_points,tier_type").eq("id", appointment.tier_id).maybeSingle();
@@ -51,19 +66,24 @@ Deno.serve(async (req) => {
     const payload = JSON.parse(rawBody);
     const event = String(payload.event ?? "");
     const payment = payload?.payload?.payment?.entity;
-    if (event !== "payment.captured" || !payment?.id || !payment?.order_id) return new Response("ok", { status: 200, headers: corsHeaders });
+    const order = payload?.payload?.order?.entity;
+    if (!["payment.captured", "order.paid"].includes(event)) return new Response("ok", { status: 200, headers: corsHeaders });
+
+    const paymentEntity = payment ?? {};
+    const orderId = paymentEntity.order_id ?? order?.id;
+    if (!orderId) return new Response("ok", { status: 200, headers: corsHeaders });
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
     const { data: appointment, error: appointmentError } = await admin
       .from("appointments")
       .select("id,customer_id,specialist_id,tier_id,amount_cents,currency,status,razorpay_order_id,bundle_credits_awarded_at")
-      .eq("razorpay_order_id", payment.order_id)
+      .eq("razorpay_order_id", orderId)
       .maybeSingle();
 
     if (appointmentError) return new Response("appointment lookup failed", { status: 500, headers: corsHeaders });
     if (!appointment) return new Response("ok", { status: 200, headers: corsHeaders });
 
-    if (payment.currency !== "USD" || Number(payment.amount) !== Number(appointment.amount_cents)) {
+    if (paymentEntity.id && (paymentEntity.currency !== "USD" || Number(paymentEntity.amount) !== Number(appointment.amount_cents))) {
       return new Response("payment mismatch", { status: 400, headers: corsHeaders });
     }
 
@@ -72,12 +92,12 @@ Deno.serve(async (req) => {
       .update({
         status: "confirmed",
         payment_method: "razorpay",
-        razorpay_payment_id: payment.id,
-        razorpay_payment_status: payment.status ?? "captured",
-        razorpay_base_amount: payment.base_amount ?? null,
-        razorpay_base_currency: payment.base_currency ?? null,
-        razorpay_fee: payment.fee ?? null,
-        razorpay_tax: payment.tax ?? null,
+        razorpay_payment_id: paymentEntity.id ?? null,
+        razorpay_payment_status: paymentEntity.status ?? "captured",
+        razorpay_base_amount: paymentEntity.base_amount ?? null,
+        razorpay_base_currency: paymentEntity.base_currency ?? null,
+        razorpay_fee: paymentEntity.fee ?? null,
+        razorpay_tax: paymentEntity.tax ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", appointment.id)
@@ -85,7 +105,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (updateError) return new Response("appointment update failed", { status: 500, headers: corsHeaders });
-    if (updated) await awardBundleCredits(admin, updated);
+    if (updated) {
+      await awardBundleCredits(admin, updated);
+      await notifyBooking(appointment.id);
+    }
 
     return new Response("ok", { status: 200, headers: corsHeaders });
   } catch (error) {
