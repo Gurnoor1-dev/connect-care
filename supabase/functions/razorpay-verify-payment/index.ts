@@ -36,6 +36,21 @@ function basicAuth(key: string, secret: string) {
   return "Basic " + btoa(`${key}:${secret}`);
 }
 
+async function notifyBooking(appointmentId: string) {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!url || !key) return;
+  try {
+    await fetch(`${url}/functions/v1/appointment-notifications`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, apikey: key },
+      body: JSON.stringify({ action: "booking", appointment_id: appointmentId }),
+    });
+  } catch (error) {
+    console.error("[razorpay-verify-payment] booking notification failed:", error);
+  }
+}
+
 async function awardBundleCredits(admin: ReturnType<typeof createClient>, appointment: any) {
   if (appointment.bundle_credits_awarded_at) return;
 
@@ -159,6 +174,7 @@ Deno.serve(async (req) => {
     if (!updated) return json({ error: "Appointment could not be confirmed" }, 409);
 
     await awardBundleCredits(admin, updated);
+    await notifyBooking(appointment.id);
 
     return json({ success: true, appointment_id: appointment.id });
   } catch (error) {
