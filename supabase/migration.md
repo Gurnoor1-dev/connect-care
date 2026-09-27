@@ -48,7 +48,7 @@ Paste the entire file and click **Run**. This creates:
 | `stamp_customer_name` trigger | Denormalises customer name onto each appointment |
 | `set_updated_at` triggers | Auto-stamps `updated_at` on profiles, specialist_profiles, appointments |
 | All RLS policies | Row-level security for every table |
-| Performance indexes | On all foreign keys, scheduled_at, status, payu_txn_id, token |
+| Performance indexes | On all foreign keys, scheduled_at, status, Razorpay order/payment IDs, token |
 
 ### `supabase/sql-files/Admin-Promotion.sql`
 
@@ -93,79 +93,64 @@ The app flow: `Signup` → `supabase.auth.signUp()` → redirect to `/verify-otp
 
 ## Step 4 — Edge Functions
 
-There are **5 Edge Functions** in `supabase/functions/`. Deploy them all with the Supabase CLI.
+There are **6 Edge Functions** in `supabase/functions/`.
 
-### Install & link the CLI
-
-```bash
-npm install -g supabase
-supabase login
-supabase link --project-ref YOUR-PROJECT-REF
-```
-
-Your project ref is the string in your Supabase dashboard URL: `https://supabase.com/dashboard/project/YOUR-PROJECT-REF`
-
-### Deploy all functions
+### Deploy
 
 ```bash
-# Standard functions (JWT verification on)
 supabase functions deploy razorpay-create-order
+supabase functions deploy razorpay-verify-payment
+supabase functions deploy razorpay-webhook --no-verify-jwt
 supabase functions deploy daily-token
 supabase functions deploy invite-specialist
-
-# No JWT — these receive unauthenticated requests
-supabase functions deploy razorpay-webhook --no-verify-jwt
 supabase functions deploy accept-specialist-invite --no-verify-jwt
 ```
 
-`--no-verify-jwt` is required because:
-- `razorpay-webhook` receives server-to-server POST requests from Razorpay (no Supabase JWT)
-- `accept-specialist-invite` is called before the invitee has an account
+The webhook and invite acceptance functions do not use Supabase JWT verification because they receive server-to-server or pre-authentication requests. The other payment functions authenticate the signed-in customer.
 
-### Set function secrets
+### Secrets
 
 ```bash
 supabase secrets set \
-  APP_BASE_URL=https://yourdomain.com \
-  RAZORPAY_KEY_ID=your_payu_key \
-  RAZORPAY_KEY_SECRET=your_payu_salt \
-  RAZORPAY_MODE=test \
+  RAZORPAY_KEY_ID=your_razorpay_key_id \
+  RAZORPAY_KEY_SECRET=your_razorpay_key_secret \
+  RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret \
   DAILY_API_KEY=your_daily_api_key
 ```
 
-**Secrets injected automatically by Supabase** (do NOT set these yourself):
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+Supabase automatically provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
 
-### Edge Function reference
+### Payment functions
 
-| Function | Trigger | JWT | What it does |
-|----------|---------|-----|-------------|
-| `razorpay-create-order` | Customer clicks "Continue to payment" | ✅ Required | Creates appointment, builds Razorpay hash, returns self-submitting HTML form |
-| `razorpay-webhook` | Razorpay server-to-server POST after payment | ❌ None | Verifies reverse hash, flips appointment to `confirmed` or `cancelled` |
-| `daily-token` | Customer/specialist clicks "Join call" | ✅ Required | Checks 5-min window + confirmed status, lazily creates Daily.co room, returns meeting token |
-| `invite-specialist` | Admin submits invite form | ✅ Required (admin) | Inserts `specialist_invitations` row, returns invite URL |
-| `accept-specialist-invite` | Specialist opens `/invite/:token` and submits | ❌ None | Validates token, creates auth user, assigns `specialist` role, seeds `specialist_profiles` |
-
----
+| Function | Trigger | Purpose |
+|---|---|---|
+| `razorpay-create-order` | Customer starts payment | Creates a Razorpay Order in USD and returns the public Key ID + order details |
+| `razorpay-verify-payment` | Razorpay Checkout handler | Verifies the HMAC signature, fetches the payment from Razorpay, confirms the captured USD amount, confirms the appointment and awards bundle credits |
+| `razorpay-webhook` | Razorpay server-to-server | Verifies the webhook signature and confirms captured payments if the browser callback is interrupted |
 
 ## Step 5 — Razorpay Web Standard Checkout
 
-1. Sign up at https://payu.in → **Merchant Dashboard → Integration Details** for test credentials
-2. Set secrets as shown above (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_MODE=test`)
-3. In the Razorpay dashboard → **Webhooks** add: `https://YOUR-PROJECT.functions.supabase.co/razorpay-webhook`
-4. Payment flow:
-   - Customer fills booking form → clicks "Continue to payment"
-   - Frontend calls `razorpay-create-order` edge function
-   - Function returns an auto-submit HTML form
-   - App injects the form into the DOM and submits it to Razorpay's hosted page
-   - User completes payment on Razorpay's page
-   - Razorpay redirects to `/payment/success` or `/payment/failure`
-   - Razorpay also POSTs to `razorpay-webhook` which verifies the hash and updates appointment status
-5. To go live: change `RAZORPAY_MODE=live`
+1. Complete Razorpay business onboarding/KYC.
+2. Generate **Test Mode** API keys first.
+3. Enable/request **international payments** so the account can accept USD.
+4. Add the webhook URL:
+   `https://YOUR-PROJECT.functions.supabase.co/razorpay-webhook`
+5. Enable at least `payment.captured`, `payment.failed`, and `order.paid` in Razorpay.
+6. Payment flow:
+   - Customer chooses a **USD-priced** specialist tier and appointment time.
+   - BreatheRise creates a `pending_payment` appointment.
+   - `razorpay-create-order` calls Razorpay's Orders API server-side with `currency: "USD"`.
+   - The browser opens Razorpay **Web Standard Checkout** using the returned `order_id`.
+   - Checkout returns `razorpay_payment_id`, `razorpay_order_id`, and `razorpay_signature`.
+   - `razorpay-verify-payment` validates the signature using the **order ID stored on the server**, then fetches the payment from Razorpay and checks that it is captured and exactly matches the appointment amount/currency.
+   - The appointment becomes `confirmed`; bundle credits are awarded server-side.
+   - The webhook provides server-to-server fallback if the browser callback is interrupted.
 
----
+### USD → INR settlement
+
+BreatheRise does **not** calculate or manually convert USD to INR. The customer-facing transaction is USD. Razorpay's international currency flow performs the INR conversion for settlement using the applicable conversion rate at payment time. Razorpay exposes `base_amount` / `base_currency` on non-INR payments, and BreatheRise stores those fields for reconciliation.
+
+Do not convert the tier price to INR in the frontend. Price tiers used for this checkout must be configured as **USD**.
 
 ## Step 6 — Daily.co video calls
 
@@ -203,7 +188,7 @@ Specialists **cannot self-register**. The invite-only flow:
 |------|-------------|-----------|
 | `customer` | Auto on signup (trigger) | `/dashboard/customer` |
 | `specialist` | Only via `accept-specialist-invite` function | `/dashboard/specialist` |
-| `admin` | Manually via `002_promote_admin.sql` | `/dashboard/admin` |
+| `admin` | Manually via `supabase/sql-files/Admin-Promotion.sql` | `/dashboard/admin` |
 
 **Never check roles from `profiles`**. Always use `public.has_role(uid, 'admin')` (SECURITY DEFINER) or query `user_roles` directly.
 
@@ -308,6 +293,7 @@ db/
 
 supabase/functions/
   razorpay-create-order/index.ts
+  razorpay-verify-payment/index.ts
   razorpay-webhook/index.ts
   daily-token/index.ts
   invite-specialist/index.ts
@@ -320,8 +306,8 @@ supabase/functions/
 
 - [ ] Supabase project created
 - [ ] `.env` file created with URL + anon key
-- [ ] `001_initial.sql` executed in SQL editor
-- [ ] `002_promote_admin.sql` executed after first signup (with your email)
+- [ ] `supabase/sql-files/1.sql` executed in SQL editor
+- [ ] `supabase/sql-files/Admin-Promotion.sql` executed after first signup (with your email)
 - [ ] Email OTP enabled in Auth settings, template updated with `{{ .Token }}`
 - [ ] Google OAuth configured (optional)
 - [ ] Facebook OAuth configured (optional)
