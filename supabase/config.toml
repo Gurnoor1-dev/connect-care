@@ -1,5 +1,5 @@
-[functions.payu-webhook]
+[functions.jitsi-token]
 verify_jwt = false
 
-[functions.jitsi-token]
+[functions.razorpay-webhook]
 verify_jwt = false
