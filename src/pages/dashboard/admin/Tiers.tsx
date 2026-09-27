@@ -30,7 +30,7 @@ interface Tier {
   savings_label: string;
 }
 
-const CURRENCIES = ["USD", "INR", "EUR", "GBP", "AED", "SGD"];
+const CURRENCIES = ["USD"];
 
 function defaultTier(type: "single" | "bundle"): Tier {
   return {
@@ -276,7 +276,7 @@ function TierRow({
   onRemove: (i: number) => void;
   isBundle?: boolean;
 }) {
-  const CURRENCIES = ["USD", "INR", "EUR", "GBP", "AED", "SGD"];
+  const CURRENCIES = ["USD"];
   return (
     <Card className="border-white/55 bg-card/90 p-4 shadow-brand backdrop-blur">
       <div className="grid gap-3 sm:grid-cols-[1fr_100px_130px_100px_auto]">
@@ -299,7 +299,7 @@ function TierRow({
         </div>
         <div>
           <Label className="text-xs">Currency</Label>
-          <select value={tier.currency} onChange={(e) => onUpdate(index, { currency: e.target.value })} className="mt-1 h-9 w-full rounded-lg border bg-background px-2 text-sm">
+          <select value={tier.currency} onChange={(e) => onUpdate(index, { currency: e.target.value })} className="mt-1 h-9 w-full rounded-lg border bg-background px-2 text-sm" aria-label="Payment currency">
             {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
           </select>
         </div>
