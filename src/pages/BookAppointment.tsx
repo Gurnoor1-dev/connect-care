@@ -85,6 +85,9 @@ export default function BookAppointment() {
   const [credits, setCredits] = useState(0);
   const [useCredits, setUseCredits] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Razorpay Web Standard Checkout is a browser integration, not the React Native SDK.
+
   const [acceptPolicies, setAcceptPolicies] = useState(false);
   const submitLock = useRef(false);
 
@@ -113,7 +116,7 @@ export default function BookAppointment() {
     (async () => {
       const [{ data: tierData, error: tierError }, { data: availabilityData, error: availabilityError }, { data: creditData }, { data: offlineData, error: offlineError }] =
         await Promise.all([
-          supabase.from("specialist_tiers").select("id,label,duration_minutes,price_cents,currency").eq("specialist_id", specialistId).eq("is_active", true).order("price_cents"),
+          supabase.from("specialist_tiers").select("id,label,duration_minutes,price_cents,currency").eq("specialist_id", specialistId).eq("is_active", true).eq("currency", "USD").order("price_cents"),
           supabase.from("specialist_availability").select("day_of_week,start_time,end_time").eq("specialist_id", specialistId).eq("is_active", true),
           user ? supabase.from("customer_specialist_credits").select("credit_points").eq("customer_id", user.id).eq("specialist_id", specialistId).maybeSingle() : Promise.resolve({ data: null } as any),
           supabase.from("specialist_offline_periods").select("id,day_of_week,start_time,end_time,is_active").eq("specialist_id", specialistId).eq("is_active", true).order("day_of_week").order("start_time"),
@@ -178,14 +181,64 @@ export default function BookAppointment() {
     return [...new Set(output)];
   }, [selectedDate, tier, specialist, availability, offlinePeriods, booked]);
 
-  const submitPayu = (html: string) => {
-    const element = document.createElement("div");
-    element.innerHTML = html;
-    const form = element.querySelector<HTMLFormElement>("form");
-    if (!form) throw new Error("PayU form was not returned");
-    form.style.display = "none";
-    document.body.appendChild(form);
-    form.submit();
+  const loadRazorpay = () => new Promise<boolean>((resolve, reject) => {
+    if (window.Razorpay) return resolve(true);
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Could not load Razorpay Checkout")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => reject(new Error("Could not load Razorpay Checkout"));
+    document.body.appendChild(script);
+  });
+
+  const openRazorpay = async (appointmentId: string) => {
+    await loadRazorpay();
+    const { data, error } = await supabase.functions.invoke("razorpay-create-order", {
+      body: { appointment_id: appointmentId },
+    });
+    if (error || !data?.order_id) {
+      throw new Error(data?.error ?? error?.message ?? "Payment initialisation failed");
+    }
+
+    const razorpay = new window.Razorpay!({
+      key: data.key_id,
+      amount: data.amount,
+      currency: data.currency,
+      name: data.name,
+      description: data.description,
+      order_id: data.order_id,
+      prefill: data.prefill,
+      theme: { color: "#14b8a6" },
+      modal: {
+        ondismiss: () => {
+          setSubmitting(false);
+          submitLock.current = false;
+        },
+      },
+      handler: async (response: unknown) => {
+        const payment = response as {
+          razorpay_payment_id?: string;
+          razorpay_order_id?: string;
+          razorpay_signature?: string;
+        };
+        const { data: verified, error: verifyError } = await supabase.functions.invoke("razorpay-verify-payment", {
+          body: payment,
+        });
+        if (verifyError || !verified?.success) {
+          toast.error(verified?.error ?? verifyError?.message ?? "Payment was received but could not be verified yet.");
+          navigate(`/payment/success?appointment=${encodeURIComponent(appointmentId)}&verification=pending`);
+          return;
+        }
+        navigate(`/payment/success?appointment=${encodeURIComponent(appointmentId)}`);
+      },
+    });
+    razorpay.open();
   };
 
   const book = async (event: React.FormEvent) => {
@@ -230,9 +283,13 @@ export default function BookAppointment() {
 
       if (appointmentError || !appointment) throw new Error(appointmentError?.message ?? "Could not create appointment");
 
-      const { data, error } = await supabase.functions.invoke("payu-initiate", { body: { appointment_id: appointment.id } });
-      if (error || (!data?.formHtml && !data?.redirect_url)) throw new Error(data?.error ?? error?.message ?? "Payment initialisation failed");
-      if (data.formHtml) submitPayu(data.formHtml); else window.location.href = data.redirect_url;
+      const { error: appointmentUpdateError } = await supabase
+        .from("appointments")
+        .update({ currency: "USD", payment_method: "razorpay" })
+        .eq("id", appointment.id);
+      if (appointmentUpdateError) throw new Error(appointmentUpdateError.message);
+
+      await openRazorpay(appointment.id);
     } catch (error) {
       setSubmitting(false);
       submitLock.current = false;
@@ -247,7 +304,7 @@ export default function BookAppointment() {
       <div className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
         <div className="inline-flex max-w-full items-center gap-2 rounded-full border bg-card/85 px-3 py-2 text-xs font-semibold text-primary shadow-brand"><Sparkles className="h-3.5 w-3.5 shrink-0" />Protected booking & secure checkout</div>
         <div><h1 className="text-3xl font-semibold leading-tight sm:text-5xl lg:text-6xl">Book a specialist session</h1><p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">Choose a specialist, plan, today or one of the next seven days, and an available time.</p></div>
-        <div className="grid gap-3 sm:grid-cols-3">{[[ShieldCheck, "Protected", "Auth required"], [CalendarClock, "Today + 5", "workdays"], [CheckCircle2, "PayU verified", "Payment"]].map(([Icon, value, label]) => <Card key={String(label)} className="min-w-0 border-white/55 bg-card/85 p-3 shadow-brand sm:p-4"><Icon className="h-5 w-5 text-teal" /><div className="mt-2 text-sm font-semibold">{String(value)}</div><div className="text-xs text-muted-foreground">{String(label)}</div></Card>)}</div>
+        <div className="grid gap-3 sm:grid-cols-3">{[[ShieldCheck, "Protected", "Auth required"], [CalendarClock, "Today + 5", "workdays"], [CheckCircle2, "Razorpay verified", "Payment"]].map(([Icon, value, label]) => <Card key={String(label)} className="min-w-0 border-white/55 bg-card/85 p-3 shadow-brand sm:p-4"><Icon className="h-5 w-5 text-teal" /><div className="mt-2 text-sm font-semibold">{String(value)}</div><div className="text-xs text-muted-foreground">{String(label)}</div></Card>)}</div>
         {specialist && <Card className="flex min-w-0 items-center gap-3 border-white/60 bg-card/90 p-4 shadow-brand"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-brand">{specialist.avatar_url ? <img src={specialist.avatar_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xl font-bold text-white">{specialist.display_name[0]}</div>}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><div className="truncate font-semibold">{specialist.display_name}</div>{specialist.immediate_sessions && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary"><Zap className="h-3 w-3" />Immediate</span>}</div><div className="truncate text-sm text-muted-foreground">{specialist.country_flag} {specialist.country} · {specialist.timezone}</div><div className="mt-1 line-clamp-2 text-sm text-muted-foreground">{specialist.headline}</div></div></Card>}
         {credits > 0 && <Card className="border-teal/30 bg-teal/5 p-4 shadow-brand"><div className="flex items-center gap-2 font-semibold text-teal"><Coins className="h-4 w-4" />{credits} specialist credit{credits === 1 ? "" : "s"} available</div></Card>}
       </div>
@@ -258,7 +315,7 @@ export default function BookAppointment() {
 
           {specialistId && <div><Label>Payment method</Label><div className="mt-2 grid gap-2 sm:grid-cols-2">
             <button type="button" disabled={!credits} onClick={() => setUseCredits(true)} className={`min-w-0 rounded-2xl border p-3 text-left transition-colors ${useCredits && credits ? "border-teal bg-teal/10" : "bg-background hover:bg-accent/40"}`}><Coins className="h-4 w-4 text-teal" /><div className="mt-1 text-sm font-medium">Use credits</div><div className="text-xs text-muted-foreground">{credits} available</div></button>
-            <button type="button" onClick={() => setUseCredits(false)} className={`min-w-0 rounded-2xl border p-3 text-left transition-colors ${!useCredits || !credits ? "border-primary bg-primary/5" : "bg-background hover:bg-accent/40"}`}><ShieldCheck className="h-4 w-4 text-primary" /><div className="mt-1 text-sm font-medium">Pay via PayU</div><div className="text-xs text-muted-foreground">Secure online payment</div></button>
+            <button type="button" onClick={() => setUseCredits(false)} className={`min-w-0 rounded-2xl border p-3 text-left transition-colors ${!useCredits || !credits ? "border-primary bg-primary/5" : "bg-background hover:bg-accent/40"}`}><ShieldCheck className="h-4 w-4 text-primary" /><div className="mt-1 text-sm font-medium">Pay via PayU</div><div className="text-xs text-muted-foreground">Secure USD payment via Razorpay</div></button>
           </div></div>}
 
           <div><Label>Session plan</Label><Select value={tierId} onValueChange={setTierId} disabled={!specialistId || !tiers.length}><SelectTrigger className="mt-2 w-full"><SelectValue placeholder={!specialistId ? "Pick a specialist first" : !tiers.length ? "No active plans" : "Select a plan"} /></SelectTrigger><SelectContent>{tiers.map((item) => <SelectItem key={item.id} value={item.id}>{item.label} · {item.currency} {(item.price_cents / 100).toFixed(2)} / {item.duration_minutes} min</SelectItem>)}</SelectContent></Select></div>
