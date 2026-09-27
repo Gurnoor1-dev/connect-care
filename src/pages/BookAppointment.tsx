@@ -163,7 +163,7 @@ export default function BookAppointment() {
       }
     }
     return [...new Set(output)];
-  }, [selectedDate, tier, specialist, availability, offlinePeriods, booked]);
+  }, [selectedDate, tier, specialist, availability, booked]);
 
   const loadRazorpay = () => new Promise<boolean>((resolve, reject) => {
     if (window.Razorpay) return resolve(true);
