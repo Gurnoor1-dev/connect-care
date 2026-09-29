@@ -227,6 +227,45 @@ export default function AdminUsers() {
           </table>
         </div>
       </Card>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => {
+        if (!open && !deletingId) {
+          setDeleteTarget(null);
+          setDeleteError("");
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="h-5 w-5" />
+              Permanently delete this user?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">⚠️ This permanently removes the user's account, profile, specialist data, appointments, credits, roles, and owned storage files.</span>
+              <span className="block">A protected JSON deletion archive and recovery SQL will be kept in the deletion log.</span>
+              {deleteTarget && (
+                <span className="block font-medium text-foreground">
+                  User: {deleteTarget.full_name || deleteTarget.email || deleteTarget.id}
+                </span>
+              )}
+              {deleteError && <span className="block text-sm font-medium text-destructive">{deleteError}</span>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void deleteUser();
+              }}
+              disabled={!deleteTarget || !!deletingId}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {deletingId ? "Deleting..." : "Yes, permanently delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
