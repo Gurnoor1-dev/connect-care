@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Logo } from "@/components/Logo";
+import { CreditBadge } from "@/components/CreditBadge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -19,6 +20,6 @@ export function DashboardLayout(){
  return <div className="flex min-h-screen min-w-0 overflow-x-clip bg-gradient-dashboard">
   <aside className="hidden w-64 shrink-0 border-r bg-card/88 shadow-brand backdrop-blur-xl lg:flex lg:flex-col"><div className="flex h-[72px] items-center border-b px-5"><Logo className="h-8"/></div><nav className="flex-1 space-y-1 overflow-y-auto p-3"><NavItems nav={nav}/></nav><SidebarFooter/></aside>
   <Sheet open={mobileOpen} onOpenChange={setMobileOpen}><SheetContent side="left" className="flex w-[min(86vw,340px)] flex-col bg-card/98 p-0 backdrop-blur-xl"><SheetHeader className="flex h-[72px] items-center border-b px-5"><SheetTitle className="flex w-full items-center justify-start"><Logo className="h-8"/></SheetTitle></SheetHeader><nav className="flex-1 space-y-1 overflow-y-auto p-3"><NavItems nav={nav} onNavigate={()=>setMobileOpen(false)}/></nav><SidebarFooter/></SheetContent></Sheet>
-  <div className="flex min-w-0 flex-1 flex-col"><header className="sticky top-0 z-30 flex h-16 min-w-0 items-center border-b bg-card/82 px-3 shadow-sm backdrop-blur-xl sm:px-5 lg:px-8"><Button variant="ghost" size="icon" className="rounded-full lg:hidden" onClick={()=>setMobileOpen(true)} aria-label="Open navigation menu"><Menu className="h-5 w-5"/></Button><div className="pointer-events-none absolute left-1/2 -translate-x-1/2 lg:hidden"><Logo className="h-7"/></div><div className="ml-auto flex items-center gap-2"><ThemeToggle/></div></header><main className="min-w-0 flex-1 p-3 sm:p-5 lg:p-8"><Outlet/></main></div>
+  <div className="flex min-w-0 flex-1 flex-col"><header className="sticky top-0 z-30 flex h-16 min-w-0 items-center border-b bg-card/82 px-3 shadow-sm backdrop-blur-xl sm:px-5 lg:px-8"><Button variant="ghost" size="icon" className="rounded-full lg:hidden" onClick={()=>setMobileOpen(true)} aria-label="Open navigation menu"><Menu className="h-5 w-5"/></Button><div className="pointer-events-none absolute left-1/2 -translate-x-1/2 lg:hidden"><Logo className="h-7"/></div><div className="ml-auto flex items-center gap-2"><CreditBadge/><ThemeToggle/></div></header><main className="min-w-0 flex-1 p-3 sm:p-5 lg:p-8"><Outlet/></main></div>
  </div>;
 }
