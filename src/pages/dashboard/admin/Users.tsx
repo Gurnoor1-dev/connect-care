@@ -3,7 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Users as UsersIcon, X } from "lucide-react";
+import { Search, Users as UsersIcon, X, Trash2, AlertTriangle } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type UserRole = string;
 type UserRow = {
@@ -20,6 +24,9 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState<"all" | "specialist" | "customer">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +91,26 @@ export default function AdminUsers() {
       return matchesRole && matchesSearch;
     });
   }, [rows, q, roleFilter]);
+
+  const deleteUser = async () => {
+    if (!deleteTarget) return;
+    setDeletingId(deleteTarget.id);
+    setDeleteError("");
+
+    const { data, error: functionError } = await supabase.functions.invoke("admin-delete-user", {
+      body: { user_id: deleteTarget.id },
+    });
+
+    if (functionError || data?.error) {
+      setDeleteError(functionError?.message || data?.error || "Could not delete this user.");
+      setDeletingId(null);
+      return;
+    }
+
+    setRows((current) => current.filter((user) => user.id !== deleteTarget.id));
+    setDeleteTarget(null);
+    setDeletingId(null);
+  };
 
   const roleLabel =
     roleFilter === "customer" ? "Client" :
@@ -155,11 +182,12 @@ export default function AdminUsers() {
                 <th className="p-3 text-left">Email</th>
                 <th className="p-3 text-left">Role</th>
                 <th className="p-3 text-left">Joined</th>
+                <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="p-10 text-center text-muted-foreground">Loading users...</td></tr>
+                <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">Loading users...</td></tr>
               ) : error ? (
                 <tr><td colSpan={4} className="p-10 text-center text-destructive">{error}</td></tr>
               ) : filtered.length === 0 ? (
@@ -179,6 +207,19 @@ export default function AdminUsers() {
                       </div>
                     </td>
                     <td className="p-3 text-muted-foreground">{new Date(user.created_at).toLocaleDateString()}</td>
+                    <td className="p-3 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                        aria-label={`Delete ${user.full_name || user.email || "user"}`}
+                        onClick={() => { setDeleteError(""); setDeleteTarget(user); }}
+                        disabled={deletingId === user.id}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </td>
                   </tr>
                 ))
               )}
