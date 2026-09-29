@@ -24,7 +24,7 @@ export function PublicLayout() {
         <nav className="hidden items-center gap-0.5 lg:flex"><PublicNav /></nav>
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2"><div className="hidden xl:block"><CreditBadge /></div><ThemeToggle />
           {user ? <Button asChild size="sm" className="hidden rounded-full bg-primary px-4 text-primary-foreground shadow-brand sm:inline-flex"><Link to="/dashboard">Dashboard<ArrowUpRight className="ml-1.5 h-4 w-4" /></Link></Button> : <><Button asChild variant="ghost" size="sm" className="hidden rounded-full sm:inline-flex"><Link to="/login">Sign in</Link></Button><Button asChild size="sm" className="hidden rounded-full bg-primary px-4 text-primary-foreground shadow-brand sm:inline-flex"><Link to="/signup">Get started<ArrowUpRight className="ml-1.5 h-4 w-4" /></Link></Button></>}
-          <Button variant="ghost" size="icon" className="rounded-full lg:hidden" onClick={()=>setMobileOpen(true)} aria-label="Open navigation menu"><Menu className="h-5 w-5" /></Button>
+          <div className="lg:hidden"><CreditBadge /></div><Button variant="ghost" size="icon" className="rounded-full lg:hidden" onClick={()=>setMobileOpen(true)} aria-label="Open navigation menu"><Menu className="h-5 w-5" /></Button>
         </div>
       </div>
     </header>
