@@ -122,7 +122,8 @@ export function AppointmentRow({ a, role, past }: { a: any; role: "customer" | "
   const timeZone = role === "customer" ? getDeviceTimeZone() : (a.specialist?.timezone ?? getDeviceTimeZone());
   const now = new Date();
   const minsToStart = (dt.getTime() - now.getTime()) / 60000;
-  const callOpen = minsToStart <= 5 && minsToStart >= -Math.max(15, a.duration_minutes ?? 30);
+  const sessionEnd = dt.getTime() + Number(a.duration_minutes ?? 30) * 60000;
+  const callOpen = now.getTime() >= dt.getTime() - 15 * 60000 && now.getTime() < sessionEnd;
   const callPath = role === "customer" ? `/dashboard/customer/call/${a.id}` : `/dashboard/specialist/call/${a.id}`;
   return (
     <Card className="border-white/55 bg-card/90 p-4 shadow-brand backdrop-blur">
@@ -140,10 +141,11 @@ export function AppointmentRow({ a, role, past }: { a: any; role: "customer" | "
           <span className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
             a.status === "confirmed" ? "bg-teal/15 text-teal" :
             a.status === "completed" ? "bg-muted text-muted-foreground" :
+            a.status === "partially_completed" ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300" :
             a.status === "cancelled" ? "bg-destructive/15 text-destructive" :
             "bg-accent text-accent-foreground"
           }`}>{a.status}</span>
-          {!past && callOpen && a.status === "confirmed" && (
+          {callOpen && a.status === "confirmed" && (
             <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground shadow-brand">
               <Link to={callPath}><Video className="mr-1.5 h-3.5 w-3.5" /> Join call</Link>
             </Button>
