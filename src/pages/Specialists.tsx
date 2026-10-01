@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getDeviceTimeZone, getTimeZoneLabel, formatInTimeZone, zonedTimeToUtc, getZonedDateKey, getZonedDayOfWeek } from "@/lib/timezone";
 import { Card } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight, MapPin, UserRound,
   GraduationCap, Briefcase, Globe, Check, Star,
-  Zap, Clock
+  Zap, Clock, SlidersHorizontal, ArrowUpDown
 } from "lucide-react";
 
 interface Tier {
@@ -68,6 +68,27 @@ function sortTiers(tiers: Tier[]) {
 export default function Specialists() {
   const [items, setItems] = useState<SpecialistRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [specialityFilter, setSpecialityFilter] = useState("all");
+  const [qualificationFilter, setQualificationFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name-asc");
+
+  const publishedSpecialities = useMemo(() => Array.from(new Set(items.flatMap((s) => s.specialities ?? []).map((v) => v.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [items]);
+  const publishedQualifications = useMemo(() => Array.from(new Set(items.flatMap((s) => s.qualifications ?? []).map((v) => v.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [items]);
+
+  const visibleItems = useMemo(() => {
+    const filtered = items.filter((s) =>
+      (specialityFilter === "all" || (s.specialities ?? []).some((v) => v.trim() === specialityFilter)) &&
+      (qualificationFilter === "all" || (s.qualifications ?? []).some((v) => v.trim() === qualificationFilter))
+    );
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "name-desc") return b.display_name.localeCompare(a.display_name);
+      if (sortBy === "price-low") return (a.specialist_tiers[0]?.price_cents ?? Infinity) - (b.specialist_tiers[0]?.price_cents ?? Infinity);
+      if (sortBy === "price-high") return (b.specialist_tiers[0]?.price_cents ?? -1) - (a.specialist_tiers[0]?.price_cents ?? -1);
+      if (sortBy === "duration-short") return (a.specialist_tiers[0]?.duration_minutes ?? Infinity) - (b.specialist_tiers[0]?.duration_minutes ?? Infinity);
+      if (sortBy === "duration-long") return (b.specialist_tiers[0]?.duration_minutes ?? -1) - (a.specialist_tiers[0]?.duration_minutes ?? -1);
+      return a.display_name.localeCompare(b.display_name);
+    });
+  }, [items, specialityFilter, qualificationFilter, sortBy]);
 
   useEffect(() => {
     (async () => {
@@ -122,6 +143,44 @@ export default function Specialists() {
           <p className="mt-4 text-lg text-muted-foreground">Each specialist is vetted, credentialled, and ready. Browse tiers and book a session in seconds.</p>
         </div>
 
+        {/* Filters & sorting — options come only from published specialists */}
+        {!loading && items.length > 0 && (
+          <div className="mt-8 rounded-2xl border border-white/10 bg-card/70 p-4 shadow-brand backdrop-blur">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+              <div className="flex items-center gap-2 text-sm font-semibold lg:mr-2">
+                <SlidersHorizontal className="h-4 w-4 text-teal" /> Filter specialists
+              </div>
+              <label className="flex-1">
+                <span className="mb-1 block text-xs text-muted-foreground">Speciality</span>
+                <select value={specialityFilter} onChange={(e) => setSpecialityFilter(e.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-background px-3 text-sm">
+                  <option value="all">All specialities</option>
+                  {publishedSpecialities.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </label>
+              <label className="flex-1">
+                <span className="mb-1 block text-xs text-muted-foreground">Qualification</span>
+                <select value={qualificationFilter} onChange={(e) => setQualificationFilter(e.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-background px-3 text-sm">
+                  <option value="all">All qualifications</option>
+                  {publishedQualifications.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </label>
+              <label className="flex-1">
+                <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground"><ArrowUpDown className="h-3 w-3" /> Sort by</span>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-background px-3 text-sm">
+                  <option value="name-asc">Name (A–Z)</option>
+                  <option value="name-desc">Name (Z–A)</option>
+                  <option value="price-low">Lowest session price</option>
+                  <option value="price-high">Highest session price</option>
+                  <option value="duration-short">Shortest session</option>
+                  <option value="duration-long">Longest session</option>
+                </select>
+              </label>
+              {(specialityFilter !== "all" || qualificationFilter !== "all") && <Button type="button" variant="outline" onClick={() => { setSpecialityFilter("all"); setQualificationFilter("all"); }}>Clear</Button>}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">{visibleItems.length} published specialist{visibleItems.length === 1 ? "" : "s"} shown</p>
+          </div>
+        )}
+
         {/* Grid */}
         <div className="mt-10 grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
           {loading &&
@@ -129,14 +188,14 @@ export default function Specialists() {
               <div key={i} className="h-[580px] animate-pulse rounded-2xl bg-card/70 shadow-brand" />
             ))}
 
-          {!loading && items.length === 0 && (
+          {!loading && visibleItems.length === 0 && (
             <Card className="col-span-full border-white/10 bg-card/90 p-12 text-center text-muted-foreground shadow-brand backdrop-blur-md">
               <UserRound className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <p className="mt-4 text-lg font-medium">No specialists available right now.</p>
+              <p className="mt-4 text-lg font-medium">No published specialists match these filters.</p>
             </Card>
           )}
 
-          {!loading && items.map((specialist) => (
+          {!loading && visibleItems.map((specialist) => (
             <SpecialistCard key={specialist.id} specialist={specialist} />
           ))}
         </div>
