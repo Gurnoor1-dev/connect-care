@@ -72,12 +72,22 @@ export default function Specialists() {
   const [qualificationFilter, setQualificationFilter] = useState("all");
   const [sortBy, setSortBy] = useState("name-asc");
 
-  const publishedSpecialities = useMemo(() => Array.from(new Set(items.flatMap((s) => s.specialities ?? []).map((v) => v.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [items]);
+  const breatheRiseSpecialities = [
+    { label: "Stress & anxiety", keywords: ["stress", "anxiety"] },
+    { label: "Sleep & recovery", keywords: ["sleep", "recovery"] },
+    { label: "Relationships", keywords: ["relationship"] },
+    { label: "Focus & confidence", keywords: ["focus", "confidence"] },
+    { label: "Life transitions", keywords: ["transition"] },
+    { label: "Personal growth", keywords: ["growth", "mindfulness"] },
+  ];
   const publishedQualifications = useMemo(() => Array.from(new Set(items.flatMap((s) => s.qualifications ?? []).map((v) => v.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [items]);
 
   const visibleItems = useMemo(() => {
     const filtered = items.filter((s) =>
-      (specialityFilter === "all" || (s.specialities ?? []).some((v) => v.trim() === specialityFilter)) &&
+      (specialityFilter === "all" || (() => {
+        const category = breatheRiseSpecialities.find((v) => v.label === specialityFilter);
+        return category ? (s.specialities ?? []).some((v) => category.keywords.some((keyword) => v.toLowerCase().includes(keyword))) : false;
+      })()) &&
       (qualificationFilter === "all" || (s.qualifications ?? []).some((v) => v.trim() === qualificationFilter))
     );
     return [...filtered].sort((a, b) => {
@@ -154,7 +164,7 @@ export default function Specialists() {
                 <span className="mb-1 block text-xs text-muted-foreground">Speciality</span>
                 <select value={specialityFilter} onChange={(e) => setSpecialityFilter(e.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-background px-3 text-sm">
                   <option value="all">All specialities</option>
-                  {publishedSpecialities.map((v) => <option key={v} value={v}>{v}</option>)}
+                  {breatheRiseSpecialities.map((v) => <option key={v.label} value={v.label}>{v.label}</option>)}
                 </select>
               </label>
               <label className="flex-1">
