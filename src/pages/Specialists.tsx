@@ -80,7 +80,14 @@ export default function Specialists() {
     { label: "Life transitions", keywords: ["transition"] },
     { label: "Personal growth", keywords: ["growth", "mindfulness"] },
   ];
-  const publishedQualifications = useMemo(() => Array.from(new Set(items.flatMap((s) => s.qualifications ?? []).map((v) => v.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [items]);
+  const breatheRiseQualifications = [
+    "Psychology",
+    "Counselling",
+    "Therapy",
+    "Psychiatry",
+    "Mental health",
+    "Coaching",
+  ];
 
   const visibleItems = useMemo(() => {
     const filtered = items.filter((s) =>
@@ -88,7 +95,7 @@ export default function Specialists() {
         const category = breatheRiseSpecialities.find((v) => v.label === specialityFilter);
         return category ? (s.specialities ?? []).some((v) => category.keywords.some((keyword) => v.toLowerCase().includes(keyword))) : false;
       })()) &&
-      (qualificationFilter === "all" || (s.qualifications ?? []).some((v) => v.trim() === qualificationFilter))
+      (qualificationFilter === "all" || (s.qualifications ?? []).some((v) => v.toLowerCase().includes(qualificationFilter.toLowerCase())))
     );
     return [...filtered].sort((a, b) => {
       if (sortBy === "name-desc") return b.display_name.localeCompare(a.display_name);
@@ -171,7 +178,7 @@ export default function Specialists() {
                 <span className="mb-1 block text-xs text-muted-foreground">Qualification</span>
                 <select value={qualificationFilter} onChange={(e) => setQualificationFilter(e.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-background px-3 text-sm">
                   <option value="all">All qualifications</option>
-                  {publishedQualifications.map((v) => <option key={v} value={v}>{v}</option>)}
+                  {breatheRiseQualifications.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </label>
               <label className="flex-1">
