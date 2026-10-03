@@ -34,6 +34,7 @@ import AdminOverview from "@/pages/dashboard/admin/Overview";
 import AdminInvitations from "@/pages/dashboard/admin/Invitations";
 import AdminUsers from "@/pages/dashboard/admin/Users";
 import AdminTiers from "@/pages/dashboard/admin/Tiers";
+import AdminPayments from "@/pages/dashboard/admin/Payments";
 import DashboardRedirect from "@/pages/dashboard/DashboardRedirect";
 import PaymentSuccess from "@/pages/payment/Success";
 import PaymentFailure from "@/pages/payment/Failure";
@@ -57,7 +58,7 @@ const App = () => (
     <Route path="/dashboard" element={<ProtectedRoute />}><Route element={<DashboardLayout />}><Route index element={<DashboardRedirect />} />
       <Route path="customer" element={<ProtectedRoute requireRole="customer" />}><Route index element={<CustomerOverview />} /><Route path="appointments" element={<CustomerAppointments />} /><Route path="book" element={<Navigate to="/book" replace />} /><Route path="call/:appointmentId" element={<CustomerVideoCall />} /></Route>
       <Route path="specialist" element={<ProtectedRoute requireRole="specialist" />}><Route index element={<SpecialistOverview />} /><Route path="availability" element={<SpecialistAvailability />} /><Route path="tiers" element={<SpecialistTiers />} /><Route path="profile" element={<SpecialistProfile />} /><Route path="patients" element={<SpecialistPatients />} /><Route path="call/:appointmentId" element={<SpecialistVideoCall />} /></Route>
-      <Route path="admin" element={<ProtectedRoute requireRole="admin" />}><Route index element={<AdminOverview />} /><Route path="invitations" element={<AdminInvitations />} /><Route path="users" element={<AdminUsers />} /><Route path="tiers" element={<AdminTiers />} /></Route>
+      <Route path="admin" element={<ProtectedRoute requireRole="admin" />}><Route index element={<AdminOverview />} /><Route path="invitations" element={<AdminInvitations />} /><Route path="users" element={<AdminUsers />} /><Route path="tiers" element={<AdminTiers />} /><Route path="payments" element={<AdminPayments />} /></Route>
     </Route></Route>
     <Route path="/404" element={<NotFound />} /><Route path="*" element={<Navigate to="/404" replace />} />
   </Routes></BrowserRouter></TooltipProvider></AuthProvider></ThemeProvider>
