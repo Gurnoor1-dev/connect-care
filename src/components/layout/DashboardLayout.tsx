@@ -6,12 +6,12 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
-import { LayoutDashboard, Calendar, Users, ClipboardList, Mail, ShieldCheck, LogOut, DollarSign, Clock, User, Menu, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, ClipboardList, Mail, ShieldCheck, LogOut, DollarSign, CreditCard, Clock, User, Menu, type LucideIcon } from "lucide-react";
 
 type NavItem={to:string;label:string;icon:LucideIcon;end?:boolean};
 const customerNav:NavItem[]=[{to:"/dashboard/customer",label:"Overview",icon:LayoutDashboard,end:true},{to:"/dashboard/customer/appointments",label:"Appointments",icon:Calendar}];
 const specialistNav:NavItem[]=[{to:"/dashboard/specialist",label:"Overview",icon:LayoutDashboard,end:true},{to:"/dashboard/specialist/patients",label:"Private notes",icon:ClipboardList},{to:"/dashboard/specialist/availability",label:"Availability",icon:Clock},{to:"/dashboard/specialist/profile",label:"Profile",icon:User}];
-const adminNav:NavItem[]=[{to:"/dashboard/admin",label:"Overview",icon:LayoutDashboard,end:true},{to:"/dashboard/admin/invitations",label:"Specialist invites",icon:Mail},{to:"/dashboard/admin/users",label:"Users",icon:Users},{to:"/dashboard/admin/tiers",label:"Pricing & tiers",icon:DollarSign}];
+const adminNav:NavItem[]=[{to:"/dashboard/admin",label:"Overview",icon:LayoutDashboard,end:true},{to:"/dashboard/admin/invitations",label:"Specialist invites",icon:Mail},{to:"/dashboard/admin/users",label:"Users",icon:Users},{to:"/dashboard/admin/tiers",label:"Pricing & tiers",icon:DollarSign},{to:"/dashboard/admin/payments",label:"Payments & income",icon:CreditCard}];
 function NavItems({nav,onNavigate}:{nav:NavItem[];onNavigate?:()=>void}){return <>{nav.map(n=><NavLink key={n.to} to={n.to} end={n.end} onClick={onNavigate} className={({isActive})=>`flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${isActive?"bg-gradient-brand text-primary-foreground shadow-brand":"text-muted-foreground hover:bg-accent/70 hover:text-foreground"}`}><n.icon className="h-4 w-4 shrink-0"/><span className="truncate">{n.label}</span></NavLink>)}</>}
 
 export function DashboardLayout(){
