@@ -14,15 +14,19 @@ export default function CustomerAppointments() {
 
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      const nowIso = new Date().toISOString();
+    const load = async () => {
+      const now = new Date();
+      const activeCutoff = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
       const select = "*, specialist:specialist_profiles!appointments_specialist_id_fkey(display_name, country_flag, timezone)";
       const [{ data: up }, { data: ps }] = await Promise.all([
-        supabase.from("appointments").select(select).eq("customer_id", user.id).gte("scheduled_at", nowIso).order("scheduled_at", { ascending: true }),
-        supabase.from("appointments").select(select).eq("customer_id", user.id).lt("scheduled_at", nowIso).order("scheduled_at", { ascending: false }),
+        supabase.from("appointments").select(select).eq("customer_id", user.id).eq("status", "confirmed").gte("scheduled_at", activeCutoff).order("scheduled_at", { ascending: true }),
+        supabase.from("appointments").select(select).eq("customer_id", user.id).lt("scheduled_at", activeCutoff).order("scheduled_at", { ascending: false }),
       ]);
       setUpcoming(up ?? []); setPast(ps ?? []);
-    })();
+    };
+    void load();
+    const id = window.setInterval(() => void load(), 15_000);
+    return () => window.clearInterval(id);
   }, [user]);
 
   return <div className="space-y-6">
