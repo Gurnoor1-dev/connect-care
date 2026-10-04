@@ -152,8 +152,10 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
       await loadDaily();
       if (!window.DailyIframe) throw new Error("Video service is unavailable. Please try again.");
 
-      const { data, error } = await supabase.functions.invoke("daily-token", {
-        body: { appointment_id: appointmentId, role },
+      // Use the existing production Daily handler. It already validates the
+      // appointment, creates/reuses the Daily room, and issues the meeting token.
+      const { data, error } = await supabase.functions.invoke("smart-handler", {
+        body: { appointment_id: appointmentId },
       });
       if (error || !data?.room_url || !data?.token) {
         throw new Error(data?.error ?? error?.message ?? "Could not start video call");
