@@ -259,9 +259,9 @@ export default function BookAppointment() {
     setSubmitting(true);
 
     try {
-      if (useCredits && credits > 0) {
-        const { error } = await supabase.from("customer_specialist_credits").update({ credit_points: credits - 1, updated_at: new Date().toISOString() })
-          .eq("customer_id", user.id).eq("specialist_id", specialistId).gte("credit_points", 1);
+      if (useCredits && credits >= 2) {
+        const { error } = await supabase.from("customer_specialist_credits").update({ credit_points: credits - 2, updated_at: new Date().toISOString() })
+          .eq("customer_id", user.id).eq("specialist_id", specialistId).gte("credit_points", 2);
         if (error) throw new Error(error.message);
 
         const { error: appointmentError } = await supabase.from("appointments").insert({
@@ -275,7 +275,7 @@ export default function BookAppointment() {
             .eq("customer_id", user.id).eq("specialist_id", specialistId);
           throw new Error(appointmentError.message);
         }
-        toast.success("Session booked using 1 credit");
+        toast.success("Session booked using 2 credits");
         navigate("/dashboard/customer/appointments");
         return;
       }
@@ -320,7 +320,7 @@ export default function BookAppointment() {
           <div><Label>Specialist</Label><Select value={specialistId} onValueChange={setSpecialistId}><SelectTrigger className="mt-2 w-full"><SelectValue placeholder="Select a specialist" /></SelectTrigger><SelectContent>{specialists.map((item) => <SelectItem key={item.id} value={item.id}>{item.country_flag} {item.display_name}{item.immediate_sessions ? " · Immediate" : ""}</SelectItem>)}</SelectContent></Select></div>
 
           {specialistId && <div><Label>Payment method</Label><div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <button type="button" disabled={!credits} onClick={() => setUseCredits(true)} className={`min-w-0 rounded-2xl border p-3 text-left transition-colors ${useCredits && credits ? "border-teal bg-teal/10" : "bg-background hover:bg-accent/40"}`}><Coins className="h-4 w-4 text-teal" /><div className="mt-1 text-sm font-medium">Use credits</div><div className="text-xs text-muted-foreground">{credits} available</div></button>
+            <button type="button" disabled={credits < 2} onClick={() => setUseCredits(true)} className={`min-w-0 rounded-2xl border p-3 text-left transition-colors ${useCredits && credits >= 2 ? "border-teal bg-teal/10" : "bg-background hover:bg-accent/40"}`}><Coins className="h-4 w-4 text-teal" /><div className="mt-1 text-sm font-medium">Use credits</div><div className="text-xs text-muted-foreground">{credits} available · 2 required</div></button>
             <button type="button" onClick={() => setUseCredits(false)} className={`min-w-0 rounded-2xl border p-3 text-left transition-colors ${!useCredits || !credits ? "border-primary bg-primary/5" : "bg-background hover:bg-accent/40"}`}><ShieldCheck className="h-4 w-4 text-primary" /><div className="mt-1 text-sm font-medium">Pay via Razorpay <span className="text-primary">(Test Mode)</span></div><div className="text-xs text-muted-foreground">Sandbox USD payment — no real money</div></button>
           </div></div>}
 
@@ -336,11 +336,11 @@ export default function BookAppointment() {
           </div>
 
           {scheduledAt && <div className="rounded-2xl border bg-background p-4 text-sm"><div className="font-semibold">Selected appointment</div><div className="mt-1 break-words text-muted-foreground">{formatInTimeZone(scheduledAt, getDeviceTimeZone(), { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {tier?.duration_minutes} minutes</div></div>}
-          {tier && <div className="rounded-2xl border bg-accent/40 p-4 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="text-muted-foreground">Total</span><span className="font-semibold">{useCredits && credits > 0 ? "1 credit" : `${tier.currency} ${(tier.price_cents / 100).toFixed(2)}`}</span></div></div>}
+          {tier && <div className="rounded-2xl border bg-accent/40 p-4 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="text-muted-foreground">Total</span><span className="font-semibold">{useCredits && credits >= 2 ? "2 credits" : `${tier.currency} ${(tier.price_cents / 100).toFixed(2)}`}</span></div></div>}
 
           <label className="flex items-start gap-3 rounded-2xl border bg-background p-4 text-sm"><Checkbox checked={acceptPolicies} onCheckedChange={(value) => setAcceptPolicies(!!value)} className="mt-0.5 shrink-0" /><span className="leading-6 text-muted-foreground">I have read and agree to the <Link to="/terms" target="_blank" className="font-medium text-foreground underline underline-offset-4">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link>, <Link to="/trust" target="_blank" className="font-medium text-foreground underline underline-offset-4">Trust & Safety Policy</Link>, and <Link to="/cancellation" target="_blank" className="font-medium text-foreground underline underline-offset-4">Cancellation & Refund Policy</Link>.</span></label>
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row"><Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={submitting} className="sm:w-auto">Cancel</Button><Button type="submit" disabled={submitting || !specialistId || !tierId || !scheduledAt || !acceptPolicies} className="min-w-0 flex-1 rounded-full bg-primary text-primary-foreground shadow-brand">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : useCredits && credits > 0 ? <><Zap className="mr-2 h-4 w-4" />Book with 1 credit</> : "Continue to payment"}</Button></div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row"><Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={submitting} className="sm:w-auto">Cancel</Button><Button type="submit" disabled={submitting || !specialistId || !tierId || !scheduledAt || !acceptPolicies} className="min-w-0 flex-1 rounded-full bg-primary text-primary-foreground shadow-brand">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</> : "Continue to payment"}</Button></div>
         </form>
         <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">New here? <Link to="/signup" className="underline">Create an account</Link> before booking.</p>
       </Card>
