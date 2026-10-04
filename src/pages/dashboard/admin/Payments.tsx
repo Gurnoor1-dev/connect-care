@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, CreditCard, DollarSign, RefreshCw } from "lucide-react";
+import { CreditCard, DollarSign, RefreshCw } from "lucide-react";
 
 type Tier = {
   label: string | null;
@@ -51,14 +51,19 @@ export default function AdminPayments() {
   const [q, setQ] = useState("");
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const [{ data: p, error: paymentError }, { data: e, error: earningError }, { data: s, error: specialistError }] = await Promise.all([
+    setLoadError(null);
+
+    // Keep these queries independent. A nested PostgREST relationship error in one
+    // join must not make the entire admin payment table look empty.
+    const [appointmentsResult, earningsResult, specialistsResult, profilesResult, tiersResult] = await Promise.all([
       supabase
         .from("appointments")
         .select(
-          "id,amount_cents,currency,scheduled_at,created_at,status,razorpay_payment_status,razorpay_payment_id,razorpay_order_id,razorpay_fee,razorpay_tax,payment_method,customer_id,specialist_id,customer:profiles!appointments_customer_id_fkey(full_name,email),specialist:specialist_profiles!appointments_specialist_id_fkey(display_name),tier:specialist_tiers!appointments_tier_id_fkey(label,session_count,credit_points,price_cents,currency,tier_type)",
+          "id,amount_cents,currency,scheduled_at,created_at,status,razorpay_payment_status,razorpay_payment_id,razorpay_order_id,razorpay_fee,razorpay_tax,payment_method,customer_id,specialist_id,tier_id",
         )
         .order("created_at", { ascending: false })
         .limit(1000),
@@ -68,15 +73,41 @@ export default function AdminPayments() {
         .order("earned_at", { ascending: false })
         .limit(1000),
       supabase.from("specialist_profiles").select("id,display_name"),
+      supabase.from("profiles").select("id,full_name,email"),
+      supabase.from("specialist_tiers").select("id,label,session_count,credit_points,price_cents,currency,tier_type"),
     ]);
 
-    if (paymentError) console.error("Admin payment records load failed", paymentError);
-    if (earningError) console.error("Admin specialist earnings load failed", earningError);
-    if (specialistError) console.error("Admin specialist list load failed", specialistError);
+    const errors = [
+      appointmentsResult.error,
+      earningsResult.error,
+      specialistsResult.error,
+      profilesResult.error,
+      tiersResult.error,
+    ].filter(Boolean);
 
-    setPayments((p ?? []) as Payment[]);
-    setEarnings((e ?? []) as Earning[]);
-    setProfiles(Object.fromEntries((s ?? []).map((x: any) => [x.id, x.display_name || "Unnamed specialist"])));
+    if (errors.length) {
+      console.error("Admin payments data load failed", errors);
+      setLoadError("Some payment data could not be loaded. Please refresh and try again.");
+    }
+
+    const specialistMap = Object.fromEntries(
+      (specialistsResult.data ?? []).map((x: any) => [x.id, { display_name: x.display_name || "Unnamed specialist" }]),
+    );
+    const customerMap = Object.fromEntries(
+      (profilesResult.data ?? []).map((x: any) => [x.id, { full_name: x.full_name, email: x.email }]),
+    );
+    const tierMap = Object.fromEntries((tiersResult.data ?? []).map((x: any) => [x.id, x]));
+
+    const mappedPayments: Payment[] = (appointmentsResult.data ?? []).map((p: any) => ({
+      ...p,
+      customer: customerMap[p.customer_id],
+      specialist: specialistMap[p.specialist_id],
+      tier: tierMap[p.tier_id] ?? null,
+    }));
+
+    setPayments(mappedPayments);
+    setEarnings((earningsResult.data ?? []) as Earning[]);
+    setProfiles(Object.fromEntries((specialistsResult.data ?? []).map((x: any) => [x.id, x.display_name || "Unnamed specialist"])));
     setLoading(false);
   };
 
@@ -97,7 +128,7 @@ export default function AdminPayments() {
   );
 
   const capturedPayments = useMemo(
-    () => payments.filter((p) => p.razorpay_payment_status === "captured"),
+    () => payments.filter((p) => p.razorpay_payment_status === "captured" && !!p.razorpay_payment_id),
     [payments],
   );
 
@@ -161,6 +192,12 @@ export default function AdminPayments() {
         </div>
       </header>
 
+      {loadError && (
+        <Card className="border-destructive/40 p-4 text-sm text-destructive">
+          {loadError}
+        </Card>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat icon={CreditCard} value={money(totalPayments, "USD")} label="All captured payments" />
         <Stat icon={DollarSign} value={money(totalIncome, "USD")} label="All specialist income" />
@@ -183,7 +220,7 @@ export default function AdminPayments() {
             <div>
               <div className="font-semibold">Payment records</div>
               <div className="text-xs text-muted-foreground">
-                Razorpay captures contribute to captured-payment totals. Credit bookings remain visible without being counted as a new cash payment.
+                Razorpay captures contribute to captured-payment totals. Credit bookings remain visible without being counted as new cash revenue.
               </div>
             </div>
             <Input
