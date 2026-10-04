@@ -131,7 +131,7 @@ export default function SpecialistOverview() {
           <h2 className="text-xl font-semibold">Session earnings</h2>
           <span className="text-xs text-muted-foreground">One session price is added only after full attendance.</span>
         </div>
-        {earnings.length === 0 ? <Card className="p-8 text-center text-muted-foreground">No session earnings yet.</Card> : <div className="space-y-3">{earnings.map((earning) => <EarningRow key={earning.id} earning={earning} currency={earning.currency} />)}</div>}
+        {earnings.length === 0 ? <Card className="p-8 text-center text-muted-foreground">No session earnings yet.</Card> : <div className="space-y-3">{earnings.map((earning) => <EarningRow key={earning.id} earning={earning} timezone={specialistTimezone} />)}</div>}
       </section>
 
       <section>
@@ -145,9 +145,9 @@ export default function SpecialistOverview() {
   );
 }
 
-function EarningRow({ earning, currency }: { earning: Earning; currency: string }) {
+function EarningRow({ earning, timezone }: { earning: Earning; timezone: string }) {
   const payment = earning.payment_method === "credits" ? "Credits" : earning.payment_method === "razorpay" ? "Razorpay" : earning.payment_method || "Not recorded";
-  return <Card className="p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="font-medium">{earning.customer_name}</div><div className="text-xs text-muted-foreground">{formatDateTimeInTimeZone(earning.earned_at, "Asia/Calcutta")} · {payment} · 1 completed session</div>{earning.pending_sessions > 0 && <div className="mt-1 text-xs text-muted-foreground">{earning.pending_sessions} {earning.pending_sessions === 1 ? "session" : "sessions"} still pending for this client</div>}</div><div className="text-right"><div className="font-semibold">{formatMoney(earning.amount_cents, currency)}</div><div className="text-xs text-muted-foreground">earned for this session</div></div></div></Card>;
+  return <Card className="p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="font-medium">{earning.customer_name}</div><div className="text-xs text-muted-foreground">{formatDateTimeInTimeZone(earning.earned_at, timezone)} · {payment} · 1 completed session</div>{earning.pending_sessions > 0 && <div className="mt-1 text-xs text-muted-foreground">{earning.pending_sessions} {earning.pending_sessions === 1 ? "session" : "sessions"} still pending for this client</div>}</div><div className="text-right"><div className="font-semibold">{formatMoney(earning.amount_cents, earning.currency)}</div><div className="text-xs text-muted-foreground">earned for this session</div></div></div></Card>;
 }
 
 function HistoryRow({ a, timezone }: { a: any; timezone: string }) {
