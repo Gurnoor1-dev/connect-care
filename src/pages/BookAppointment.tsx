@@ -25,6 +25,8 @@ declare global {
 interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; }
 interface Specialist { id: string; display_name: string; headline: string | null; country: string | null; country_flag: string | null; timezone: string | null; avatar_url: string | null; immediate_sessions: boolean; }
 interface Availability { day_of_week: number; start_time: string; end_time: string; }
+interface BookedAppointment { scheduled_at: string; duration_minutes: number; status: string; }
+interface SlotOption { value: string; booked: boolean; }
 
 const FUTURE_BOOKING_DAYS = 7;
 const SLOT_MINUTES = 15;
@@ -44,12 +46,6 @@ function timeToMinutes(value: string) {
   return hours * 60 + minutes;
 }
 
-function localDateTime(date: Date, minutes: number, timeZone: string) {
-  const dateKey = getZonedDateKey(date, timeZone);
-  const time = String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0");
-  return zonedTimeToUtc(dateKey, time, timeZone);
-}
-
 function sameDayMinimum(immediateSessions: boolean, now = new Date()) {
   if (immediateSessions) return new Date(now.getTime() + 5 * 60 * 1000);
   const rounded = new Date(now);
@@ -66,14 +62,13 @@ export default function BookAppointment() {
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [tierId, setTierId] = useState(params.get("tier") ?? "");
   const [availability, setAvailability] = useState<Availability[]>([]);
-  const [booked, setBooked] = useState<any[]>([]);
+  const [booked, setBooked] = useState<BookedAppointment[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [scheduledAt, setScheduledAt] = useState("");
   const [credits, setCredits] = useState(0);
   const [useCredits, setUseCredits] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  // Razorpay Web Standard Checkout is a browser integration, not the React Native SDK.
+  const [refreshingBookings, setRefreshingBookings] = useState(false);
 
   const [acceptPolicies, setAcceptPolicies] = useState(false);
   const submitLock = useRef(false);
@@ -98,7 +93,7 @@ export default function BookAppointment() {
 
   useEffect(() => {
     if (!specialistId) {
-      setTiers([]); setAvailability([]); setCredits(0); setUseCredits(false); return;
+      setTiers([]); setAvailability([]); setCredits(0); setUseCredits(false); setBooked([]); return;
     }
     (async () => {
       const [{ data: tierData, error: tierError }, { data: availabilityData, error: availabilityError }, { data: creditData }] =
@@ -106,7 +101,6 @@ export default function BookAppointment() {
           supabase.from("specialist_tiers").select("id,label,duration_minutes,price_cents,currency").eq("specialist_id", specialistId).eq("is_active", true).eq("currency", "USD").order("price_cents"),
           supabase.from("specialist_availability").select("day_of_week,start_time,end_time").eq("specialist_id", specialistId).eq("is_active", true),
           user ? supabase.from("customer_specialist_credits").select("credit_points").eq("customer_id", user.id).eq("specialist_id", specialistId).maybeSingle() : Promise.resolve({ data: null } as any),
-
         ]);
       if (tierError) toast.error(tierError.message);
       if (availabilityError) toast.error(availabilityError.message);
@@ -120,51 +114,75 @@ export default function BookAppointment() {
 
   useEffect(() => {
     if (!specialistId) return;
-    (async () => {
-      const { data, error } = await supabase.from("appointments").select("scheduled_at,duration_minutes,status")
-        .eq("specialist_id", specialistId).in("status", ["pending_payment", "confirmed"]).gte("scheduled_at", new Date().toISOString());
-      if (error) toast.error(error.message);
-      setBooked(data ?? []);
-    })();
-  }, [specialistId, tierId]);
+
+    let cancelled = false;
+    const loadBookings = async (showLoader = false) => {
+      if (showLoader) setRefreshingBookings(true);
+      const { data, error } = await supabase.from("appointments")
+        .select("scheduled_at,duration_minutes,status")
+        .eq("specialist_id", specialistId)
+        .in("status", ["pending_payment", "confirmed"])
+        .gte("scheduled_at", new Date().toISOString());
+      if (!cancelled) {
+        if (error) toast.error(error.message);
+        setBooked((data ?? []) as BookedAppointment[]);
+        setRefreshingBookings(false);
+      }
+    };
+
+    void loadBookings(true);
+    const interval = window.setInterval(() => void loadBookings(), 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [specialistId]);
 
   const specialist = specialists.find((item) => item.id === specialistId);
   const tier = tiers.find((item) => item.id === tierId);
 
-  const slots = useMemo(() => {
+  const slotOptions = useMemo<SlotOption[]>(() => {
     if (!selectedDate || !tier || !specialist) return [];
     const userDateKey = format(selectedDate, "yyyy-MM-dd");
     const specialistCalendarDate = new Date(userDateKey + "T12:00:00");
     const day = getZonedDayOfWeek(specialistCalendarDate, specialist.timezone ?? "UTC");
     const specialistDateKey = getZonedDateKey(specialistCalendarDate, specialist.timezone ?? "UTC");
-    const rules = availability.filter((item) => item.day_of_week === day);
-    const ranges = rules;
+    const ranges = availability.filter((item) => item.day_of_week === day);
     const todayKey = getZonedDateKey(new Date(), getDeviceTimeZone());
     const selectedKey = userDateKey;
     const minimum = sameDayMinimum(!!specialist.immediate_sessions);
-    const output: string[] = [];
+    const output: SlotOption[] = [];
 
     for (const range of ranges) {
       const rangeStart = timeToMinutes(range.start_time);
       const rangeEnd = timeToMinutes(range.end_time);
       for (let minutes = rangeStart; minutes + tier.duration_minutes <= rangeEnd; minutes += SLOT_MINUTES) {
-        const value = zonedTimeToUtc(specialistDateKey, String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0"), specialist.timezone ?? "UTC");
+        const value = zonedTimeToUtc(
+          specialistDateKey,
+          String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0"),
+          specialist.timezone ?? "UTC",
+        );
         const startMs = value.getTime();
         const endMs = startMs + tier.duration_minutes * 60000;
-        const slotEnd = minutes + tier.duration_minutes;
 
         if (selectedKey === todayKey ? startMs < minimum.getTime() : startMs <= Date.now() + 300000) continue;
-        if (booked.some((appointment) => {
+
+        const isBooked = booked.some((appointment) => {
           const bookedStart = new Date(appointment.scheduled_at).getTime();
           const bookedEnd = bookedStart + Number(appointment.duration_minutes) * 60000;
           return startMs < bookedEnd && endMs > bookedStart;
-        })) continue;
+        });
 
-        output.push(value.toISOString());
+        output.push({ value: value.toISOString(), booked: isBooked });
       }
     }
-    return [...new Set(output)];
+
+    const unique = new Map<string, SlotOption>();
+    output.forEach((slot) => unique.set(slot.value, slot));
+    return [...unique.values()];
   }, [selectedDate, tier, specialist, availability, booked]);
+
+  const availableSlotCount = slotOptions.filter((slot) => !slot.booked).length;
 
   const loadRazorpay = () => new Promise<boolean>((resolve, reject) => {
     if (window.Razorpay) return resolve(true);
@@ -313,7 +331,9 @@ export default function BookAppointment() {
 
           <div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><Label>Available time</Label>{specialist?.timezone && <span className="text-xs text-muted-foreground">Your device timezone: {getTimeZoneLabel(getDeviceTimeZone())}</span>}</div>
             {todaySelected && specialist && <p className="mb-3 rounded-xl bg-accent/45 px-3 py-2 text-xs leading-5 text-muted-foreground">{specialist.immediate_sessions ? <><span className="font-semibold text-foreground">Immediate Sessions are enabled.</span> Same-day booking can start 5 minutes after the current time.</> : <>For today, booking opens <span className="font-semibold text-foreground">5 hours after the current time</span>, rounded down to the nearest 15 minutes.</>}</p>}
-            {!selectedDate || !tier ? <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">Select a plan and date to see available times.</div> : !slots.length ? <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">No slots are available for this date.</div> : <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">{slots.map((slot) => <button key={slot} type="button" onClick={() => setScheduledAt(slot)} className={`rounded-2xl border px-3 py-2.5 text-sm font-medium transition-colors ${scheduledAt === slot ? "border-teal bg-teal/10" : "bg-background hover:border-teal/50"}`}><Clock3 className="mr-1 inline h-3.5 w-3.5" />{formatInTimeZone(slot, getDeviceTimeZone(), { hour: "numeric", minute: "2-digit" })}</button>)}</div>}
+            {selectedDate && tier && <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-primary" />Available</span><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/50" />Booked</span>{refreshingBookings && <span>Refreshing live availability…</span>}</div>}
+            {!selectedDate || !tier ? <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">Select a plan and date to see available times.</div> : !slotOptions.length ? <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">No slots are available for this date.</div> : <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">{slotOptions.map((slot) => <button key={slot.value} type="button" disabled={slot.booked} onClick={() => !slot.booked && setScheduledAt(slot.value)} aria-label={slot.booked ? `Booked at ${formatInTimeZone(slot.value, getDeviceTimeZone(), { hour: "numeric", minute: "2-digit" })}` : `Book at ${formatInTimeZone(slot.value, getDeviceTimeZone(), { hour: "numeric", minute: "2-digit" })}`} className={`rounded-2xl border px-3 py-2.5 text-sm font-medium transition-colors ${slot.booked ? "cursor-not-allowed border-muted bg-muted/60 text-muted-foreground line-through opacity-80" : scheduledAt === slot.value ? "border-teal bg-teal/10" : "bg-background hover:border-teal/50"}`}><Clock3 className="mr-1 inline h-3.5 w-3.5" />{formatInTimeZone(slot.value, getDeviceTimeZone(), { hour: "numeric", minute: "2-digit" })}{slot.booked && <span className="ml-1 text-[10px] font-semibold no-underline">Booked</span>}</button>)}</div>}
+            {selectedDate && tier && slotOptions.length > 0 && availableSlotCount === 0 && <p className="mt-3 rounded-xl border border-dashed p-3 text-xs text-muted-foreground">All session times in this availability window are currently booked. Please choose another date.</p>}
           </div>
 
           {scheduledAt && <div className="rounded-2xl border bg-background p-4 text-sm"><div className="font-semibold">Selected appointment</div><div className="mt-1 break-words text-muted-foreground">{formatInTimeZone(scheduledAt, getDeviceTimeZone(), { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {tier?.duration_minutes} minutes</div></div>}
