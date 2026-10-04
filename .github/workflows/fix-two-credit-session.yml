@@ -1,0 +1,50 @@
+name: Fix session credit cost
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-two-credit-session.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update credit cost
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/pages/BookAppointment.tsx')
+          text = path.read_text()
+          replacements = [
+              ('credits - 1, updated_at:', 'credits - 2, updated_at:'),
+              ('.gte("credit_points", 1);', '.gte("credit_points", 2);'),
+              ('"Session booked using 1 credit"', '"Session booked using 2 credits"'),
+              ('useCredits && credits > 0 ? "1 credit"', 'useCredits && credits >= 2 ? "2 credits"'),
+              ('disabled={!credits}', 'disabled={credits < 2}'),
+              ('useCredits && credits ? "border-teal', 'useCredits && credits >= 2 ? "border-teal'),
+              ('useCredits && credits > 0 ? <><Zap className="mr-2 h-4 w-4" />Book with 1 credit</>', 'useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</>'),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'Missing expected source text: {old}')
+              text = text.replace(old, new)
+          text = text.replace('{credits} available</div>', '{credits} available · 2 required</div>')
+          text = text.replace('{credits} specialist credit{credits === 1 ? "" : "s"} available', '{credits} specialist credit{credits === 1 ? "" : "s"} available')
+          text = text.replace('if (useCredits && credits > 0) {', 'if (useCredits && credits >= 2) {')
+          path.write_text(text)
+          PY
+
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/BookAppointment.tsx
+          git diff --cached --quiet || git commit -m "Fix session credit cost to two credits"
+          git push
