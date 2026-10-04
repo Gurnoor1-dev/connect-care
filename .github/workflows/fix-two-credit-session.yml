@@ -36,7 +36,6 @@ jobs:
                   raise SystemExit(f'Missing expected source text: {old}')
               text = text.replace(old, new)
           text = text.replace('{credits} available</div>', '{credits} available · 2 required</div>')
-          text = text.replace('{credits} specialist credit{credits === 1 ? "" : "s"} available', '{credits} specialist credit{credits === 1 ? "" : "s"} available')
           text = text.replace('if (useCredits && credits > 0) {', 'if (useCredits && credits >= 2) {')
           path.write_text(text)
           PY
@@ -48,3 +47,5 @@ jobs:
           git add src/pages/BookAppointment.tsx
           git diff --cached --quiet || git commit -m "Fix session credit cost to two credits"
           git push
+
+      # One-time workflow: only this workflow file triggers it, so the generated source commit does not loop.
