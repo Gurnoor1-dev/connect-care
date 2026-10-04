@@ -118,11 +118,10 @@ export default function BookAppointment() {
     let cancelled = false;
     const loadBookings = async (showLoader = false) => {
       if (showLoader) setRefreshingBookings(true);
-      const { data, error } = await supabase.from("appointments")
-        .select("scheduled_at,duration_minutes,status")
-        .eq("specialist_id", specialistId)
-        .in("status", ["pending_payment", "confirmed"])
-        .gte("scheduled_at", new Date().toISOString());
+      const { data, error } = await supabase.rpc("get_specialist_booked_slots", {
+        p_specialist_id: specialistId,
+        p_from: new Date().toISOString(),
+      });
       if (!cancelled) {
         if (error) toast.error(error.message);
         setBooked((data ?? []) as BookedAppointment[]);
@@ -169,7 +168,7 @@ export default function BookAppointment() {
 
         const isBooked = booked.some((appointment) => {
           const bookedStart = new Date(appointment.scheduled_at).getTime();
-          const bookedEnd = bookedStart + Number(appointment.duration_minutes) * 60000;
+          const bookedEnd = bookedStart + Math.max(Number(appointment.duration_minutes) || 0, 60) * 60000;
           return startMs < bookedEnd && endMs > bookedStart;
         });
 
