@@ -7,47 +7,23 @@ import { Card } from "@/components/ui/card";
 import { ClipboardList, FileText, Loader2, Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
 import { toast } from "sonner";
 
-declare global {
-  interface Window {
-    DailyIframe?: {
-      createFrame: (el: HTMLElement, opts?: Record<string, unknown>) => DailyFrame;
-    };
-  }
-}
+declare global { interface Window { DailyIframe?: { createFrame: (el: HTMLElement, opts?: Record<string, unknown>) => DailyFrame; }; } }
+type DailyFrame = { join: (o: { url: string; token?: string }) => Promise<void>; leave: () => Promise<void>; destroy: () => void; on: (e: string, h: (x?: unknown) => void) => DailyFrame; setLocalAudio: (v: boolean) => void; setLocalVideo: (v: boolean) => void; };
 
-type DailyFrame = {
-  join: (o: { url: string; token?: string }) => Promise<void>;
-  leave: () => Promise<void>;
-  destroy: () => void;
-  on: (e: string, h: (x?: unknown) => void) => DailyFrame;
-  setLocalAudio: (v: boolean) => void;
-  setLocalVideo: (v: boolean) => void;
-};
+const JOIN_EARLY_MS = 2 * 60 * 1000;
+const JOIN_WINDOW_MS = 60 * 60 * 1000;
 
 function loadDaily() {
   return new Promise<void>((resolve, reject) => {
     if (window.DailyIframe) return resolve();
     const existing = document.querySelector("script[data-daily]");
     if (existing) {
-      const interval = window.setInterval(() => {
-        if (window.DailyIframe) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 100);
-      window.setTimeout(() => {
-        clearInterval(interval);
-        reject(new Error("Daily video SDK timeout"));
-      }, 10000);
+      const interval = window.setInterval(() => { if (window.DailyIframe) { clearInterval(interval); resolve(); } }, 100);
+      window.setTimeout(() => { clearInterval(interval); reject(new Error("Daily video SDK timeout")); }, 10000);
       return;
     }
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/@daily-co/daily-js";
-    script.dataset.daily = "true";
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load video SDK"));
-    document.head.appendChild(script);
+    const script = document.createElement("script"); script.src = "https://unpkg.com/@daily-co/daily-js"; script.dataset.daily = "true"; script.async = true;
+    script.onload = () => resolve(); script.onerror = () => reject(new Error("Failed to load video SDK")); document.head.appendChild(script);
   });
 }
 
@@ -67,83 +43,43 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
   const frame = useRef<DailyFrame | null>(null);
   const host = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
 
   useEffect(() => {
     if (!appointmentId || !user) return;
-    let cancelled = false;
-    setLoadingAppointment(true);
+    let cancelled = false; setLoadingAppointment(true);
     (async () => {
-      const { data, error } = await supabase
-        .from("appointments")
-        .select("*, specialist:specialist_profiles!appointments_specialist_id_fkey(display_name)")
-        .eq("id", appointmentId)
-        .single();
+      const { data, error } = await supabase.from("appointments").select("*, specialist:specialist_profiles!appointments_specialist_id_fkey(display_name)").eq("id", appointmentId).single();
       if (cancelled) return;
-      if (error) {
-        toast.error(error.message);
-        setAppointment(null);
-      } else {
-        setAppointment(data);
-        if (role === "specialist") {
-          setNotes(data?.session_notes ?? "");
-          setPrescription(data?.prescription ?? "");
-        }
-      }
+      if (error) { toast.error(error.message); setAppointment(null); }
+      else { setAppointment(data); if (role === "specialist") { setNotes(data?.session_notes ?? ""); setPrescription(data?.prescription ?? ""); } }
       setLoadingAppointment(false);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [appointmentId, user, role]);
 
   const start = appointment ? new Date(appointment.scheduled_at).getTime() : 0;
-  const durationMs = appointment ? Number(appointment.duration_minutes ?? 30) * 60000 : 0;
-  const end = start + durationMs;
-  const open = !!appointment && now >= start && now < end && appointment.status === "confirmed";
-  const message = !appointment
-    ? ""
-    : appointment.status !== "confirmed"
-      ? `Appointment is ${appointment.status}.`
-      : now < start
-        ? `Join opens at ${new Date(start).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`
-        : "The session has ended.";
+  const joinOpensAt = start - JOIN_EARLY_MS;
+  const joinEndsAt = start + JOIN_WINDOW_MS;
+  const open = !!appointment && appointment.status === "confirmed" && now >= joinOpensAt && now < joinEndsAt;
+  const message = !appointment ? "" : appointment.status !== "confirmed" ? `Appointment is ${appointment.status}.` : now < joinOpensAt ? `Join opens ${new Date(start).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} (2 minutes before the session).` : now < start ? `Session starts at ${new Date(start).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.` : "The one-hour join window has ended.";
 
   const recordPresence = async (action: "leave" | "finalize") => {
     if (!appointmentId) return;
     try {
-      const { data, error } = await supabase.functions.invoke("session-presence", {
-        body: { appointment_id: appointmentId, action },
-      });
+      const { data, error } = await supabase.functions.invoke("session-presence", { body: { appointment_id: appointmentId, action } });
       if (error) throw error;
-      if (data?.status && data.status !== appointment?.status) {
-        setAppointment((current: any) => ({ ...current, status: data.status }));
-      }
-    } catch (error) {
-      console.error("session presence update failed", error);
-    }
+      if (data?.status && data.status !== appointment?.status) setAppointment((current: any) => ({ ...current, status: data.status }));
+    } catch (error) { console.error("session presence update failed", error); }
   };
 
   useEffect(() => {
     if (!appointmentId || !appointment) return;
-    const id = window.setInterval(() => {
-      if (Date.now() >= end) void recordPresence("finalize");
-    }, 15000);
+    const id = window.setInterval(() => { if (Date.now() >= joinEndsAt) void recordPresence("finalize"); }, 15000);
     return () => clearInterval(id);
-  }, [appointmentId, appointment?.status, end]);
+  }, [appointmentId, appointment?.status, joinEndsAt]);
 
-  useEffect(() => {
-    return () => {
-      if (frame.current) {
-        void frame.current.leave().catch(() => undefined);
-        frame.current.destroy();
-        frame.current = null;
-      }
-    };
-  }, []);
+  useEffect(() => () => { if (frame.current) { void frame.current.leave().catch(() => undefined); frame.current.destroy(); frame.current = null; } }, []);
 
   const join = async () => {
     if (!appointmentId || !host.current || !open || joining) return;
@@ -151,137 +87,47 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
     try {
       await loadDaily();
       if (!window.DailyIframe) throw new Error("Video service is unavailable. Please try again.");
-
-      // Use the existing production Daily handler. It already validates the
-      // appointment, creates/reuses the Daily room, and issues the meeting token.
-      const { data, error } = await supabase.functions.invoke("smart-handler", {
-        body: { appointment_id: appointmentId },
-      });
-      if (error || !data?.room_url || !data?.token) {
-        throw new Error(data?.error ?? error?.message ?? "Could not start video call");
-      }
-
-      const callHost = host.current;
-      callHost.innerHTML = "";
-      const dailyFrame = window.DailyIframe.createFrame(callHost, {
-        iframeStyle: {
-          width: "100%",
-          height: "100%",
-          border: "0",
-          borderRadius: "16px",
-          backgroundColor: "#000",
-        },
-        showLeaveButton: false,
-        showFullscreenButton: true,
-        showParticipantsBar: true,
-      });
-
+      const { data, error } = await supabase.functions.invoke("smart-handler", { body: { appointment_id: appointmentId } });
+      if (error || !data?.room_url || !data?.token) throw new Error(data?.error ?? error?.message ?? "Could not start video call");
+      const callHost = host.current; callHost.innerHTML = "";
+      const dailyFrame = window.DailyIframe.createFrame(callHost, { iframeStyle: { width: "100%", height: "100%", border: "0", borderRadius: "16px", backgroundColor: "#000" }, showLeaveButton: false, showFullscreenButton: true, showParticipantsBar: true });
       frame.current = dailyFrame;
       dailyFrame.on("joined-meeting", () => setInCall(true));
-      dailyFrame.on("left-meeting", () => {
-        setInCall(false);
-        frame.current?.destroy();
-        frame.current = null;
-        void recordPresence("leave");
-      });
-      dailyFrame.on("error", (event) => {
-        console.error("Daily call error", event);
-        toast.error("Video call could not connect. Please check your camera/microphone permissions and try again.");
-      });
-
+      dailyFrame.on("left-meeting", () => { setInCall(false); frame.current?.destroy(); frame.current = null; void recordPresence("leave"); });
+      dailyFrame.on("error", (event) => { console.error("Daily call error", event); toast.error("Video call could not connect. Please check your camera/microphone permissions and try again."); });
       await dailyFrame.join({ url: data.room_url, token: data.token });
       setInCall(true);
-      setAppointment((current: any) => ({
-        ...current,
-        ...(role === "specialist"
-          ? { specialist_joined_at: new Date().toISOString() }
-          : { customer_joined_at: new Date().toISOString() }),
-      }));
+      setAppointment((current: any) => ({ ...current, ...(role === "specialist" ? { specialist_joined_at: new Date().toISOString() } : { customer_joined_at: new Date().toISOString() }) }));
     } catch (error) {
-      setInCall(false);
-      frame.current?.destroy();
-      frame.current = null;
-      if (host.current) host.current.innerHTML = "";
+      setInCall(false); frame.current?.destroy(); frame.current = null; if (host.current) host.current.innerHTML = "";
       toast.error(error instanceof Error ? error.message : "Could not join the call");
-    } finally {
-      setJoining(false);
-    }
+    } finally { setJoining(false); }
   };
 
   const leave = async () => {
-    try {
-      await frame.current?.leave();
-    } finally {
-      frame.current?.destroy();
-      frame.current = null;
-      setInCall(false);
-      await recordPresence("leave");
-    }
+    try { await frame.current?.leave(); }
+    finally { frame.current?.destroy(); frame.current = null; setInCall(false); await recordPresence("leave"); }
   };
 
   const save = async () => {
     if (!appointmentId) return;
-    setSaving(true);
-    const stamp = new Date().toISOString();
-    const { error } = await supabase
-      .from("appointments")
-      .update({ session_notes: notes, notes_updated_at: stamp, prescription, prescription_updated_at: stamp })
-      .eq("id", appointmentId);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else toast.success("Notes and prescription saved");
+    setSaving(true); const stamp = new Date().toISOString();
+    const { error } = await supabase.from("appointments").update({ session_notes: notes, notes_updated_at: stamp, prescription, prescription_updated_at: stamp }).eq("id", appointmentId);
+    setSaving(false); if (error) toast.error(error.message); else toast.success("Notes and prescription saved");
   };
 
   if (loadingAppointment) return <div className="flex h-96 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!appointment) return <div className="flex h-96 items-center justify-center text-sm text-muted-foreground">Appointment could not be loaded.</div>;
 
-  return (
-    <div className={`grid gap-6 ${role === "specialist" ? "xl:grid-cols-[minmax(0,1fr)_400px]" : ""}`}>
-      <div className="space-y-4">
-        <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Video session</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{role === "customer" ? `With ${appointment.specialist?.display_name}` : `With ${appointment.customer_name ?? "patient"}`}</p>
-          </div>
-          <Button asChild variant="ghost"><Link to={role === "customer" ? "/dashboard/customer" : "/dashboard/specialist"}>Back</Link></Button>
-        </header>
-
-        <Card className="overflow-hidden border-white/55 bg-black p-0 shadow-card">
-          <div ref={host} className={inCall ? "h-[560px] w-full" : "h-[420px] w-full"}>
-            {!inCall && (
-              <div className="flex h-full flex-col items-center justify-center gap-5 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-8 text-primary-foreground">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10"><Video className="h-10 w-10" /></div>
-                <div className="text-center">
-                  <h2 className="text-xl font-semibold">Ready to join?</h2>
-                  <p className="mt-2 text-sm opacity-70">{open ? "Your secure session is ready now." : message}</p>
-                </div>
-                <Button onClick={join} disabled={joining || !open} size="lg" className="rounded-full bg-gradient-brand">
-                  {joining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Video className="mr-2 h-4 w-4" />}
-                  {joining ? "Connecting…" : open ? "Join call" : "Join unavailable"}
-                </Button>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {inCall && (
-          <div className="flex justify-center gap-3">
-            <Button size="sm" variant={audio ? "secondary" : "outline"} onClick={() => { const value = !audio; frame.current?.setLocalAudio(value); setAudio(value); }}>{audio ? <Mic /> : <MicOff />}{audio ? "Mute" : "Unmute"}</Button>
-            <Button size="sm" variant={video ? "secondary" : "outline"} onClick={() => { const value = !video; frame.current?.setLocalVideo(value); setVideo(value); }}>{video ? <Video /> : <VideoOff />}{video ? "Stop video" : "Start video"}</Button>
-            <Button size="sm" className="bg-destructive text-destructive-foreground" onClick={leave}><PhoneOff />Leave call</Button>
-          </div>
-        )}
-
-        {role === "customer" && appointment.prescription && <Card className="p-5 shadow-card"><div className="font-semibold"><FileText className="mr-2 inline h-4 w-4 text-teal" />Prescription</div><p className="mt-3 whitespace-pre-wrap text-sm">{appointment.prescription}</p></Card>}
-      </div>
-
-      {role === "specialist" && (
-        <aside className="space-y-3">
-          <Card className="p-4 shadow-card"><h2 className="text-sm font-semibold">Patient</h2><p className="mt-2 text-sm">{appointment.customer_name ?? "—"}</p><p className="text-xs text-muted-foreground">{new Date(appointment.scheduled_at).toLocaleString()}</p></Card>
-          <Card className="p-4 shadow-card"><div className="font-semibold"><ClipboardList className="mr-2 inline h-4 w-4 text-teal" />Private notes</div><textarea value={notes} onChange={e => setNotes(e.target.value)} className="mt-3 min-h-40 w-full rounded-lg border bg-background p-3 text-sm" /></Card>
-          <Card className="p-4 shadow-card"><div className="font-semibold"><FileText className="mr-2 inline h-4 w-4 text-teal" />Prescription</div><textarea value={prescription} onChange={e => setPrescription(e.target.value)} className="mt-3 min-h-40 w-full rounded-lg border bg-background p-3 text-sm" /><Button onClick={save} disabled={saving} className="mt-3 w-full bg-gradient-brand">{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Save notes & prescription</Button></Card>
-        </aside>
-      )}
+  return <div className={`grid gap-6 ${role === "specialist" ? "xl:grid-cols-[minmax(0,1fr)_400px]" : ""}`}>
+    <div className="space-y-4">
+      <header className="flex items-center justify-between"><div><h1 className="text-2xl font-semibold">Video session</h1><p className="mt-1 text-sm text-muted-foreground">{role === "customer" ? `With ${appointment.specialist?.display_name}` : `With ${appointment.customer_name ?? "patient"}`}</p></div><Button asChild variant="ghost"><Link to={role === "customer" ? "/dashboard/customer" : "/dashboard/specialist"}>Back</Link></Button></header>
+      <Card className="overflow-hidden border-white/55 bg-black p-0 shadow-card"><div ref={host} className={inCall ? "h-[560px] w-full" : "h-[420px] w-full"}>
+        {!inCall && <div className="flex h-full flex-col items-center justify-center gap-5 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-8 text-primary-foreground"><div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10"><Video className="h-10 w-10" /></div><div className="text-center"><h2 className="text-xl font-semibold">Ready to join?</h2><p className="mt-2 text-sm opacity-70">{open ? "Your secure session is ready now. You can leave and rejoin this same call at any time during the one-hour window." : message}</p></div>{open && <Button onClick={join} disabled={joining} size="lg" className="rounded-full bg-gradient-brand">{joining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Video className="mr-2 h-4 w-4" />}{joining ? "Connecting…" : "Join call"}</Button>}</div>}
+      </div></Card>
+      {inCall && <div className="flex justify-center gap-3"><Button size="sm" variant={audio ? "secondary" : "outline"} onClick={() => { const value = !audio; frame.current?.setLocalAudio(value); setAudio(value); }}>{audio ? <Mic /> : <MicOff />}{audio ? "Mute" : "Unmute"}</Button><Button size="sm" variant={video ? "secondary" : "outline"} onClick={() => { const value = !video; frame.current?.setLocalVideo(value); setVideo(value); }}>{video ? <Video /> : <VideoOff />}{video ? "Stop video" : "Start video"}</Button><Button size="sm" className="bg-destructive text-destructive-foreground" onClick={leave}><PhoneOff />Leave call</Button></div>}
+      {role === "customer" && appointment.prescription && <Card className="p-5 shadow-card"><div className="font-semibold"><FileText className="mr-2 inline h-4 w-4 text-teal" />Prescription</div><p className="mt-3 whitespace-pre-wrap text-sm">{appointment.prescription}</p></Card>}
     </div>
-  );
+    {role === "specialist" && <aside className="space-y-3"><Card className="p-4 shadow-card"><h2 className="text-sm font-semibold">Patient</h2><p className="mt-2 text-sm">{appointment.customer_name ?? "—"}</p><p className="text-xs text-muted-foreground">{new Date(appointment.scheduled_at).toLocaleString()}</p></Card><Card className="p-4 shadow-card"><div className="font-semibold"><ClipboardList className="mr-2 inline h-4 w-4 text-teal" />Private notes</div><textarea value={notes} onChange={e => setNotes(e.target.value)} className="mt-3 min-h-40 w-full rounded-lg border bg-background p-3 text-sm" /></Card><Card className="p-4 shadow-card"><div className="font-semibold"><FileText className="mr-2 inline h-4 w-4 text-teal" />Prescription</div><textarea value={prescription} onChange={e => setPrescription(e.target.value)} className="mt-3 min-h-40 w-full rounded-lg border bg-background p-3 text-sm" /><Button onClick={save} disabled={saving} className="mt-3 w-full bg-gradient-brand">{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Save notes & prescription</Button></Card></aside>}
+  </div>;
 }
