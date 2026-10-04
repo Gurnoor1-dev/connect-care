@@ -27,8 +27,6 @@ export default function SpecialistOverview() {
     const monthParts = new Intl.DateTimeFormat("en-US", { timeZone: timezone, year: "numeric", month: "2-digit" }).formatToParts(now).reduce<Record<string,string>>((acc, part) => { if (part.type !== "literal") acc[part.type] = part.value; return acc; }, {});
     const monthStart = zonedTimeToUtc(`${monthParts.year}-${monthParts.month}-01`, "00:00", timezone).toISOString();
     const appointmentSelect = "*, specialist:specialist_profiles!appointments_specialist_id_fkey(timezone)";
-    // Keep the active appointment visible from two minutes before start through the full
-    // one-hour join window. Previously gte(now) removed it from the dashboard at start.
     const { data: up } = await supabase.from("appointments").select(appointmentSelect).eq("specialist_id", user.id).eq("status", "confirmed").gte("scheduled_at", historyCutoff).order("scheduled_at", { ascending: true }).limit(10);
     const { data: completed } = await supabase.from("appointments").select(appointmentSelect).eq("specialist_id", user.id).in("status", ["completed", "partially_completed"]).order("scheduled_at", { ascending: false }).limit(10);
     const { count: sessions } = await supabase.from("appointments").select("*", { count: "exact", head: true }).eq("specialist_id", user.id).eq("status", "completed");
@@ -53,11 +51,11 @@ export default function SpecialistOverview() {
 
 function HistoryRow({ a, timezone }: { a: any; timezone: string }) {
   const payment = a.payment_method === "credits" ? "Credits" : a.payment_method === "razorpay" ? "Razorpay" : a.payment_method || "Not recorded";
-  const started = a.session_started_at ? formatDateTimeInTimeZone(a.session_started_at, timezone) : "Not recorded";
-  const ended = a.session_ended_at ? formatDateTimeInTimeZone(a.session_ended_at, timezone) : "Not recorded";
-  // Attendance is cumulative actual time spent in the Daily call. It is deliberately
-  // not calculated from session_ended_at, because that timestamp is the end of the
-  // one-hour join window and does not mean the consultant stayed in the call.
+  // These timestamps are the consultant's actual call window, so they stay synchronized
+  // with the consultant attendance shown immediately below. The appointment's session_ended_at
+  // can represent the one-hour join-window boundary and must not be used here.
+  const started = a.specialist_joined_at ? formatDateTimeInTimeZone(a.specialist_joined_at, timezone) : "Not recorded";
+  const ended = a.specialist_left_at ? formatDateTimeInTimeZone(a.specialist_left_at, timezone) : (a.specialist_joined_at ? "Still in session" : "Not recorded");
   const attendanceSeconds = Number(a.specialist_attendance_seconds ?? 0);
   const attendance = Number.isFinite(attendanceSeconds) && attendanceSeconds > 0 ? Math.round(attendanceSeconds / 60) : null;
   return <Card className="p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="font-medium">{a.customer_name ?? "Patient"}</div><div className="mt-1 text-sm text-muted-foreground">Scheduled: {formatDateTimeInTimeZone(a.scheduled_at, timezone)} · {a.duration_minutes} min</div><div className="mt-1 text-xs text-muted-foreground">Started: {started} · Ended: {ended}</div>{attendance !== null && <div className="mt-1 text-xs text-muted-foreground">Consultant attendance: {attendance} min</div>}</div><div className="text-right"><div className="rounded-lg bg-teal/15 px-2.5 py-1 text-xs font-medium text-teal">{a.status}</div><div className="mt-2 text-xs text-muted-foreground">Payment: {payment}</div></div></div></Card>;
