@@ -20,7 +20,7 @@ export default function SpecialistOverview() {
 
   const loadDashboard = async () => {
     if (!user) return;
-    const now = new Date(); const nowIso = now.toISOString();
+    const now = new Date();
     const historyCutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { data: profile } = await supabase.from("specialist_profiles").select("timezone").eq("id", user.id).maybeSingle();
     const timezone = profile?.timezone || "UTC"; setSpecialistTimezone(timezone);
@@ -55,7 +55,11 @@ function HistoryRow({ a, timezone }: { a: any; timezone: string }) {
   const payment = a.payment_method === "credits" ? "Credits" : a.payment_method === "razorpay" ? "Razorpay" : a.payment_method || "Not recorded";
   const started = a.session_started_at ? formatDateTimeInTimeZone(a.session_started_at, timezone) : "Not recorded";
   const ended = a.session_ended_at ? formatDateTimeInTimeZone(a.session_ended_at, timezone) : "Not recorded";
-  const attendance = a.specialist_joined_at && a.session_ended_at ? Math.max(0, Math.round((new Date(a.session_ended_at).getTime() - new Date(a.specialist_joined_at).getTime()) / 60000)) : null;
+  // Attendance is cumulative actual time spent in the Daily call. It is deliberately
+  // not calculated from session_ended_at, because that timestamp is the end of the
+  // one-hour join window and does not mean the consultant stayed in the call.
+  const attendanceSeconds = Number(a.specialist_attendance_seconds ?? 0);
+  const attendance = Number.isFinite(attendanceSeconds) && attendanceSeconds > 0 ? Math.round(attendanceSeconds / 60) : null;
   return <Card className="p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="font-medium">{a.customer_name ?? "Patient"}</div><div className="mt-1 text-sm text-muted-foreground">Scheduled: {formatDateTimeInTimeZone(a.scheduled_at, timezone)} · {a.duration_minutes} min</div><div className="mt-1 text-xs text-muted-foreground">Started: {started} · Ended: {ended}</div>{attendance !== null && <div className="mt-1 text-xs text-muted-foreground">Consultant attendance: {attendance} min</div>}</div><div className="text-right"><div className="rounded-lg bg-teal/15 px-2.5 py-1 text-xs font-medium text-teal">{a.status}</div><div className="mt-2 text-xs text-muted-foreground">Payment: {payment}</div></div></div></Card>;
 }
 
