@@ -73,34 +73,20 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
   const open = !!appointment && appointment.status === "confirmed" && now >= joinOpensAt && now < joinEndsAt;
   const message = !appointment ? "" : appointment.status !== "confirmed" ? `Appointment is ${appointment.status}.` : now < joinOpensAt ? `Join opens ${new Date(start).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} (2 minutes before the session).` : now < start ? `Session starts at ${new Date(start).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.` : "The one-hour join window has ended.";
 
-  const presenceBusyRef = useRef(false);
-
-  const recordPresence = async (action: "heartbeat" | "leave" | "finalize") => {
+  const recordPresence = async (action: "leave" | "finalize") => {
     if (!appointmentId) return;
-    if (presenceBusyRef.current) return;
-    presenceBusyRef.current = true;
     try {
       const { data, error } = await supabase.functions.invoke("session-presence", { body: { appointment_id: appointmentId, action } });
       if (error) throw error;
       if (data?.status && data.status !== appointment?.status) setAppointment((current: any) => ({ ...current, status: data.status }));
-    } catch (error) {
-      console.error("session presence update failed", error);
-    } finally {
-      presenceBusyRef.current = false;
-    }
+    } catch (error) { console.error("session presence update failed", error); }
   };
 
   useEffect(() => {
     if (!appointmentId || !appointment) return;
-    const id = window.setInterval(() => {
-      if (inCall) {
-        void recordPresence("heartbeat");
-      } else if (Date.now() >= joinEndsAt) {
-        void recordPresence("finalize");
-      }
-    }, 10000);
+    const id = window.setInterval(() => { if (Date.now() >= joinEndsAt) void recordPresence("finalize"); }, 15000);
     return () => clearInterval(id);
-  }, [appointmentId, appointment?.status, joinEndsAt, inCall]);
+  }, [appointmentId, appointment?.status, joinEndsAt]);
 
   useEffect(() => () => {
     const current = frame.current;
@@ -141,11 +127,7 @@ export function VideoCallScreen({ role }: { role: "customer" | "specialist" }) {
     const markJoining = () => { joinStarted = true; setInCall(true); };
     dailyFrame.on("loaded", () => console.info("Daily frame loaded"));
     dailyFrame.on("joining-meeting", markJoining);
-    dailyFrame.on("joined-meeting", () => {
-      joined = true;
-      setInCall(true);
-      void recordPresence("heartbeat");
-    });
+    dailyFrame.on("joined-meeting", () => { joined = true; setInCall(true); });
     dailyFrame.on("left-meeting", () => { setInCall(false); frame.current?.destroy(); frame.current = null; void recordPresence("leave"); });
     dailyFrame.on("camera-error", (event) => { console.error("Daily camera error", event); toast.error("Camera/microphone could not start. Please check browser permissions."); });
     dailyFrame.on("error", (event) => { console.error("Daily call error", event); });
