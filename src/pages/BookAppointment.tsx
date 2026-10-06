@@ -53,6 +53,16 @@ function sameDayMinimum(immediateSessions: boolean, now = new Date()) {
   return new Date(rounded.getTime() + 5 * 60 * 60 * 1000);
 }
 
+async function notifyBookingConfirmation(appointmentId: string) {
+  const { data, error } = await supabase.functions.invoke("appointment-notifications", {
+    body: { action: "booking", appointment_id: appointmentId },
+  });
+
+  if (error || !data?.ok) {
+    console.error("[BookAppointment] booking confirmation email trigger failed:", error ?? data?.error);
+  }
+}
+
 export default function BookAppointment() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -263,17 +273,18 @@ export default function BookAppointment() {
           .eq("customer_id", user.id).eq("specialist_id", specialistId).gte("credit_points", 2);
         if (error) throw new Error(error.message);
 
-        const { error: appointmentError } = await supabase.from("appointments").insert({
+        const { data: creditAppointment, error: appointmentError } = await supabase.from("appointments").insert({
           customer_id: user.id, specialist_id: specialistId, tier_id: tier.id,
           scheduled_at: scheduledAt, duration_minutes: tier.duration_minutes,
           amount_cents: 0, currency: tier.currency, status: "confirmed",
           customer_name: user.user_metadata?.full_name ?? user.email ?? "Customer", payment_method: "credits",
-        });
-        if (appointmentError) {
+        }).select("id").single();
+        if (appointmentError || !creditAppointment) {
           await supabase.from("customer_specialist_credits").update({ credit_points: credits })
             .eq("customer_id", user.id).eq("specialist_id", specialistId);
-          throw new Error(appointmentError.message);
+          throw new Error(appointmentError?.message ?? "Could not create the credit booking.");
         }
+        await notifyBookingConfirmation(creditAppointment.id);
         toast.success("Session booked using 2 credits");
         navigate("/dashboard/customer/appointments");
         return;

@@ -41,11 +41,15 @@ async function notifyBooking(appointmentId: string) {
   const key = Deno.env.get("SUPABASE_ANON_KEY");
   if (!url || !key) return;
   try {
-    await fetch(`${url}/functions/v1/appointment-notifications`, {
+    const response = await fetch(`${url}/functions/v1/appointment-notifications`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, apikey: key },
       body: JSON.stringify({ action: "booking", appointment_id: appointmentId }),
     });
+    if (!response.ok) {
+      const raw = await response.text();
+      throw new Error(`notification function returned ${response.status}: ${raw}`);
+    }
   } catch (error) {
     console.error("[razorpay-verify-payment] booking notification failed:", error);
   }
