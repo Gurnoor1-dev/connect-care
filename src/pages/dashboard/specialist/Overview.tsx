@@ -136,10 +136,29 @@ export default function SpecialistOverview() {
 
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Pending sessions by client</h2>
-          <span className="text-xs text-muted-foreground">Bundle credits are counted as future sessions, not earnings.</span>
+          <h2 className="text-xl font-semibold">Client credit balances</h2>
+          <span className="text-xs text-muted-foreground">Bundle credits for this specialist · 2 credits = 1 session.</span>
         </div>
-        {pendingSessions.length === 0 ? <Card className="p-8 text-center text-muted-foreground">No unused sessions remaining.</Card> : <div className="space-y-3">{pendingSessions.map((row) => <Card key={row.customer_id} className="flex items-center justify-between gap-4 p-4"><div><div className="font-medium">{row.customer_name}</div><div className="text-xs text-muted-foreground">{row.credit_points} credits remaining</div></div><div className="text-right"><div className="font-semibold">{row.sessions_remaining} {row.sessions_remaining === 1 ? "session" : "sessions"}</div><div className="text-xs text-muted-foreground">remaining</div></div></Card>)}</div>}
+        {pendingSessions.length === 0 ? (
+          <Card className="p-8 text-center text-muted-foreground">No unused bundle sessions remaining.</Card>
+        ) : (
+          <div className="space-y-3">
+            {pendingSessions.map((row) => (
+              <Card key={row.customer_id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="font-medium">{row.customer_name}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {row.credit_points} credits remaining · {row.sessions_remaining} {row.sessions_remaining === 1 ? "session" : "sessions"} remaining
+                  </div>
+                </div>
+                <div className="rounded-xl border border-teal/20 bg-teal/5 px-4 py-3 text-right">
+                  <div className="text-lg font-semibold text-teal">{row.sessions_remaining}</div>
+                  <div className="text-xs text-muted-foreground">sessions available</div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
