@@ -152,28 +152,40 @@ export default function BookAppointment() {
 
   const slotOptions = useMemo<SlotOption[]>(() => {
     if (!selectedDate || !tier || !specialist) return [];
-    const userDateKey = format(selectedDate, "yyyy-MM-dd");
-    const specialistCalendarDate = new Date(userDateKey + "T12:00:00");
-    const specialistDateKey = getZonedDateKey(specialistCalendarDate, specialist.timezone ?? "UTC");
-    const ranges = availability.filter((item) => item.available_date === specialistDateKey);
-    const todayKey = getZonedDateKey(new Date(), getDeviceTimeZone());
-    const selectedKey = userDateKey;
+
+    const viewerTimeZone = getDeviceTimeZone();
+    const viewerDateKey = format(selectedDate, "yyyy-MM-dd");
+    const todayKey = getZonedDateKey(new Date(), viewerTimeZone);
     const minimum = sameDayMinimum(!!specialist.immediate_sessions);
     const output: SlotOption[] = [];
 
-    for (const range of ranges) {
+    for (const range of availability) {
       const rangeStart = timeToMinutes(range.start_time);
-      const rangeEnd = timeToMinutes(range.end_time);
-      for (let minutes = rangeStart; minutes + tier.duration_minutes <= rangeEnd; minutes += SLOT_MINUTES) {
-        const value = zonedTimeToUtc(
-          specialistDateKey,
-          String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0"),
-          specialist.timezone ?? "UTC",
-        );
-        const startMs = value.getTime();
-        const endMs = startMs + tier.duration_minutes * 60000;
+      const rawRangeEnd = timeToMinutes(range.end_time);
+      const rangeEnd = rawRangeEnd <= rangeStart ? rawRangeEnd + 24 * 60 : rawRangeEnd;
 
-        if (selectedKey === todayKey ? startMs < minimum.getTime() : startMs <= Date.now() + 300000) continue;
+      for (let minutes = rangeStart; minutes + tier.duration_minutes <= rangeEnd; minutes += SLOT_MINUTES) {
+        const startDayOffset = Math.floor(minutes / (24 * 60));
+        const endMinutes = minutes + tier.duration_minutes;
+        const endDayOffset = Math.floor(endMinutes / (24 * 60));
+        const startMinuteOfDay = minutes % (24 * 60);
+        const endMinuteOfDay = endMinutes % (24 * 60);
+        const startDate = new Date(`${range.available_date}T00:00:00Z`);
+        startDate.setUTCDate(startDate.getUTCDate() + startDayOffset);
+        const endDate = new Date(`${range.available_date}T00:00:00Z`);
+        endDate.setUTCDate(endDate.getUTCDate() + endDayOffset);
+        const startDateKey = startDate.toISOString().slice(0, 10);
+        const endDateKey = endDate.toISOString().slice(0, 10);
+        const startTime = `${String(Math.floor(startMinuteOfDay / 60)).padStart(2, "0")}:${String(startMinuteOfDay % 60).padStart(2, "0")}`;
+        const endTime = `${String(Math.floor(endMinuteOfDay / 60)).padStart(2, "0")}:${String(endMinuteOfDay % 60).padStart(2, "0")}`;
+
+        const value = zonedTimeToUtc(startDateKey, startTime, specialist.timezone ?? "UTC");
+        const endValue = zonedTimeToUtc(endDateKey, endTime, specialist.timezone ?? "UTC");
+        const startMs = value.getTime();
+        const endMs = endValue.getTime();
+
+        if (getZonedDateKey(value, viewerTimeZone) !== viewerDateKey) continue;
+        if (viewerDateKey === todayKey ? startMs < minimum.getTime() : startMs <= Date.now() + 300000) continue;
 
         const isBooked = booked.some((appointment) => {
           const bookedStart = new Date(appointment.scheduled_at).getTime();
@@ -187,7 +199,7 @@ export default function BookAppointment() {
 
     const unique = new Map<string, SlotOption>();
     output.forEach((slot) => unique.set(slot.value, slot));
-    return [...unique.values()];
+    return [...unique.values()].sort((a, b) => a.value.localeCompare(b.value));
   }, [selectedDate, tier, specialist, availability, booked]);
 
   const availableSlotCount = slotOptions.filter((slot) => !slot.booked).length;
