@@ -42,6 +42,10 @@ export default function SpecialistOverview() {
 
   const loadDashboard = async () => {
     if (!user) return;
+    // Reconcile this consultant's finished sessions before reading dashboard history.
+    // This is scoped server-side to auth.uid(), so every consultant gets the same correction logic.
+    const { error: reconciliationError } = await supabase.rpc("reconcile_specialist_attendance");
+    if (reconciliationError) console.error("specialist attendance reconciliation failed", reconciliationError);
     const now = new Date();
     const historyCutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { data: profile } = await supabase.from("specialist_profiles").select("timezone, created_at").eq("id", user.id).maybeSingle();
