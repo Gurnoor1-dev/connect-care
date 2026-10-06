@@ -10,6 +10,16 @@ import { getDeviceTimeZone, getTimeZoneLabel } from "@/lib/timezone";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+function normalizeTime(value: string) {
+  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return value;
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
+
+function is24HourTime(value: string) {
+  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
 interface Slot {
   id?: string;
   day_of_week: number;
@@ -71,6 +81,11 @@ export default function SpecialistAvailability() {
       )
     );
 
+  const updateTime = (index: number, field: "start_time" | "end_time", value: string) => {
+    const normalized = normalizeTime(value.replace(/\s/g, ""));
+    if (normalized.length <= 5) update(index, { [field]: normalized });
+  };
+
   const remove = async (index: number) => {
     const slot = slots[index];
 
@@ -91,6 +106,12 @@ export default function SpecialistAvailability() {
 
   const save = async () => {
     if (!user) return;
+
+    const invalid = slots.find((slot) => !is24HourTime(normalizeTime(slot.start_time)) || !is24HourTime(normalizeTime(slot.end_time)));
+    if (invalid) {
+      toast.error("Use 24-hour time in HH:MM format, for example 09:00 or 23:59.");
+      return;
+    }
 
     const existingSlots = slots.filter((slot) => Boolean(slot.id));
     const newSlots = slots.filter((slot) => !slot.id);
@@ -171,22 +192,32 @@ export default function SpecialistAvailability() {
             <div className="font-medium">{DAYS[slot.day_of_week]}</div>
 
             <label className="min-w-0">
-              <span className="mb-1 block text-xs text-muted-foreground sm:sr-only">Start time</span>
+              <span className="mb-1 block text-xs text-muted-foreground">Start time · 24-hour (00:00–23:59)</span>
               <Input
-                type="time"
-                value={slot.start_time}
-                onChange={(event) => update(index, { start_time: event.target.value })}
+                type="text"
+                inputMode="numeric"
+                pattern="(?:[01]\d|2[0-3]):[0-5]\d"
+                maxLength={5}
+                placeholder="09:00"
+                value={normalizeTime(slot.start_time)}
+                onChange={(event) => updateTime(index, "start_time", event.target.value)}
                 className="w-full min-w-0"
+                aria-label="Start time in 24-hour format"
               />
             </label>
 
             <label className="min-w-0">
-              <span className="mb-1 block text-xs text-muted-foreground sm:sr-only">End time</span>
+              <span className="mb-1 block text-xs text-muted-foreground">End time · 24-hour (00:00–23:59)</span>
               <Input
-                type="time"
-                value={slot.end_time}
-                onChange={(event) => update(index, { end_time: event.target.value })}
+                type="text"
+                inputMode="numeric"
+                pattern="(?:[01]\d|2[0-3]):[0-5]\d"
+                maxLength={5}
+                placeholder="17:00"
+                value={normalizeTime(slot.end_time)}
+                onChange={(event) => updateTime(index, "end_time", event.target.value)}
                 className="w-full min-w-0"
+                aria-label="End time in 24-hour format"
               />
             </label>
 
