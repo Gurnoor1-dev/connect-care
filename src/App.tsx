@@ -19,6 +19,7 @@ import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 import VerifyOtp from "@/pages/auth/VerifyOtp";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
+import ResetPassword from "@/pages/auth/ResetPassword";
 import AuthCallback from "@/pages/auth/AuthCallback";
 import AcceptInvite from "@/pages/auth/AcceptInvite";
 import CustomerOverview from "@/pages/dashboard/customer/Overview";
@@ -53,7 +54,7 @@ const App = () => (
       <Route path="/terms" element={<Terms />} />
       <Route path="/cancellation" element={<Cancellation />} />
     </Route>
-    <Route path="/login" element={<Login />} /><Route path="/signup" element={<Signup />} /><Route path="/verify-otp" element={<VerifyOtp />} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/auth/callback" element={<AuthCallback />} /><Route path="/invite/:token" element={<AcceptInvite />} />
+    <Route path="/login" element={<Login />} /><Route path="/signup" element={<Signup />} /><Route path="/verify-otp" element={<VerifyOtp />} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/reset-password" element={<ResetPassword />} /><Route path="/auth/callback" element={<AuthCallback />} /><Route path="/invite/:token" element={<AcceptInvite />} />
     <Route path="/payment/success" element={<PaymentSuccess />} /><Route path="/payment/failure" element={<PaymentFailure />} />
     <Route path="/dashboard" element={<ProtectedRoute />}><Route element={<DashboardLayout />}><Route index element={<DashboardRedirect />} />
       <Route path="customer" element={<ProtectedRoute requireRole="customer" />}><Route index element={<CustomerOverview />} /><Route path="appointments" element={<CustomerAppointments />} /><Route path="book" element={<Navigate to="/book" replace />} /><Route path="call/:appointmentId" element={<CustomerVideoCall />} /></Route>
