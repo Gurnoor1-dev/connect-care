@@ -50,10 +50,10 @@ export default function Signup() {
     navigate(`/verify-otp?email=${encodeURIComponent(email)}`);
   };
 
-  const oauth = async (provider: "google" | "facebook") => {
+  const oauth = async () => {
     if (!requirePolicyAcceptance()) return;
     const { error } = await supabase.auth.signInWithOAuth({
-      provider,
+      provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) toast.error(error.message);
@@ -92,8 +92,7 @@ export default function Signup() {
       </form>
       <Divider />
       <div className="grid gap-2">
-        <OAuthBrandButton provider="google" onClick={() => oauth("google")} />
-        <OAuthBrandButton provider="facebook" onClick={() => oauth("facebook")} />
+        <OAuthBrandButton onClick={oauth} />
       </div>
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account? <Link to="/login" className="text-foreground underline-offset-4 hover:underline">Sign in</Link>
