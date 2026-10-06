@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Users as UsersIcon, X, Trash2, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Search, Users as UsersIcon, X, Trash2, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -16,6 +17,7 @@ type UserRow = {
   email: string | null;
   created_at: string;
   roles: UserRole[];
+  is_published: boolean | null;
 };
 
 export default function AdminUsers() {
@@ -27,6 +29,7 @@ export default function AdminUsers() {
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState("");
+  const [updatingVisibilityId, setUpdatingVisibilityId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,20 +38,29 @@ export default function AdminUsers() {
       setLoading(true);
       setError("");
 
-      const [{ data: profiles, error: profilesError }, { data: userRoles, error: rolesError }] =
-        await Promise.all([
-          supabase
-            .from("profiles")
-            .select("id, full_name, email, created_at")
-            .order("created_at", { ascending: false }),
-          supabase.from("user_roles").select("user_id, role"),
-        ]);
+      const [
+        { data: profiles, error: profilesError },
+        { data: userRoles, error: rolesError },
+        { data: specialistProfiles, error: specialistProfilesError },
+      ] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, full_name, email, created_at")
+          .order("created_at", { ascending: false }),
+        supabase.from("user_roles").select("user_id, role"),
+        supabase.from("specialist_profiles").select("id, is_published"),
+      ]);
 
       if (cancelled) return;
 
-      if (profilesError || rolesError) {
+      if (profilesError || rolesError || specialistProfilesError) {
         setRows([]);
-        setError(profilesError?.message || rolesError?.message || "Could not load users.");
+        setError(
+          profilesError?.message ||
+          rolesError?.message ||
+          specialistProfilesError?.message ||
+          "Could not load users.",
+        );
         setLoading(false);
         return;
       }
@@ -60,10 +72,15 @@ export default function AdminUsers() {
         rolesByUser.set(user_id, existing);
       });
 
+      const visibilityBySpecialist = new Map(
+        (specialistProfiles ?? []).map(({ id, is_published }) => [id, is_published]),
+      );
+
       setRows(
         (profiles ?? []).map((profile) => ({
           ...profile,
           roles: rolesByUser.get(profile.id) ?? [],
+          is_published: visibilityBySpecialist.get(profile.id) ?? null,
         })),
       );
       setLoading(false);
@@ -91,6 +108,34 @@ export default function AdminUsers() {
       return matchesRole && matchesSearch;
     });
   }, [rows, q, roleFilter]);
+
+  const toggleVisibility = async (user: UserRow) => {
+    if (!user.roles.includes("specialist") || updatingVisibilityId) return;
+
+    const nextVisibility = user.is_published !== true;
+    setUpdatingVisibilityId(user.id);
+    setError("");
+
+    const { error: updateError } = await supabase
+      .from("specialist_profiles")
+      .update({ is_published: nextVisibility })
+      .eq("id", user.id);
+
+    if (updateError) {
+      setError(updateError.message || "Could not update specialist visibility.");
+      setUpdatingVisibilityId(null);
+      return;
+    }
+
+    setRows((current) =>
+      current.map((currentUser) =>
+        currentUser.id === user.id
+          ? { ...currentUser, is_published: nextVisibility }
+          : currentUser,
+      ),
+    );
+    setUpdatingVisibilityId(null);
+  };
 
   const deleteUser = async () => {
     if (!deleteTarget) return;
@@ -208,17 +253,35 @@ export default function AdminUsers() {
                     </td>
                     <td className="p-3 text-muted-foreground">{new Date(user.created_at).toLocaleDateString()}</td>
                     <td className="p-3 text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                        aria-label={`Delete ${user.full_name || user.email || "user"}`}
-                        onClick={() => { setDeleteError(""); setDeleteTarget(user); }}
-                        disabled={deletingId === user.id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        {user.roles.includes("specialist") && (
+                          <div className="flex items-center gap-1.5">
+                            <Switch
+                              checked={user.is_published === true}
+                              onCheckedChange={() => void toggleVisibility(user)}
+                              disabled={updatingVisibilityId === user.id || deletingId === user.id}
+                              aria-label={`${user.is_published === true ? "Hide" : "Show"} ${user.full_name || user.email || "specialist"} on website`}
+                              title={user.is_published === true ? "Visible on website — click to hide" : "Hidden from website — click to show"}
+                            />
+                            {user.is_published === true ? (
+                              <Eye className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+                            ) : (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                            )}
+                          </div>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                          aria-label={`Delete ${user.full_name || user.email || "user"}`}
+                          onClick={() => { setDeleteError(""); setDeleteTarget(user); }}
+                          disabled={deletingId === user.id}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
