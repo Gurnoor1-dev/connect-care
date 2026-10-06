@@ -43,8 +43,9 @@ Deno.serve(async(req)=>{
       const specialistSeconds=Math.min(3600,(latest.specialist_attendance_seconds??0)+(latest.specialist_joined_at&&!latest.specialist_left_at?Math.max(0,Math.floor((latestEnd-new Date(latest.specialist_joined_at).getTime())/1000)):0));
       const customerSeconds=Math.min(3600,(latest.customer_attendance_seconds??0)+(latest.customer_joined_at&&!latest.customer_left_at?Math.max(0,Math.floor((latestEnd-new Date(latest.customer_joined_at).getTime())/1000)):0));
       const specialistQualified=specialistSeconds>=ATTENDANCE_THRESHOLD_SECONDS,customerQualified=customerSeconds>=ATTENDANCE_THRESHOLD_SECONDS;
-      const status=specialistQualified&&customerQualified?"completed":(specialistSeconds>0||customerSeconds>0?"partially_completed":"no_show");
-      const {error}=await admin.from("appointments").update({specialist_attendance_seconds:specialistSeconds,customer_attendance_seconds:customerSeconds,status,session_ended_at:new Date(latestEnd).toISOString(),updated_at:new Date().toISOString()}).eq("id",appointment_id).eq("status","confirmed");
+      const status=specialistQualified?"completed":(specialistSeconds>0||customerSeconds>0?"partially_completed":"no_show");
+      const sessionEndStamp=new Date(latestEnd).toISOString();
+      const {error}=await admin.from("appointments").update({specialist_attendance_seconds:specialistSeconds,customer_attendance_seconds:customerSeconds,status,specialist_left_at:latest.specialist_joined_at&&!latest.specialist_left_at?sessionEndStamp:latest.specialist_left_at,customer_left_at:latest.customer_joined_at&&!latest.customer_left_at?sessionEndStamp:latest.customer_left_at,session_ended_at:sessionEndStamp,updated_at:new Date().toISOString()}).eq("id",appointment_id).eq("status","confirmed");
       if(error)return json({error:error.message},500);
       return json({success:true,status,specialist_attendance_seconds:specialistSeconds,customer_attendance_seconds:customerSeconds,attendance_threshold_minutes:50});
     }
