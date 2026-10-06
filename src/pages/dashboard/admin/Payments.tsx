@@ -201,6 +201,7 @@ function PaymentRecords({ rows, search, onSearch, profiles, specialists, month }
           <td className="px-5 py-4">{specialists[a.specialist_id]?.display_name || "—"}</td>
           <td className="whitespace-nowrap px-5 py-4">{formatDateTime(a.scheduled_at)}</td>
           <td className="px-5 py-4 font-mono text-xs">{a.razorpay_payment_id || "—"}</td>
+          <td className="whitespace-nowrap px-5 py-4">{formatDateTime(a.payment_captured_at || a.created_at)}</td>
           <td className="whitespace-nowrap px-5 py-4 font-medium">{purchaseLabel(a)}</td>
           <td className="whitespace-nowrap px-5 py-4">{money(a.amount_cents, a.currency)}</td>
           <td className="whitespace-nowrap px-5 py-4">{a.razorpay_fee == null ? "—" : money(a.razorpay_fee, a.razorpay_base_currency || "INR")}</td>
