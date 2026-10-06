@@ -273,18 +273,18 @@ export default function BookAppointment() {
           .eq("customer_id", user.id).eq("specialist_id", specialistId).gte("credit_points", 2);
         if (error) throw new Error(error.message);
 
-        const { error: appointmentError } = await supabase.from("appointments").insert({
+        const { data: creditAppointment, error: appointmentError } = await supabase.from("appointments").insert({
           customer_id: user.id, specialist_id: specialistId, tier_id: tier.id,
           scheduled_at: scheduledAt, duration_minutes: tier.duration_minutes,
           amount_cents: 0, currency: tier.currency, status: "confirmed",
           customer_name: user.user_metadata?.full_name ?? user.email ?? "Customer", payment_method: "credits",
-        });
+        }).select("id").single();
         if (appointmentError) {
           await supabase.from("customer_specialist_credits").update({ credit_points: credits })
             .eq("customer_id", user.id).eq("specialist_id", specialistId);
           throw new Error(appointmentError.message);
         }
-        await notifyBookingConfirmation(appointment.id);
+        await notifyBookingConfirmation(creditAppointment?.id ?? "");
         toast.success("Session booked using 2 credits");
         navigate("/dashboard/customer/appointments");
         return;
