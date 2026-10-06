@@ -112,30 +112,6 @@ export default function SpecialistOverview() {
 
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Next sessions</h2>
-          <Button asChild variant="ghost" size="sm"><Link to="/dashboard/specialist/patients">All patient notes</Link></Button>
-        </div>
-        {upcoming.length === 0 ? <Card className="p-8 text-center text-muted-foreground">No upcoming sessions.</Card> : <div className="space-y-3">{upcoming.map((a) => <LiveAppointmentRow key={a.id} a={a} role="specialist" />)}</div>}
-      </section>
-
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Session history</h2>
-          <span className="text-xs text-muted-foreground">Sessions completed after the full attendance threshold.</span>
-        </div>
-        {history.length === 0 ? <Card className="p-8 text-center text-muted-foreground">No completed sessions yet.</Card> : <div className="space-y-3">{history.map((a) => <HistoryRow key={a.id} a={a} timezone={specialistTimezone} />)}</div>}
-      </section>
-
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Session earnings</h2>
-          <span className="text-xs text-muted-foreground">One session price is added only after full attendance.</span>
-        </div>
-        {earnings.length === 0 ? <Card className="p-8 text-center text-muted-foreground">No session earnings yet.</Card> : <div className="space-y-3">{earnings.map((earning) => <EarningRow key={earning.id} earning={earning} timezone={specialistTimezone} />)}</div>}
-      </section>
-
-      <section>
-        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Client credit balances</h2>
           <span className="text-xs text-muted-foreground">Bundle credits for this specialist · 2 credits = 1 session.</span>
         </div>
@@ -160,6 +136,32 @@ export default function SpecialistOverview() {
           </div>
         )}
       </section>
+
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Next sessions</h2>
+          <Button asChild variant="ghost" size="sm"><Link to="/dashboard/specialist/patients">All patient notes</Link></Button>
+        </div>
+        {upcoming.length === 0 ? <Card className="p-8 text-center text-muted-foreground">No upcoming sessions.</Card> : <div className="space-y-3">{upcoming.map((a) => <LiveAppointmentRow key={a.id} a={a} role="specialist" />)}</div>}
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Session history</h2>
+          <span className="text-xs text-muted-foreground">Sessions completed after the full attendance threshold.</span>
+        </div>
+        {history.length === 0 ? <Card className="p-8 text-center text-muted-foreground">No completed sessions yet.</Card> : <div className="space-y-3">{history.map((a) => <HistoryRow key={a.id} a={a} timezone={specialistTimezone} />)}</div>}
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Session earnings</h2>
+          <span className="text-xs text-muted-foreground">One session price is added only after full attendance.</span>
+        </div>
+        {earnings.length === 0 ? <Card className="p-8 text-center text-muted-foreground">No session earnings yet.</Card> : <div className="space-y-3">{earnings.map((earning) => <EarningRow key={earning.id} earning={earning} timezone={specialistTimezone} />)}</div>}
+      </section>
+
+
     </div>
   );
 }
