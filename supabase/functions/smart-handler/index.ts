@@ -14,7 +14,7 @@ Deno.serve(async(req)=>{
     const {appointment_id}=await req.json();
     if(!appointment_id)return out({error:"appointment_id is required"},400);
     const admin=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const {data:appt,error:apptErr}=await admin.from("appointments").select("id,customer_id,specialist_id,customer_name,scheduled_at,duration_minutes,status,jitsi_room_url,jitsi_room_name,specialist_joined_at,customer_joined_at,specialist_left_at,customer_left_at,session_started_at,specialist_attendance_seconds,customer_attendance_seconds").eq("id",appointment_id).single();
+    const {data:appt,error:apptErr}=await admin.from("appointments").select("id,customer_id,specialist_id,customer_name,scheduled_at,duration_minutes,status,jitsi_room_url,jitsi_room_name,specialist_joined_at,specialist_first_joined_at,customer_joined_at,specialist_left_at,specialist_last_left_at,customer_left_at,session_started_at,specialist_attendance_seconds,customer_attendance_seconds").eq("id",appointment_id).single();
     if(apptErr||!appt)return out({error:"Appointment not found"},404);
     const isCustomer=appt.customer_id===user.id,isSpecialist=appt.specialist_id===user.id;
     if(!isCustomer&&!isSpecialist)return out({error:"Forbidden: You do not have access to this call."},403);
@@ -45,7 +45,7 @@ Deno.serve(async(req)=>{
         const added=Math.max(0,Math.floor((Math.min(now,joinEnd)-new Date(appt.specialist_joined_at).getTime())/1000));
         updates.specialist_attendance_seconds=Math.min(3600,(appt.specialist_attendance_seconds??0)+added);
       }
-      updates.specialist_joined_at=stamp; updates.specialist_left_at=null; updates.session_started_at=appt.specialist_joined_at??stamp;
+      updates.specialist_joined_at=stamp; updates.specialist_first_joined_at=appt.specialist_first_joined_at??stamp; updates.specialist_left_at=null; updates.session_started_at=appt.specialist_first_joined_at??stamp;
     }else{
       if(appt.customer_joined_at&&appt.customer_left_at){
         const added=Math.max(0,Math.floor((Math.min(now,joinEnd)-new Date(appt.customer_joined_at).getTime())/1000));
