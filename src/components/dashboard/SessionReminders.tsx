@@ -71,10 +71,10 @@ export function SessionReminders({ userId, role }: { userId?: string; role: "cus
 
           const title = reminder.minutes === 1
             ? "Session starts in 1 minute"
-            : \`Session starts in \${reminder.minutes} minutes\`;
+            : `Session starts in ${reminder.minutes} minutes`;
           const detail = role === "customer"
-            ? \`Your session with \${appointment.specialist?.display_name ?? "your specialist"} starts in \${reminder.label}.\`
-            : \`Your session with \${appointment.customer_name ?? "your patient"} starts in \${reminder.label}.\`;
+            ? `Your session with ${appointment.specialist?.display_name ?? "your specialist"} starts in ${reminder.label}.`
+            : `Your session with ${appointment.customer_name ?? "your patient"} starts in ${reminder.label}.`;
 
           toast.info(title, { description: detail, duration: 10_000 });
 
