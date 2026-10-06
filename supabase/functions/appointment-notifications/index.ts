@@ -152,6 +152,18 @@ async function noShow(id: string) {
 
 async function sweep() {
   await admin.rpc("expire_unattended_appointments");
+
+  const { data: pendingBookings, error: pendingBookingsError } = await admin
+    .from("appointments")
+    .select("id")
+    .eq("status", "confirmed")
+    .is("booking_email_sent_at", null)
+    .order("scheduled_at", { ascending: true })
+    .limit(100);
+
+  if (pendingBookingsError) throw pendingBookingsError;
+  for (const row of pendingBookings ?? []) await booking(row.id);
+
   const now = Date.now();
   const stages: Array<{ stage: ReminderStage; from: number; to: number }> = [
     { stage: 30, from: 29, to: 31 },
