@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, CreditCard, DollarSign, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 type Appointment = {
   id: string;
