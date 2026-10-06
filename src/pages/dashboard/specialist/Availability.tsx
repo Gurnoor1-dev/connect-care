@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
@@ -8,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { getDeviceTimeZone, getTimeZoneLabel } from "@/lib/timezone";
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function dayOfWeekFromDate(value: string) {
+  return new Date(value + "T12:00:00Z").getUTCDay();
+}
 
 function normalizeTime(value: string) {
   const match = value.match(/^(\d{1,2}):(\d{2})/);
@@ -22,6 +25,7 @@ function is24HourTime(value: string) {
 
 interface Slot {
   id?: string;
+  available_date: string;
   day_of_week: number;
   start_time: string;
   end_time: string;
@@ -46,7 +50,7 @@ export default function SpecialistAvailability() {
 
     const { data, error } = await supabase
       .from("specialist_availability")
-      .select("id, day_of_week, start_time, end_time, is_active")
+      .select("id, available_date, day_of_week, start_time, end_time, is_active")
       .eq("specialist_id", user.id)
       .order("day_of_week", { ascending: true });
 
@@ -55,7 +59,7 @@ export default function SpecialistAvailability() {
       return;
     }
 
-    setSlots(data ?? []);
+    setSlots((data ?? []).filter((slot) => Boolean(slot.available_date)));
   };
 
   useEffect(() => {
@@ -63,16 +67,34 @@ export default function SpecialistAvailability() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const addDay = (dayOfWeek: number) =>
+  const [selectedDateToAdd, setSelectedDateToAdd] = useState("");
+
+  const dateOptions = useMemo(() => {
+    const today = new Date();
+    return {
+      min: format(today, "yyyy-MM-dd"),
+      max: format(new Date(today.getFullYear() + 1, 11, 31), "yyyy-MM-dd"),
+    };
+  }, []);
+
+  const addDate = () => {
+    if (!selectedDateToAdd) {
+      toast.error("Select a date first.");
+      return;
+    }
+    const day = dayOfWeekFromDate(selectedDateToAdd);
     setSlots((current) => [
       ...current,
       {
-        day_of_week: dayOfWeek,
+        available_date: selectedDateToAdd,
+        day_of_week: day,
         start_time: "09:00",
         end_time: "17:00",
         is_active: true,
       },
     ]);
+    setSelectedDateToAdd("");
+  };
 
   const update = (index: number, patch: Partial<Slot>) =>
     setSlots((current) =>
@@ -80,6 +102,11 @@ export default function SpecialistAvailability() {
         slotIndex === index ? { ...slot, ...patch } : slot
       )
     );
+
+  const updateDate = (index: number, value: string) => {
+    if (!value) return;
+    update(index, { available_date: value, day_of_week: dayOfWeekFromDate(value) });
+  };
 
   const updateTime = (index: number, field: "start_time" | "end_time", value: string) => {
     const normalized = normalizeTime(value.replace(/\s/g, ""));
@@ -116,17 +143,19 @@ export default function SpecialistAvailability() {
     const existingSlots = slots.filter((slot) => Boolean(slot.id));
     const newSlots = slots.filter((slot) => !slot.id);
 
-    const updates = existingSlots.map(({ id, day_of_week, start_time, end_time, is_active }) => ({
+    const updates = existingSlots.map(({ id, available_date, day_of_week, start_time, end_time, is_active }) => ({
       id,
       specialist_id: user.id,
+      available_date,
       day_of_week,
       start_time,
       end_time,
       is_active,
     }));
 
-    const inserts = newSlots.map(({ day_of_week, start_time, end_time, is_active }) => ({
+    const inserts = newSlots.map(({ available_date, day_of_week, start_time, end_time, is_active }) => ({
       specialist_id: user.id,
+      available_date,
       day_of_week,
       start_time,
       end_time,
@@ -175,21 +204,42 @@ export default function SpecialistAvailability() {
         that fall inside an active range for the selected day.
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {DAYS.map((day, index) => (
-          <Button key={day} variant="outline" size="sm" onClick={() => addDay(index)}>
-            + {day}
-          </Button>
-        ))}
+      <div className="flex flex-col gap-3 rounded-2xl border bg-muted/30 p-4 sm:flex-row sm:items-end">
+        <label className="min-w-0 flex-1">
+          <span className="mb-1 block text-xs text-muted-foreground">Add availability date</span>
+          <Input
+            type="date"
+            min={dateOptions.min}
+            max={dateOptions.max}
+            value={selectedDateToAdd}
+            onChange={(event) => setSelectedDateToAdd(event.target.value)}
+            aria-label="Availability date"
+          />
+        </label>
+        <Button type="button" variant="outline" onClick={addDate}>+ Add date</Button>
       </div>
 
       <div className="space-y-3">
-        {slots.map((slot, index) => (
+        {slots.sort((a, b) => a.available_date.localeCompare(b.available_date) || a.start_time.localeCompare(b.start_time)).map((slot, index) => (
           <Card
             key={slot.id ?? `new-${slot.day_of_week}-${index}`}
             className="grid gap-3 p-4 sm:grid-cols-[80px_minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-center"
           >
-            <div className="font-medium">{DAYS[slot.day_of_week]}</div>
+            <label className="min-w-0">
+              <span className="mb-1 block text-xs text-muted-foreground">Date</span>
+              <Input
+                type="date"
+                min={dateOptions.min}
+                max={dateOptions.max}
+                value={slot.available_date}
+                onChange={(event) => updateDate(index, event.target.value)}
+                className="w-full min-w-0"
+                aria-label="Availability date"
+              />
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {slot.available_date ? format(new Date(slot.available_date + "T12:00:00"), "EEE, MMM d, yyyy") : "Select a date"}
+              </span>
+            </label>
 
             <label className="min-w-0">
               <span className="mb-1 block text-xs text-muted-foreground">Start time · 24-hour (00:00–23:59)</span>
