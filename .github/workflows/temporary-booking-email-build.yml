@@ -1,0 +1,27 @@
+name: temporary booking email build check
+on:
+  push:
+    branches:
+      - work/2026-10-07-booking-confirmation-email-fix
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Production build
+        run: |
+          bun install --no-save
+          bun run build
+      - name: Source artifact checks
+        shell: bash
+        run: |
+          files=(src/pages/BookAppointment.tsx supabase/functions/appointment-notifications/index.ts supabase/functions/razorpay-verify-payment/index.ts supabase/functions/razorpay-webhook/index.ts)
+          for file in "${files[@]}"; do
+            if grep -nE '\\n|\\t|\\\\`|\\\\\$\\{' "$file"; then
+              echo "Unexpected literal escape artifact found in $file"
+              exit 1
+            fi
+          done
