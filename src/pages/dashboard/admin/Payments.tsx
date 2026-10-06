@@ -67,7 +67,7 @@ export default function AdminPayments() {
   const captured = useMemo(() => appointments.filter(a => a.razorpay_payment_status === "captured"), [appointments]);
   const monthOptions = useMemo(() => {
     const values = [
-      ...captured.map(a => monthKey(new Date(a.payment_captured_at || a.created_at))),
+      ...captured.map(a => monthKey(new Date(a.payment_captured_at!))),
       ...appointments.map(a => monthKey(new Date(a.scheduled_at))),
       ...earnings.map(e => monthKey(new Date(e.earned_at))),
       monthKey(now),
@@ -80,7 +80,7 @@ export default function AdminPayments() {
   }, [monthOptions, selectedMonth]);
 
   const monthlyCaptured = useMemo(
-    () => captured.filter(a => monthKey(new Date(a.payment_captured_at || a.created_at)) === selectedMonth),
+    () => captured.filter(a => monthKey(new Date(a.payment_captured_at!)) === selectedMonth),
     [captured, selectedMonth]
   );
   const capturedTotal = useMemo(() => monthlyCaptured.reduce((sum, a) => sum + a.amount_cents, 0), [monthlyCaptured]);
@@ -109,7 +109,7 @@ export default function AdminPayments() {
       const customer = (a.customer_name || "") + " " + (profiles[a.customer_id]?.full_name || "") + " " + (profiles[a.customer_id]?.email || "");
       const specialist = specialists[a.specialist_id]?.display_name || "";
       return (customer + " " + specialist + " " + (a.razorpay_payment_id || "") + " " + a.id).toLowerCase().includes(q);
-    }).sort((a, b) => new Date(b.payment_captured_at || b.created_at).getTime() - new Date(a.payment_captured_at || a.created_at).getTime());
+    }).sort((a, b) => new Date(b.payment_captured_at!).getTime() - new Date(a.payment_captured_at!).getTime());
   }, [monthlyCaptured, search, profiles, specialists]);
 
   const incomeRows = useMemo(() => {
