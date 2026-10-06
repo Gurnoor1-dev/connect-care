@@ -28,7 +28,7 @@ export default function AdminPayments() {
   const [tab, setTab] = useState<Tab>("payments");
   const [search, setSearch] = useState("");
   const [incomeMonth, setIncomeMonth] = useState(() => monthKey(new Date()));
-  const [paymentMonth, setPaymentMonth] = useState(() => monthKey(new Date()));
+  const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
 
   const load = async () => {
     setLoading(true);
@@ -72,18 +72,28 @@ export default function AdminPayments() {
     return [...new Set(values)].sort((a, b) => b.localeCompare(a));
   }, [captured, now]);
   useEffect(() => {
-    if (paymentMonths.length && !paymentMonths.includes(paymentMonth)) setPaymentMonth(paymentMonths[0]);
-  }, [paymentMonths, paymentMonth]);
+    if (paymentMonths.length && !paymentMonths.includes(selectedMonth)) setSelectedMonth(paymentMonths[0]);
+  }, [paymentMonths, selectedMonth]);
 
-  const monthlyCaptured = useMemo(() => captured.filter(a => monthKey(new Date(a.payment_captured_at || a.created_at)) === paymentMonth), [captured, paymentMonth]);
+  const monthlyCaptured = useMemo(() => captured.filter(a => monthKey(new Date(a.payment_captured_at || a.created_at)) === selectedMonth), [captured, selectedMonth]);
   const capturedTotal = useMemo(() => monthlyCaptured.reduce((sum, a) => sum + a.amount_cents, 0), [monthlyCaptured]);
 
-  const upcoming = useMemo(() => appointments.filter(a => a.status === "confirmed" && new Date(a.scheduled_at).getTime() > now.getTime()).length, [appointments, now]);
-  const completed = useMemo(() => appointments.filter(a => a.status === "completed").length, [appointments]);
-  const missed = useMemo(() => appointments.filter(a => {
+  const monthlySessions = useMemo(
+    () => appointments.filter(a => monthKey(new Date(a.scheduled_at)) === selectedMonth),
+    [appointments, selectedMonth]
+  );
+  const upcoming = useMemo(
+    () => monthlySessions.filter(a => a.status === "confirmed" && new Date(a.scheduled_at).getTime() > now.getTime()).length,
+    [monthlySessions, now]
+  );
+  const completed = useMemo(
+    () => monthlySessions.filter(a => a.status === "completed").length,
+    [monthlySessions]
+  );
+  const missed = useMemo(() => monthlySessions.filter(a => {
     const end = new Date(a.scheduled_at).getTime() + (a.duration_minutes || 60) * 60 * 1000;
     return end <= now.getTime() && a.status !== "completed" && a.status !== "cancelled";
-  }).length, [appointments, now]);
+  }).length, [monthlySessions, now]);
 
   const paymentRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -121,7 +131,7 @@ export default function AdminPayments() {
       <Card className="p-5">
         <div className="text-2xl font-bold">{loading ? "…" : money(capturedTotal, monthlyCaptured[0]?.currency || "USD")}</div>
         <div className="mt-1 text-sm text-muted-foreground">All payments captured</div>
-        <select value={paymentMonth} onChange={e => setPaymentMonth(e.target.value)} className="mt-4 h-10 w-full rounded-xl border border-border bg-transparent px-3 text-sm outline-none" aria-label="Captured payment month">
+        <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="mt-4 h-10 w-full rounded-xl border border-border bg-transparent px-3 text-sm outline-none" aria-label="Captured payment month">
           {paymentMonths.map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
         </select>
       </Card>
@@ -138,7 +148,7 @@ export default function AdminPayments() {
     </div>
 
     {tab === "payments"
-      ? <PaymentRecords rows={paymentRows} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} month={paymentMonth} />
+      ? <PaymentRecords rows={paymentRows} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} month={selectedMonth} />
       : tab === "income"
         ? <SpecialistIncome rows={incomeRows} month={incomeMonth} months={months} onMonthChange={setIncomeMonth} />
         : <SessionRecords rows={appointments} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} now={now} />}
