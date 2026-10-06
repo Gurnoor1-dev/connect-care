@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 
 type Appointment = {
-  id: string; amount_cents: number; currency: string; scheduled_at: string; status: string;
+  id: string; amount_cents: number; currency: string; scheduled_at: string; duration_minutes: number | null; status: string;
+  created_at: string; payment_captured_at: string | null;
   razorpay_payment_status: string | null; razorpay_payment_id: string | null; razorpay_fee: number | null;
   razorpay_tax: number | null; razorpay_base_currency: string | null;
   payment_method: string | null; customer_id: string; customer_name: string | null; specialist_id: string;
@@ -15,7 +16,7 @@ type Appointment = {
 type Profile = { id: string; full_name: string | null; email: string | null };
 type Specialist = { id: string; display_name: string | null };
 type SessionEarning = { id: string; appointment_id: string; specialist_id: string; amount_cents: number; currency: string; earned_at: string };
-type Tab = "payments" | "income";
+type Tab = "payments" | "income" | "sessions";
 
 export default function AdminPayments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -27,6 +28,7 @@ export default function AdminPayments() {
   const [tab, setTab] = useState<Tab>("payments");
   const [search, setSearch] = useState("");
   const [incomeMonth, setIncomeMonth] = useState(() => monthKey(new Date()));
+  const [paymentMonth, setPaymentMonth] = useState(() => monthKey(new Date()));
 
   const load = async () => {
     setLoading(true);
@@ -64,23 +66,34 @@ export default function AdminPayments() {
   }, []);
 
   const captured = useMemo(() => appointments.filter(a => a.razorpay_payment_status === "captured"), [appointments]);
-  const capturedTotal = useMemo(() => captured.reduce((sum, a) => sum + a.amount_cents, 0), [captured]);
+  const paymentMonths = useMemo(() => {
+    const values = captured.map(a => monthKey(new Date(a.payment_captured_at || a.created_at)));
+    values.push(monthKey(now));
+    return [...new Set(values)].sort((a, b) => b.localeCompare(a));
+  }, [captured, now]);
+  useEffect(() => {
+    if (paymentMonths.length && !paymentMonths.includes(paymentMonth)) setPaymentMonth(paymentMonths[0]);
+  }, [paymentMonths, paymentMonth]);
+
+  const monthlyCaptured = useMemo(() => captured.filter(a => monthKey(new Date(a.payment_captured_at || a.created_at)) === paymentMonth), [captured, paymentMonth]);
+  const capturedTotal = useMemo(() => monthlyCaptured.reduce((sum, a) => sum + a.amount_cents, 0), [monthlyCaptured]);
+
   const upcoming = useMemo(() => appointments.filter(a => a.status === "confirmed" && new Date(a.scheduled_at).getTime() > now.getTime()).length, [appointments, now]);
   const completed = useMemo(() => appointments.filter(a => a.status === "completed").length, [appointments]);
   const missed = useMemo(() => appointments.filter(a => {
-    const ended = new Date(a.scheduled_at).getTime() + 60 * 60 * 1000 <= now.getTime();
-    return ended && a.status !== "completed" && (a.specialist_attendance_seconds ?? 0) < 50 * 60;
+    const end = new Date(a.scheduled_at).getTime() + (a.duration_minutes || 60) * 60 * 1000;
+    return end <= now.getTime() && a.status !== "completed" && a.status !== "cancelled";
   }).length, [appointments, now]);
 
   const paymentRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return captured.filter(a => {
+    return monthlyCaptured.filter(a => {
       if (!q) return true;
       const customer = (a.customer_name || "") + " " + (profiles[a.customer_id]?.full_name || "") + " " + (profiles[a.customer_id]?.email || "");
       const specialist = specialists[a.specialist_id]?.display_name || "";
       return (customer + " " + specialist + " " + (a.razorpay_payment_id || "") + " " + a.id).toLowerCase().includes(q);
-    }).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
-  }, [captured, search, profiles, specialists]);
+    }).sort((a, b) => new Date(b.payment_captured_at || b.created_at).getTime() - new Date(a.payment_captured_at || a.created_at).getTime());
+  }, [monthlyCaptured, search, profiles, specialists]);
 
   const months = useMemo(() => {
     const values = earnings.map(e => monthKey(new Date(e.earned_at)));
@@ -103,21 +116,34 @@ export default function AdminPayments() {
 
   return <div className="space-y-6">
     <header><h1 className="text-3xl font-bold">Payments & sessions</h1><p className="mt-1 text-muted-foreground">Live payment and session status from the appointment records.</p></header>
+
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <SimpleStat value={money(capturedTotal, captured[0]?.currency || "USD")} label="All payments captured" loading={loading} />
+      <Card className="p-5">
+        <div className="text-2xl font-bold">{loading ? "…" : money(capturedTotal, monthlyCaptured[0]?.currency || "USD")}</div>
+        <div className="mt-1 text-sm text-muted-foreground">All payments captured</div>
+        <select value={paymentMonth} onChange={e => setPaymentMonth(e.target.value)} className="mt-4 h-10 w-full rounded-xl border border-border bg-transparent px-3 text-sm outline-none" aria-label="Captured payment month">
+          {paymentMonths.map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
+        </select>
+      </Card>
       <SimpleStat value={String(upcoming)} label="Sessions appointed / pending" loading={loading} />
       <SimpleStat value={String(completed)} label="Sessions completed" loading={loading} />
       <SimpleStat value={String(missed)} label="Sessions not attended / not completed" loading={loading} />
     </div>
+
     <div className="flex flex-wrap gap-3">
       <Button variant={tab === "payments" ? "default" : "outline"} onClick={() => setTab("payments")} className="min-w-36">Payments</Button>
       <Button variant={tab === "income" ? "default" : "outline"} onClick={() => setTab("income")} className="min-w-44">Specialist income</Button>
+      <Button variant={tab === "sessions" ? "default" : "outline"} onClick={() => setTab("sessions")} className="min-w-40">Session records</Button>
       <Button variant="outline" onClick={() => void load()} disabled={loading} className="ml-auto"><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
     </div>
+
     {tab === "payments"
-      ? <PaymentRecords rows={paymentRows} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} />
-      : <SpecialistIncome rows={incomeRows} month={incomeMonth} months={months} onMonthChange={setIncomeMonth} />}
-    <Card className="p-5"><div className="font-semibold">Live status</div><div className="mt-1 text-sm text-muted-foreground">Captured payments are counted immediately, whether or not the session has happened yet. Payment records and specialist income refresh automatically and on database changes.</div></Card>
+      ? <PaymentRecords rows={paymentRows} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} month={paymentMonth} />
+      : tab === "income"
+        ? <SpecialistIncome rows={incomeRows} month={incomeMonth} months={months} onMonthChange={setIncomeMonth} />
+        : <SessionRecords rows={appointments} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} now={now} />}
+
+    <Card className="p-5"><div className="font-semibold">Live status</div><div className="mt-1 text-sm text-muted-foreground">Payments, income and session records refresh automatically every 10 seconds, on page focus, and on appointment or income database changes.</div></Card>
   </div>;
 }
 
@@ -125,38 +151,30 @@ async function fetchAllAppointments(): Promise<Appointment[]> {
   const rows: Appointment[] = [], size = 1000;
   for (let from = 0;; from += size) {
     const { data, error } = await supabase.from("appointments")
-      .select("id,amount_cents,currency,scheduled_at,status,razorpay_payment_status,razorpay_payment_id,razorpay_fee,razorpay_tax,razorpay_base_currency,payment_method,customer_id,customer_name,specialist_id,tier_id,specialist_attendance_seconds,customer_attendance_seconds")
+      .select("id,amount_cents,currency,scheduled_at,duration_minutes,status,created_at,payment_captured_at,razorpay_payment_status,razorpay_payment_id,razorpay_fee,razorpay_tax,razorpay_base_currency,payment_method,customer_id,customer_name,specialist_id,tier_id,specialist_attendance_seconds,customer_attendance_seconds")
       .order("scheduled_at", { ascending: true }).range(from, from + size - 1);
     if (error) { console.error("Admin appointment load failed", error); return rows; }
     const batch = (data ?? []) as Appointment[];
     const tierIds = [...new Set(batch.map(a => a.tier_id).filter((id): id is string => Boolean(id)))];
     let tierMap: Record<string, { label: string | null; tier_type: string | null; session_count: number | null }> = {};
     if (tierIds.length) {
-      const { data: tiers, error: tierError } = await supabase
-        .from("specialist_tiers")
-        .select("id,label,tier_type,session_count")
-        .in("id", tierIds);
+      const { data: tiers, error: tierError } = await supabase.from("specialist_tiers").select("id,label,tier_type,session_count").in("id", tierIds);
       if (tierError) console.error("Admin tier load failed", tierError);
       tierMap = Object.fromEntries((tiers ?? []).map(t => [t.id, { label: t.label, tier_type: t.tier_type, session_count: t.session_count }]));
     }
-    rows.push(...batch.map(a => ({
-      ...a,
-      tier_label: a.tier_id ? tierMap[a.tier_id]?.label ?? null : null,
-      tier_type: a.tier_id ? tierMap[a.tier_id]?.tier_type ?? null : null,
-      tier_session_count: a.tier_id ? tierMap[a.tier_id]?.session_count ?? null : null,
-    })));
+    rows.push(...batch.map(a => ({ ...a, tier_label: a.tier_id ? tierMap[a.tier_id]?.label ?? null : null, tier_type: a.tier_id ? tierMap[a.tier_id]?.tier_type ?? null : null, tier_session_count: a.tier_id ? tierMap[a.tier_id]?.session_count ?? null : null })));
     if (batch.length < size) break;
   }
   return rows;
 }
 
-function PaymentRecords({ rows, search, onSearch, profiles, specialists }: { rows: Appointment[]; search: string; onSearch: (v: string) => void; profiles: Record<string, Profile>; specialists: Record<string, Specialist> }) {
+function PaymentRecords({ rows, search, onSearch, profiles, specialists, month }: { rows: Appointment[]; search: string; onSearch: (v: string) => void; profiles: Record<string, Profile>; specialists: Record<string, Specialist>; month: string }) {
   return <Card className="overflow-hidden">
     <div className="flex flex-col gap-4 border-b p-5 lg:flex-row lg:items-center lg:justify-between">
-      <div><h2 className="text-2xl font-semibold">Payment records</h2><p className="mt-1 text-sm text-muted-foreground">Every captured payment, including payments made before the session is attended.</p></div>
+      <div><h2 className="text-2xl font-semibold">Payment records</h2><p className="mt-1 text-sm text-muted-foreground">Captured payments for {formatMonth(month)}, including payments made before the session is attended.</p></div>
       <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search customer, email, specialist, payment ID..." className="h-12 w-full rounded-2xl border border-border bg-transparent px-4 text-base outline-none placeholder:text-muted-foreground lg:max-w-xl" />
     </div>
-    <div className="overflow-x-auto"><table className="w-full min-w-[1300px] text-sm">
+    <div className="overflow-x-auto"><table className="w-full min-w-[1450px] text-sm">
       <thead><tr className="border-b text-left text-muted-foreground">
         <th className="px-5 py-4">CUSTOMER</th><th className="px-5 py-4">SPECIALIST</th><th className="px-5 py-4">SESSION</th><th className="px-5 py-4">PAYMENT ID</th><th className="px-5 py-4">PURCHASE</th><th className="px-5 py-4">AMOUNT</th><th className="px-5 py-4">FEE</th><th className="px-5 py-4">ATTENDANCE</th><th className="px-5 py-4">STATUS</th>
       </tr></thead>
@@ -171,16 +189,16 @@ function PaymentRecords({ rows, search, onSearch, profiles, specialists }: { row
           <td className="whitespace-nowrap px-5 py-4">{money(a.amount_cents, a.currency)}</td>
           <td className="whitespace-nowrap px-5 py-4">{a.razorpay_fee == null ? "—" : money(a.razorpay_fee, a.razorpay_base_currency || "INR")}</td>
           <td className="whitespace-nowrap px-5 py-4">Specialist {duration(a.specialist_attendance_seconds ?? 0)} · Client {duration(a.customer_attendance_seconds ?? 0)}</td>
-          <td className="px-5 py-4"><div className="font-medium">Captured</div><div className="text-xs text-muted-foreground">{a.payment_method === "credits" ? "Credits" : "Razorpay"}</div></td>
+          <td className="px-5 py-4"><div className="font-medium">Captured</div><div className="text-xs text-muted-foreground">{paymentMethodLabel(a.payment_method)}</div></td>
         </tr>;
-      })}{!rows.length && <tr><td colSpan={9} className="px-5 py-16 text-center text-muted-foreground">No captured payment records found.</td></tr>}</tbody>
+      })}{!rows.length && <tr><td colSpan={9} className="px-5 py-16 text-center text-muted-foreground">No captured payment records found for this month.</td></tr>}</tbody>
     </table></div>
   </Card>;
 }
 
 function SpecialistIncome({ rows, month, months, onMonthChange }: { rows: Array<{ specialistId: string; specialist: string; sessions: number; amount: number; currency: string }>; month: string; months: string[]; onMonthChange: (v: string) => void }) {
   return <Card className="overflow-hidden">
-    <div className="p-5"><h2 className="text-2xl font-semibold">Specialist income</h2><p className="mt-1 text-sm text-muted-foreground">Only fully attended, captured sessions are included.</p>
+    <div className="p-5"><h2 className="text-2xl font-semibold">Specialist income</h2><p className="mt-1 text-sm text-muted-foreground">Only completed, captured sessions are included.</p>
       <select value={month} onChange={e => onMonthChange(e.target.value)} className="mt-5 h-14 w-full rounded-2xl border border-border bg-transparent px-4 text-lg outline-none" aria-label="Income month">
         {months.map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
       </select>
@@ -192,6 +210,52 @@ function SpecialistIncome({ rows, month, months, onMonthChange }: { rows: Array<
   </Card>;
 }
 
+function SessionRecords({ rows, search, onSearch, profiles, specialists, now }: { rows: Appointment[]; search: string; onSearch: (v: string) => void; profiles: Record<string, Profile>; specialists: Record<string, Specialist>; now: Date }) {
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return [...rows].filter(a => {
+      if (!q) return true;
+      const customer = a.customer_name || profiles[a.customer_id]?.full_name || profiles[a.customer_id]?.email || "";
+      const specialist = specialists[a.specialist_id]?.display_name || "";
+      return (customer + " " + specialist + " " + a.id).toLowerCase().includes(q);
+    }).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
+  }, [rows, search, profiles, specialists]);
+
+  return <Card className="overflow-hidden">
+    <div className="flex flex-col gap-4 border-b p-5 lg:flex-row lg:items-center lg:justify-between">
+      <div><h2 className="text-2xl font-semibold">Session records</h2><p className="mt-1 text-sm text-muted-foreground">The appointment record is the source of truth for client, scheduled time, attendance, payment mode and completion status.</p></div>
+      <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search client, specialist or session ID..." className="h-12 w-full rounded-2xl border border-border bg-transparent px-4 text-base outline-none placeholder:text-muted-foreground lg:max-w-xl" />
+    </div>
+    <div className="overflow-x-auto"><table className="w-full min-w-[1500px] text-sm">
+      <thead><tr className="border-b text-left text-muted-foreground">
+        <th className="px-5 py-4">CLIENT</th><th className="px-5 py-4">SPECIALIST</th><th className="px-5 py-4">DATE</th><th className="px-5 py-4">SCHEDULED TIME</th><th className="px-5 py-4">CLIENT ATTENDANCE</th><th className="px-5 py-4">CONSULTANT ATTENDANCE</th><th className="px-5 py-4">PAYMENT MODE</th><th className="px-5 py-4">STATUS</th>
+      </tr></thead>
+      <tbody>{filtered.map(a => {
+        const p = profiles[a.customer_id];
+        const customer = a.customer_name || p?.full_name || p?.email || "—";
+        return <tr key={a.id} className="border-b last:border-0">
+          <td className="px-5 py-4"><div className="font-medium">{customer}</div><div className="text-xs text-muted-foreground">{p?.email || "—"}</div></td>
+          <td className="px-5 py-4">{specialists[a.specialist_id]?.display_name || "—"}</td>
+          <td className="whitespace-nowrap px-5 py-4">{formatDate(a.scheduled_at)}</td>
+          <td className="whitespace-nowrap px-5 py-4">{formatTime(a.scheduled_at)} · {a.duration_minutes || 60} min</td>
+          <td className="whitespace-nowrap px-5 py-4">{duration(a.customer_attendance_seconds ?? 0)}</td>
+          <td className="whitespace-nowrap px-5 py-4">{duration(a.specialist_attendance_seconds ?? 0)}</td>
+          <td className="px-5 py-4">{paymentMethodLabel(a.payment_method)}</td>
+          <td className="px-5 py-4"><StatusLabel appointment={a} now={now} /></td>
+        </tr>;
+      })}{!filtered.length && <tr><td colSpan={8} className="px-5 py-16 text-center text-muted-foreground">No session records found.</td></tr>}</tbody>
+    </table></div>
+  </Card>;
+}
+
+function StatusLabel({ appointment: a, now }: { appointment: Appointment; now: Date }) {
+  if (a.status === "completed") return <span className="font-semibold">Completed</span>;
+  if (a.status === "cancelled") return <span>Cancelled</span>;
+  const end = new Date(a.scheduled_at).getTime() + (a.duration_minutes || 60) * 60 * 1000;
+  if (end > now.getTime()) return <span>Pending / upcoming</span>;
+  return <span>Not completed</span>;
+}
+
 function purchaseLabel(a: Appointment) {
   if (a.tier_type === "bundle") {
     const count = a.tier_session_count;
@@ -201,8 +265,17 @@ function purchaseLabel(a: Appointment) {
   return a.tier_label || "—";
 }
 
+function paymentMethodLabel(method: string | null) {
+  if (!method) return "—";
+  if (method === "credits") return "Bundle credits";
+  if (method === "razorpay") return "Razorpay";
+  return method.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function duration(seconds: number) { if (seconds <= 0) return "0m"; const m = Math.floor(seconds / 60), h = Math.floor(m / 60); return h ? h + "h " + (m % 60) + "m" : m + "m"; }
 function formatDateTime(v: string) { return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(v)); }
+function formatDate(v: string) { return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(v)); }
+function formatTime(v: string) { return new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(new Date(v)); }
 function monthKey(d: Date) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
 function formatMonth(k: string) { const p = k.split("-").map(Number); return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(new Date(p[0], p[1] - 1, 1)); }
 function money(c: number, currency: string) { return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 }).format(c / 100); }
