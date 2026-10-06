@@ -7,15 +7,28 @@ export default function AuthCallback() {
   const [params] = useSearchParams();
 
   useEffect(() => {
-    // Rely on the auth state change listener to avoid race conditions
+    const isPasswordReset = params.get("reset") === "1";
+
+    const handleSession = (session: unknown) => {
+      if (isPasswordReset && session) {
+        navigate("/change-password", { replace: true });
+        return true;
+      }
+      return false;
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
+      if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) {
+        if (handleSession(session)) return;
+
         const redirect = params.get("redirect") || "/dashboard";
         navigate(redirect, { replace: true });
-      } else if (event === "INITIAL_SESSION" && !session) {
-        // Fallback if there is no session detected after initialization
-        const redirect = params.get("redirect") || "/login";
-        navigate(redirect, { replace: true });
+      } else if (event === "INITIAL_SESSION") {
+        if (handleSession(session)) return;
+        if (!session) {
+          const redirect = params.get("redirect") || "/login";
+          navigate(redirect, { replace: true });
+        }
       }
     });
 
