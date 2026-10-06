@@ -220,7 +220,7 @@ export default function SpecialistAvailability() {
       </div>
 
       <div className="space-y-3">
-        {slots.sort((a, b) => a.available_date.localeCompare(b.available_date) || a.start_time.localeCompare(b.start_time)).map((slot, index) => (
+        {slots.map((slot, index) => (
           <Card
             key={slot.id ?? `new-${slot.day_of_week}-${index}`}
             className="grid gap-3 p-4 sm:grid-cols-[80px_minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-center"
