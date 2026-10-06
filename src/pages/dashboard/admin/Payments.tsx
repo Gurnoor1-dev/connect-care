@@ -27,8 +27,7 @@ export default function AdminPayments() {
   const [now, setNow] = useState(() => new Date());
   const [tab, setTab] = useState<Tab>("payments");
   const [search, setSearch] = useState("");
-  const [incomeMonth, setIncomeMonth] = useState(() => monthKey(new Date()));
-  const [paymentMonth, setPaymentMonth] = useState(() => monthKey(new Date()));
+  const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
 
   const load = async () => {
     setLoading(true);
@@ -66,24 +65,45 @@ export default function AdminPayments() {
   }, []);
 
   const captured = useMemo(() => appointments.filter(a => a.razorpay_payment_status === "captured"), [appointments]);
-  const paymentMonths = useMemo(() => {
-    const values = captured.map(a => monthKey(new Date(a.payment_captured_at || a.created_at)));
-    values.push(monthKey(now));
-    return [...new Set(values)].sort((a, b) => b.localeCompare(a));
-  }, [captured, now]);
-  useEffect(() => {
-    if (paymentMonths.length && !paymentMonths.includes(paymentMonth)) setPaymentMonth(paymentMonths[0]);
-  }, [paymentMonths, paymentMonth]);
 
-  const monthlyCaptured = useMemo(() => captured.filter(a => monthKey(new Date(a.payment_captured_at || a.created_at)) === paymentMonth), [captured, paymentMonth]);
+  // One admin-wide month/year selection drives every summary card and every detail view.
+  // Payments are grouped by capture time; sessions are grouped by scheduled time; income by earned time.
+  const adminMonths = useMemo(() => {
+    const values = [
+      ...appointments.map(a => monthKey(new Date(a.scheduled_at))),
+      ...captured.map(a => monthKey(new Date(a.payment_captured_at || a.created_at))),
+      ...earnings.map(e => monthKey(new Date(e.earned_at))),
+      monthKey(now),
+    ].filter(Boolean);
+    return [...new Set(values)].sort((a, b) => b.localeCompare(a));
+  }, [appointments, captured, earnings, now]);
+
+  useEffect(() => {
+    if (adminMonths.length && !adminMonths.includes(selectedMonth)) setSelectedMonth(adminMonths[0]);
+  }, [adminMonths, selectedMonth]);
+
+  const monthlyCaptured = useMemo(
+    () => captured.filter(a => monthKey(new Date(a.payment_captured_at || a.created_at)) === selectedMonth),
+    [captured, selectedMonth]
+  );
   const capturedTotal = useMemo(() => monthlyCaptured.reduce((sum, a) => sum + a.amount_cents, 0), [monthlyCaptured]);
 
-  const upcoming = useMemo(() => appointments.filter(a => a.status === "confirmed" && new Date(a.scheduled_at).getTime() > now.getTime()).length, [appointments, now]);
-  const completed = useMemo(() => appointments.filter(a => a.status === "completed").length, [appointments]);
-  const missed = useMemo(() => appointments.filter(a => {
-    const end = new Date(a.scheduled_at).getTime() + (a.duration_minutes || 60) * 60 * 1000;
-    return end <= now.getTime() && a.status !== "completed" && a.status !== "cancelled";
-  }).length, [appointments, now]);
+  const monthlySessions = useMemo(
+    () => appointments.filter(a => monthKey(new Date(a.scheduled_at)) === selectedMonth),
+    [appointments, selectedMonth]
+  );
+  const upcoming = useMemo(() => monthlySessions.filter(a =>
+    a.status === "confirmed" && new Date(a.scheduled_at).getTime() > now.getTime()
+  ).length, [monthlySessions, now]);
+  const completed = useMemo(
+    () => monthlySessions.filter(a => a.status === "completed").length,
+    [monthlySessions]
+  );
+  const missed = useMemo(() => monthlySessions.filter(a => {
+    const scheduled = new Date(a.scheduled_at).getTime();
+    const end = scheduled + (a.duration_minutes || 60) * 60 * 1000;
+    return Number.isFinite(end) && end <= now.getTime() && a.status !== "completed" && a.status !== "cancelled";
+  }).length, [monthlySessions, now]);
 
   const paymentRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -95,36 +115,32 @@ export default function AdminPayments() {
     }).sort((a, b) => new Date(b.payment_captured_at || b.created_at).getTime() - new Date(a.payment_captured_at || a.created_at).getTime());
   }, [monthlyCaptured, search, profiles, specialists]);
 
-  const months = useMemo(() => {
-    const values = earnings.map(e => monthKey(new Date(e.earned_at)));
-    values.push(monthKey(now));
-    return [...new Set(values)].sort((a, b) => b.localeCompare(a));
-  }, [earnings, now]);
-
-  useEffect(() => {
-    if (months.length && !months.includes(incomeMonth)) setIncomeMonth(months[0]);
-  }, [months, incomeMonth]);
-
   const incomeRows = useMemo(() => {
     const map = new Map<string, { sessions: number; amount: number; currency: string }>();
-    earnings.filter(e => monthKey(new Date(e.earned_at)) === incomeMonth).forEach(e => {
+    earnings.filter(e => monthKey(new Date(e.earned_at)) === selectedMonth).forEach(e => {
       const old = map.get(e.specialist_id);
       map.set(e.specialist_id, { sessions: (old?.sessions ?? 0) + 1, amount: (old?.amount ?? 0) + e.amount_cents, currency: old?.currency ?? e.currency ?? "USD" });
     });
     return [...map.entries()].map(([id, v]) => ({ specialistId: id, specialist: specialists[id]?.display_name ?? "Unknown specialist", ...v })).sort((a, b) => b.amount - a.amount);
-  }, [earnings, incomeMonth, specialists]);
+  }, [earnings, selectedMonth, specialists]);
 
   return <div className="space-y-6">
     <header><h1 className="text-3xl font-bold">Payments & sessions</h1><p className="mt-1 text-muted-foreground">Live payment and session status from the appointment records.</p></header>
 
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <Card className="p-5">
-        <div className="text-2xl font-bold">{loading ? "…" : money(capturedTotal, monthlyCaptured[0]?.currency || "USD")}</div>
-        <div className="mt-1 text-sm text-muted-foreground">All payments captured</div>
-        <select value={paymentMonth} onChange={e => setPaymentMonth(e.target.value)} className="mt-4 h-10 w-full rounded-xl border border-border bg-transparent px-3 text-sm outline-none" aria-label="Captured payment month">
-          {paymentMonths.map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
+    <Card className="p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="font-semibold">Month / year</div>
+          <div className="text-sm text-muted-foreground">This selection controls all four cards below.</div>
+        </div>
+        <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="h-11 w-full rounded-xl border border-border bg-transparent px-3 text-sm outline-none sm:w-64" aria-label="Admin month and year">
+          {adminMonths.map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
         </select>
-      </Card>
+      </div>
+    </Card>
+
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <SimpleStat value={money(capturedTotal, monthlyCaptured[0]?.currency || "USD")} label="All payments captured" loading={loading} />
       <SimpleStat value={String(upcoming)} label="Sessions appointed / pending" loading={loading} />
       <SimpleStat value={String(completed)} label="Sessions completed" loading={loading} />
       <SimpleStat value={String(missed)} label="Sessions not attended / not completed" loading={loading} />
@@ -138,9 +154,9 @@ export default function AdminPayments() {
     </div>
 
     {tab === "payments"
-      ? <PaymentRecords rows={paymentRows} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} month={paymentMonth} />
+      ? <PaymentRecords rows={paymentRows} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} month={selectedMonth} />
       : tab === "income"
-        ? <SpecialistIncome rows={incomeRows} month={incomeMonth} months={months} onMonthChange={setIncomeMonth} />
+        ? <SpecialistIncome rows={incomeRows} month={selectedMonth} months={adminMonths} onMonthChange={setSelectedMonth} />
         : <SessionRecords rows={appointments} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} now={now} />}
 
     <Card className="p-5"><div className="font-semibold">Live status</div><div className="mt-1 text-sm text-muted-foreground">Payments, income and session records refresh automatically every 10 seconds, on page focus, and on appointment or income database changes.</div></Card>
@@ -176,7 +192,7 @@ function PaymentRecords({ rows, search, onSearch, profiles, specialists, month }
     </div>
     <div className="overflow-x-auto"><table className="w-full min-w-[1450px] text-sm">
       <thead><tr className="border-b text-left text-muted-foreground">
-        <th className="px-5 py-4">CUSTOMER</th><th className="px-5 py-4">SPECIALIST</th><th className="px-5 py-4">SESSION</th><th className="px-5 py-4">PAYMENT ID</th><th className="px-5 py-4">PURCHASE</th><th className="px-5 py-4">AMOUNT</th><th className="px-5 py-4">FEE</th><th className="px-5 py-4">ATTENDANCE</th><th className="px-5 py-4">STATUS</th>
+        <th className="px-5 py-4">CUSTOMER</th><th className="px-5 py-4">SPECIALIST</th><th className="px-5 py-4">SESSION</th><th className="px-5 py-4">PAYMENT ID</th><th className="px-5 py-4">PAYMENT TIME</th><th className="px-5 py-4">PURCHASE</th><th className="px-5 py-4">AMOUNT</th><th className="px-5 py-4">FEE</th><th className="px-5 py-4">ATTENDANCE</th><th className="px-5 py-4">STATUS</th>
       </tr></thead>
       <tbody>{rows.map(a => {
         const p = profiles[a.customer_id], customer = a.customer_name || p?.full_name || p?.email || "—";
@@ -191,7 +207,7 @@ function PaymentRecords({ rows, search, onSearch, profiles, specialists, month }
           <td className="whitespace-nowrap px-5 py-4">Specialist {duration(a.specialist_attendance_seconds ?? 0)} · Client {duration(a.customer_attendance_seconds ?? 0)}</td>
           <td className="px-5 py-4"><div className="font-medium">Captured</div><div className="text-xs text-muted-foreground">{paymentMethodLabel(a.payment_method)}</div></td>
         </tr>;
-      })}{!rows.length && <tr><td colSpan={9} className="px-5 py-16 text-center text-muted-foreground">No captured payment records found for this month.</td></tr>}</tbody>
+      })}{!rows.length && <tr><td colSpan={10} className="px-5 py-16 text-center text-muted-foreground">No captured payment records found for this month.</td></tr>}</tbody>
     </table></div>
   </Card>;
 }
