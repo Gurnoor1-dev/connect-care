@@ -67,10 +67,13 @@ export default function AdminPayments() {
 
   const captured = useMemo(() => appointments.filter(a => a.razorpay_payment_status === "captured"), [appointments]);
   const paymentMonths = useMemo(() => {
-    const values = captured.map(a => monthKey(new Date(a.payment_captured_at || a.created_at)));
-    values.push(monthKey(now));
-    return [...new Set(values)].sort((a, b) => b.localeCompare(a));
-  }, [captured, now]);
+    const values = [
+      ...captured.map(a => monthKey(new Date(a.payment_captured_at || a.created_at))),
+      ...appointments.map(a => monthKey(new Date(a.scheduled_at))),
+      monthKey(now),
+    ];
+    return [...new Set(values.filter(Boolean))].sort((a, b) => b.localeCompare(a));
+  }, [captured, appointments, now]);
   useEffect(() => {
     if (paymentMonths.length && !paymentMonths.includes(selectedMonth)) setSelectedMonth(paymentMonths[0]);
   }, [paymentMonths, selectedMonth]);
