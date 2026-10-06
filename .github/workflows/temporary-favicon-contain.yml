@@ -1,0 +1,58 @@
+name: temporary favicon contain generation
+on:
+  push:
+    branches:
+      - work/2026-10-07-favicon-contain-generation
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Restore original source image from backup
+        run: |
+          git fetch origin backup/2026-10-06-before-favicon-binary-replacement:refs/remotes/origin/backup/2026-10-06-before-favicon-binary-replacement
+          git show refs/remotes/origin/backup/2026-10-06-before-favicon-binary-replacement:public/AQORfZDzH8napBUlLkH_enIvQLxThmrw5fjYGvfMd90VXHntZzHZH3dj3b34W7NsUY03D9kM0O_Y6wUK3Rg10DmP.jpeg > /tmp/source.jpeg
+      - name: Generate contained favicon assets
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from PIL import Image
+          src = Image.open("/tmp/source.jpeg").convert("RGBA")
+          bbox = src.getbbox()
+          if bbox:
+              src = src.crop(bbox)
+          max_side = max(src.size)
+          scale = 512 / max_side
+          size = (max(1, round(src.width * scale)), max(1, round(src.height * scale)))
+          contained = src.resize(size, Image.Resampling.LANCZOS)
+          canvas = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+          canvas.alpha_composite(contained, ((512 - contained.width) // 2, (512 - contained.height) // 2))
+          canvas.save("public/favicon.png", format="PNG", optimize=True)
+          canvas.save("public/favicon.ico", format="ICO", sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])
+          check = Image.open("public/favicon.png")
+          assert check.size == (512, 512)
+          assert check.mode == "RGBA"
+          ico = Image.open("public/favicon.ico")
+          assert ico.size[0] <= 256 and ico.size[1] <= 256
+          print("Generated", check.size, "PNG and ICO successfully")
+          PY
+      - name: Production build
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+      - name: Commit generated assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/favicon.png public/favicon.ico
+          git diff --check
+          git diff --cached --exit-code -- public/favicon.png public/favicon.ico || true
+          git commit -m "chore: generate contained favicon assets"
+          git push origin HEAD:work/2026-10-07-favicon-contain-generation
