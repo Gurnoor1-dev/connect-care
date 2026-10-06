@@ -7,7 +7,9 @@ import { RefreshCw } from "lucide-react";
 type Appointment = {
   id: string; amount_cents: number; currency: string; scheduled_at: string; status: string;
   razorpay_payment_status: string | null; razorpay_payment_id: string | null; razorpay_fee: number | null;
+  razorpay_tax: number | null; razorpay_base_currency: string | null;
   payment_method: string | null; customer_id: string; customer_name: string | null; specialist_id: string;
+  tier_id: string | null; tier_label: string | null; tier_type: string | null; tier_session_count: number | null;
   specialist_attendance_seconds: number | null; customer_attendance_seconds: number | null;
 };
 type Profile = { id: string; full_name: string | null; email: string | null };
@@ -123,10 +125,26 @@ async function fetchAllAppointments(): Promise<Appointment[]> {
   const rows: Appointment[] = [], size = 1000;
   for (let from = 0;; from += size) {
     const { data, error } = await supabase.from("appointments")
-      .select("id,amount_cents,currency,scheduled_at,status,razorpay_payment_status,razorpay_payment_id,razorpay_fee,payment_method,customer_id,customer_name,specialist_id,specialist_attendance_seconds,customer_attendance_seconds")
+      .select("id,amount_cents,currency,scheduled_at,status,razorpay_payment_status,razorpay_payment_id,razorpay_fee,razorpay_tax,razorpay_base_currency,payment_method,customer_id,customer_name,specialist_id,tier_id,specialist_attendance_seconds,customer_attendance_seconds")
       .order("scheduled_at", { ascending: true }).range(from, from + size - 1);
     if (error) { console.error("Admin appointment load failed", error); return rows; }
-    const batch = (data ?? []) as Appointment[]; rows.push(...batch);
+    const batch = (data ?? []) as Appointment[];
+    const tierIds = [...new Set(batch.map(a => a.tier_id).filter((id): id is string => Boolean(id)))];
+    let tierMap: Record<string, { label: string | null; tier_type: string | null; session_count: number | null }> = {};
+    if (tierIds.length) {
+      const { data: tiers, error: tierError } = await supabase
+        .from("specialist_tiers")
+        .select("id,label,tier_type,session_count")
+        .in("id", tierIds);
+      if (tierError) console.error("Admin tier load failed", tierError);
+      tierMap = Object.fromEntries((tiers ?? []).map(t => [t.id, { label: t.label, tier_type: t.tier_type, session_count: t.session_count }]));
+    }
+    rows.push(...batch.map(a => ({
+      ...a,
+      tier_label: a.tier_id ? tierMap[a.tier_id]?.label ?? null : null,
+      tier_type: a.tier_id ? tierMap[a.tier_id]?.tier_type ?? null : null,
+      tier_session_count: a.tier_id ? tierMap[a.tier_id]?.session_count ?? null : null,
+    })));
     if (batch.length < size) break;
   }
   return rows;
@@ -140,7 +158,7 @@ function PaymentRecords({ rows, search, onSearch, profiles, specialists }: { row
     </div>
     <div className="overflow-x-auto"><table className="w-full min-w-[1300px] text-sm">
       <thead><tr className="border-b text-left text-muted-foreground">
-        <th className="px-5 py-4">CUSTOMER</th><th className="px-5 py-4">SPECIALIST</th><th className="px-5 py-4">SESSION</th><th className="px-5 py-4">PAYMENT ID</th><th className="px-5 py-4">AMOUNT</th><th className="px-5 py-4">FEE</th><th className="px-5 py-4">ATTENDANCE</th><th className="px-5 py-4">STATUS</th>
+        <th className="px-5 py-4">CUSTOMER</th><th className="px-5 py-4">SPECIALIST</th><th className="px-5 py-4">SESSION</th><th className="px-5 py-4">PAYMENT ID</th><th className="px-5 py-4">PURCHASE</th><th className="px-5 py-4">AMOUNT</th><th className="px-5 py-4">FEE</th><th className="px-5 py-4">ATTENDANCE</th><th className="px-5 py-4">STATUS</th>
       </tr></thead>
       <tbody>{rows.map(a => {
         const p = profiles[a.customer_id], customer = a.customer_name || p?.full_name || p?.email || "—";
@@ -149,12 +167,13 @@ function PaymentRecords({ rows, search, onSearch, profiles, specialists }: { row
           <td className="px-5 py-4">{specialists[a.specialist_id]?.display_name || "—"}</td>
           <td className="whitespace-nowrap px-5 py-4">{formatDateTime(a.scheduled_at)}</td>
           <td className="px-5 py-4 font-mono text-xs">{a.razorpay_payment_id || "—"}</td>
+          <td className="whitespace-nowrap px-5 py-4 font-medium">{purchaseLabel(a)}</td>
           <td className="whitespace-nowrap px-5 py-4">{money(a.amount_cents, a.currency)}</td>
-          <td className="whitespace-nowrap px-5 py-4">{a.razorpay_fee == null ? "—" : money(a.razorpay_fee, a.currency)}</td>
+          <td className="whitespace-nowrap px-5 py-4">{a.razorpay_fee == null ? "—" : money(a.razorpay_fee, a.razorpay_base_currency || "INR")}</td>
           <td className="whitespace-nowrap px-5 py-4">Specialist {duration(a.specialist_attendance_seconds ?? 0)} · Client {duration(a.customer_attendance_seconds ?? 0)}</td>
           <td className="px-5 py-4"><div className="font-medium">Captured</div><div className="text-xs text-muted-foreground">{a.payment_method === "credits" ? "Credits" : "Razorpay"}</div></td>
         </tr>;
-      })}{!rows.length && <tr><td colSpan={8} className="px-5 py-16 text-center text-muted-foreground">No captured payment records found.</td></tr>}</tbody>
+      })}{!rows.length && <tr><td colSpan={9} className="px-5 py-16 text-center text-muted-foreground">No captured payment records found.</td></tr>}</tbody>
     </table></div>
   </Card>;
 }
@@ -171,6 +190,15 @@ function SpecialistIncome({ rows, month, months, onMonthChange }: { rows: Array<
       <tbody>{rows.map(r => <tr key={r.specialistId} className="border-b last:border-0"><td className="px-5 py-4 font-medium">{r.specialist}</td><td className="px-5 py-4">{r.sessions}</td><td className="px-5 py-4 font-semibold">{money(r.amount, r.currency)}</td></tr>)}{!rows.length && <tr><td colSpan={3} className="px-5 py-16 text-center text-muted-foreground">No specialist income recorded for this month.</td></tr>}</tbody>
     </table></div>
   </Card>;
+}
+
+function purchaseLabel(a: Appointment) {
+  if (a.tier_type === "bundle") {
+    const count = a.tier_session_count;
+    return count ? `${count}-session bundle` : (a.tier_label || "Bundle");
+  }
+  if (a.tier_type === "single") return "Single session";
+  return a.tier_label || "—";
 }
 
 function duration(seconds: number) { if (seconds <= 0) return "0m"; const m = Math.floor(seconds / 60), h = Math.floor(m / 60); return h ? h + "h " + (m % 60) + "m" : m + "m"; }
