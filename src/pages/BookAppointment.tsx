@@ -279,12 +279,12 @@ export default function BookAppointment() {
           amount_cents: 0, currency: tier.currency, status: "confirmed",
           customer_name: user.user_metadata?.full_name ?? user.email ?? "Customer", payment_method: "credits",
         }).select("id").single();
-        if (appointmentError) {
+        if (appointmentError || !creditAppointment) {
           await supabase.from("customer_specialist_credits").update({ credit_points: credits })
             .eq("customer_id", user.id).eq("specialist_id", specialistId);
-          throw new Error(appointmentError.message);
+          throw new Error(appointmentError?.message ?? "Could not create the credit booking.");
         }
-        await notifyBookingConfirmation(creditAppointment?.id ?? "");
+        await notifyBookingConfirmation(creditAppointment.id);
         toast.success("Session booked using 2 credits");
         navigate("/dashboard/customer/appointments");
         return;
