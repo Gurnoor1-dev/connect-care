@@ -45,7 +45,7 @@ jobs:
           PY
       - name: Production build
         run: |
-          bun install --frozen-lockfile
+          bun install --no-save
           bun run build
       - name: Commit generated assets
         run: |
