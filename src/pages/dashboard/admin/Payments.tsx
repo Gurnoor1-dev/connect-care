@@ -283,7 +283,8 @@ function paymentMethodLabel(method: string | null) {
 
 function duration(seconds: number) { if (seconds <= 0) return "0m"; const m = Math.floor(seconds / 60), h = Math.floor(m / 60); return h ? h + "h " + (m % 60) + "m" : m + "m"; }
 function validDate(v: string | null | undefined) { const d = v ? new Date(v) : new Date(NaN); return Number.isFinite(d.getTime()) ? d : null; }
-function formatDateTime(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d) : "—"; }\nfunction formatTransactionTime(v: string | null) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZoneName: "short" }).format(d) : "—"; }
+function formatDateTime(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d) : "—"; }
+function formatTransactionTime(v: string | null) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZoneName: "short" }).format(d) : "—"; }
 function formatDate(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(d) : "—"; }
 function formatTime(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(d) : "—"; }
 function monthKey(d: Date) { return Number.isFinite(d.getTime()) ? d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") : ""; }
