@@ -50,7 +50,7 @@ export default function Signup() {
     navigate(`/verify-otp?email=${encodeURIComponent(email)}`);
   };
 
-  const oauth = async (provider: "google") => {
+  const oauth = async (provider: "google" | "facebook") => {
     if (!requirePolicyAcceptance()) return;
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -93,6 +93,7 @@ export default function Signup() {
       <Divider />
       <div className="grid gap-2">
         <OAuthBrandButton provider="google" onClick={() => oauth("google")} />
+        <OAuthBrandButton provider="facebook" onClick={() => oauth("facebook")} />
       </div>
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account? <Link to="/login" className="text-foreground underline-offset-4 hover:underline">Sign in</Link>
