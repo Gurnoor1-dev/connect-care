@@ -65,7 +65,7 @@ export function SessionReminders({ userId, role }: { userId?: string; role: "cus
       for (const reminder of REMINDERS) {
         const threshold = reminder.minutes * 60_000;
         if (remaining <= threshold && remaining > threshold - ALERT_WINDOW_MS) {
-          const key = \`\${appointment.id}:\${reminder.minutes}\`;
+          const key = `${appointment.id}:${reminder.minutes}`;
           if (firedRef.current.has(key)) continue;
           firedRef.current.add(key);
 
