@@ -44,7 +44,7 @@ export default function SpecialistOverview() {
     if (!user) return;
     const now = new Date();
     const historyCutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { data: profile } = await supabase.from("specialist_profiles").select("timezone").eq("id", user.id).maybeSingle();
+    const { data: profile } = await supabase.from("specialist_profiles").select("timezone, created_at").eq("id", user.id).maybeSingle();
     const timezone = profile?.timezone || "Asia/Calcutta";
     setSpecialistTimezone(timezone);
     const profileCreated = profile?.created_at ? new Date(profile.created_at) : null;
