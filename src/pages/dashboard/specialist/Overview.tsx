@@ -38,6 +38,7 @@ export default function SpecialistOverview() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
+  const [earningsMinMonth, setEarningsMinMonth] = useState("");
 
   const loadDashboard = async () => {
     if (!user) return;
@@ -46,6 +47,17 @@ export default function SpecialistOverview() {
     const { data: profile } = await supabase.from("specialist_profiles").select("timezone").eq("id", user.id).maybeSingle();
     const timezone = profile?.timezone || "Asia/Calcutta";
     setSpecialistTimezone(timezone);
+    const profileCreated = profile?.created_at ? new Date(profile.created_at) : null;
+    const minMonth = profileCreated
+      ? `${profileCreated.getFullYear()}-${String(profileCreated.getMonth() + 1).padStart(2, "0")}`
+      : "";
+    if (minMonth) {
+      setEarningsMinMonth(minMonth);
+      if (selectedEarningsMonth < minMonth) {
+        setSelectedEarningsMonth(minMonth);
+        return;
+      }
+    }
     const [selectedYear, selectedMonth] = selectedEarningsMonth.split("-").map(Number);
     const nextMonthDate = new Date(Date.UTC(selectedYear, selectedMonth, 1));
     const selectedMonthStartLocal = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
@@ -57,11 +69,10 @@ export default function SpecialistOverview() {
     const { data: completed } = await supabase.from("appointments").select(appointmentSelect).eq("specialist_id", user.id).in("status", ["completed", "partially_completed"]).order("scheduled_at", { ascending: false }).limit(10);
     const { count: sessions } = await supabase.from("appointments").select("*", { count: "exact", head: true }).eq("specialist_id", user.id).eq("status", "completed");
     const { data: patientsRaw } = await supabase.from("appointments").select("customer_id").eq("specialist_id", user.id);
-    const { data: monthEarnings } = await supabase.from("specialist_session_earnings").select("id, appointment_id, amount_cents, currency, earned_at").eq("specialist_id", user.id).gte("earned_at", monthStart).order("earned_at", { ascending: false });
-    const { data: recentEarnings } = await supabase.from("specialist_session_earnings").select("id, appointment_id, amount_cents, currency, earned_at").eq("specialist_id", user.id).order("earned_at", { ascending: false }).limit(5);
+    const { data: monthEarnings } = await supabase.from("specialist_session_earnings").select("id, appointment_id, amount_cents, currency, earned_at").eq("specialist_id", user.id).gte("earned_at", monthStart).lt("earned_at", monthEnd).order("earned_at", { ascending: false });
     const { data: pendingRaw } = await (supabase as any).rpc("get_specialist_pending_sessions");
 
-    const earningBase = (recentEarnings ?? []) as Array<{ id: string; appointment_id: string; amount_cents: number; currency: string; earned_at: string }>;
+    const earningBase = (monthEarnings ?? []) as Array<{ id: string; appointment_id: string; amount_cents: number; currency: string; earned_at: string }>;
     const earningIds = earningBase.map((e) => e.appointment_id);
     const { data: earningAppointments } = earningIds.length
       ? await supabase.from("appointments").select("id, customer_name, payment_method, customer_id").in("id", earningIds)
@@ -81,7 +92,7 @@ export default function SpecialistOverview() {
 
     const patients = new Set((patientsRaw ?? []).map((r: any) => r.customer_id)).size;
     const monthlyIncome = (monthEarnings ?? []).reduce((sum, row: any) => sum + Number(row.amount_cents ?? 0), 0);
-    const currency = monthEarnings?.[0]?.currency ?? recentEarnings?.[0]?.currency ?? "USD";
+    const currency = monthEarnings?.[0]?.currency ?? "USD";
     setUpcoming(up ?? []);
     setHistory(completed ?? []);
     setEarnings(enrichedEarnings);
@@ -128,6 +139,8 @@ export default function SpecialistOverview() {
               id="specialist-earnings-month"
               type="month"
               value={selectedEarningsMonth}
+              min={earningsMinMonth || undefined}
+              max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`}
               onChange={(event) => setSelectedEarningsMonth(event.target.value)}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
