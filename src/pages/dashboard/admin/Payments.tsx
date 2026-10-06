@@ -12,10 +12,13 @@ type Appointment = {
   payment_method: string | null; customer_id: string; customer_name: string | null; specialist_id: string;
   tier_id: string | null; tier_label: string | null; tier_type: string | null; tier_session_count: number | null;
   specialist_attendance_seconds: number | null; customer_attendance_seconds: number | null;
+  specialist_first_joined_at: string | null; specialist_last_left_at: string | null; session_ended_at: string | null;
+  earning_amount_cents: number | null; earning_currency: string | null;
 };
 type Profile = { id: string; full_name: string | null; email: string | null };
 type Specialist = { id: string; display_name: string | null };
 type SessionEarning = { id: string; appointment_id: string; specialist_id: string; amount_cents: number; currency: string; earned_at: string };
+type EarningTier = { id: string; specialist_id: string; duration_minutes: number | null; price_cents: number; currency: string; tier_type: string; is_active: boolean; created_at: string };
 type Tab = "payments" | "income" | "sessions";
 
 export default function AdminPayments() {
@@ -35,17 +38,16 @@ export default function AdminPayments() {
       fetchAllAppointments(),
       supabase.from("profiles").select("id,full_name,email"),
       supabase.from("specialist_profiles").select("id,display_name"),
-      supabase.from("specialist_session_earnings").select("id,appointment_id,specialist_id,amount_cents,currency,earned_at").order("earned_at", { ascending: false }).limit(10000),
+      fetchAllSessionEarnings(),
     ]);
     setAppointments(apps);
     setProfiles(Object.fromEntries(((p.data ?? []) as Profile[]).map(x => [x.id, x])));
     setSpecialists(Object.fromEntries(((s.data ?? []) as Specialist[]).map(x => [x.id, x])));
-    setEarnings((e.data ?? []) as SessionEarning[]);
+    setEarnings(e);
     setNow(new Date());
     setLoading(false);
     if (p.error) console.error("Admin profile load failed", p.error);
     if (s.error) console.error("Admin specialist load failed", s.error);
-    if (e.error) console.error("Admin income load failed", e.error);
   };
 
   useEffect(() => {
@@ -113,13 +115,32 @@ export default function AdminPayments() {
   }, [monthlyCaptured, search, profiles, specialists]);
 
   const incomeRows = useMemo(() => {
+    const ledgerByAppointment = new Map(earnings.map(e => [e.appointment_id, e]));
     const map = new Map<string, { sessions: number; amount: number; currency: string }>();
-    earnings.filter(e => monthKey(new Date(e.earned_at)) === selectedMonth).forEach(e => {
-      const old = map.get(e.specialist_id);
-      map.set(e.specialist_id, { sessions: (old?.sessions ?? 0) + 1, amount: (old?.amount ?? 0) + e.amount_cents, currency: old?.currency ?? e.currency ?? "USD" });
-    });
-    return [...map.entries()].map(([id, v]) => ({ specialistId: id, specialist: specialists[id]?.display_name ?? "Unknown specialist", ...v })).sort((a, b) => b.amount - a.amount);
-  }, [earnings, selectedMonth, specialists]);
+    appointments
+      .filter(a => {
+        if (a.status !== "completed") return false;
+        if (!(a.razorpay_payment_status === "captured" || a.payment_method === "credits")) return false;
+        const ledger = ledgerByAppointment.get(a.id);
+        const earnedAt = ledger?.earned_at || a.session_ended_at || a.specialist_last_left_at || a.scheduled_at;
+        return monthKey(new Date(earnedAt)) === selectedMonth;
+      })
+      .forEach(a => {
+        const ledger = ledgerByAppointment.get(a.id);
+        const amount = ledger?.amount_cents ?? a.earning_amount_cents;
+        if (amount == null) return;
+        const currency = ledger?.currency || a.earning_currency || a.currency || "USD";
+        const old = map.get(a.specialist_id);
+        map.set(a.specialist_id, {
+          sessions: (old?.sessions ?? 0) + 1,
+          amount: (old?.amount ?? 0) + amount,
+          currency: old?.currency ?? currency,
+        });
+      });
+    return [...map.entries()]
+      .map(([id, v]) => ({ specialistId: id, specialist: specialists[id]?.display_name ?? "Unknown specialist", ...v }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [appointments, earnings, selectedMonth, specialists]);
 
   return <div className="space-y-6">
     <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -153,7 +174,7 @@ export default function AdminPayments() {
       ? <PaymentRecords rows={paymentRows} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} month={selectedMonth} />
       : tab === "income"
         ? <SpecialistIncome rows={incomeRows} month={selectedMonth} />
-        : <SessionRecords rows={appointments} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} now={now} />}
+        : <SessionRecords rows={appointments} search={search} onSearch={setSearch} profiles={profiles} specialists={specialists} now={now} month={selectedMonth} />}
 
     <Card className="p-5"><div className="font-semibold">Live status</div><div className="mt-1 text-sm text-muted-foreground">Payments, income and session records refresh automatically every 10 seconds, on page focus, and on appointment or income database changes.</div></Card>
   </div>;
@@ -163,18 +184,67 @@ async function fetchAllAppointments(): Promise<Appointment[]> {
   const rows: Appointment[] = [], size = 1000;
   for (let from = 0;; from += size) {
     const { data, error } = await supabase.from("appointments")
-      .select("id,amount_cents,currency,scheduled_at,duration_minutes,status,created_at,payment_captured_at,razorpay_payment_status,razorpay_payment_id,razorpay_fee,razorpay_tax,razorpay_base_currency,payment_method,customer_id,customer_name,specialist_id,tier_id,specialist_attendance_seconds,customer_attendance_seconds")
+      .select("id,amount_cents,currency,scheduled_at,duration_minutes,status,created_at,payment_captured_at,razorpay_payment_status,razorpay_payment_id,razorpay_fee,razorpay_tax,razorpay_base_currency,payment_method,customer_id,customer_name,specialist_id,tier_id,specialist_attendance_seconds,customer_attendance_seconds,specialist_first_joined_at,specialist_last_left_at,session_ended_at")
       .order("scheduled_at", { ascending: true }).range(from, from + size - 1);
     if (error) { console.error("Admin appointment load failed", error); return rows; }
     const batch = (data ?? []) as Appointment[];
     const tierIds = [...new Set(batch.map(a => a.tier_id).filter((id): id is string => Boolean(id)))];
+    const specialistIds = [...new Set(batch.map(a => a.specialist_id))];
     let tierMap: Record<string, { label: string | null; tier_type: string | null; session_count: number | null }> = {};
+    let earningTiers: EarningTier[] = [];
     if (tierIds.length) {
       const { data: tiers, error: tierError } = await supabase.from("specialist_tiers").select("id,label,tier_type,session_count").in("id", tierIds);
       if (tierError) console.error("Admin tier load failed", tierError);
       tierMap = Object.fromEntries((tiers ?? []).map(t => [t.id, { label: t.label, tier_type: t.tier_type, session_count: t.session_count }]));
     }
-    rows.push(...batch.map(a => ({ ...a, tier_label: a.tier_id ? tierMap[a.tier_id]?.label ?? null : null, tier_type: a.tier_id ? tierMap[a.tier_id]?.tier_type ?? null : null, tier_session_count: a.tier_id ? tierMap[a.tier_id]?.session_count ?? null : null })));
+    if (specialistIds.length) {
+      const { data: singleTiers, error: singleTierError } = await supabase
+        .from("specialist_tiers")
+        .select("id,specialist_id,duration_minutes,price_cents,currency,tier_type,is_active,created_at")
+        .in("specialist_id", specialistIds)
+        .eq("tier_type", "single")
+        .eq("is_active", true)
+        .order("created_at", { ascending: true });
+      if (singleTierError) console.error("Admin earning tier load failed", singleTierError);
+      earningTiers = (singleTiers ?? []) as EarningTier[];
+    }
+    rows.push(...batch.map(a => {
+      const single = earningTiers
+        .filter(t => t.specialist_id === a.specialist_id)
+        .sort((x, y) => {
+          const xMatch = x.duration_minutes === a.duration_minutes ? 0 : 1;
+          const yMatch = y.duration_minutes === a.duration_minutes ? 0 : 1;
+          return xMatch - yMatch || x.created_at.localeCompare(y.created_at);
+        })[0];
+      return {
+        ...a,
+        tier_label: a.tier_id ? tierMap[a.tier_id]?.label ?? null : null,
+        tier_type: a.tier_id ? tierMap[a.tier_id]?.tier_type ?? null : null,
+        tier_session_count: a.tier_id ? tierMap[a.tier_id]?.session_count ?? null : null,
+        earning_amount_cents: single?.price_cents ?? null,
+        earning_currency: single?.currency ?? a.currency ?? "USD",
+      };
+    }));
+    if (batch.length < size) break;
+  }
+  return rows;
+}
+
+async function fetchAllSessionEarnings(): Promise<SessionEarning[]> {
+  const rows: SessionEarning[] = [];
+  const size = 1000;
+  for (let from = 0;; from += size) {
+    const { data, error } = await supabase
+      .from("specialist_session_earnings")
+      .select("id,appointment_id,specialist_id,amount_cents,currency,earned_at")
+      .order("earned_at", { ascending: false })
+      .range(from, from + size - 1);
+    if (error) {
+      console.error("Admin income load failed", error);
+      return rows;
+    }
+    const batch = (data ?? []) as SessionEarning[];
+    rows.push(...batch);
     if (batch.length < size) break;
   }
   return rows;
@@ -219,16 +289,17 @@ function SpecialistIncome({ rows, month }: { rows: Array<{ specialistId: string;
   </Card>;
 }
 
-function SessionRecords({ rows, search, onSearch, profiles, specialists, now }: { rows: Appointment[]; search: string; onSearch: (v: string) => void; profiles: Record<string, Profile>; specialists: Record<string, Specialist>; now: Date }) {
+function SessionRecords({ rows, search, onSearch, profiles, specialists, now, month }: { rows: Appointment[]; search: string; onSearch: (v: string) => void; profiles: Record<string, Profile>; specialists: Record<string, Specialist>; now: Date; month: string }) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return [...rows].filter(a => {
+      if (monthKey(new Date(a.scheduled_at)) !== month) return false;
       if (!q) return true;
       const customer = a.customer_name || profiles[a.customer_id]?.full_name || profiles[a.customer_id]?.email || "";
       const specialist = specialists[a.specialist_id]?.display_name || "";
       return (customer + " " + specialist + " " + a.id).toLowerCase().includes(q);
     }).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
-  }, [rows, search, profiles, specialists]);
+  }, [rows, search, profiles, specialists, month]);
 
   return <Card className="overflow-hidden">
     <div className="flex flex-col gap-4 border-b p-5 lg:flex-row lg:items-center lg:justify-between">
