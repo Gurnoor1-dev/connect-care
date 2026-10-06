@@ -24,7 +24,7 @@ declare global {
 
 interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; }
 interface Specialist { id: string; display_name: string; headline: string | null; country: string | null; country_flag: string | null; timezone: string | null; avatar_url: string | null; immediate_sessions: boolean; }
-interface Availability { day_of_week: number; start_time: string; end_time: string; }
+interface Availability { available_date: string; day_of_week: number; start_time: string; end_time: string; }
 interface BookedAppointment { scheduled_at: string; duration_minutes: number; status: string; }
 interface SlotOption { value: string; booked: boolean; }
 
@@ -99,7 +99,7 @@ export default function BookAppointment() {
       const [{ data: tierData, error: tierError }, { data: availabilityData, error: availabilityError }, { data: creditData }] =
         await Promise.all([
           supabase.from("specialist_tiers").select("id,label,duration_minutes,price_cents,currency").eq("specialist_id", specialistId).eq("is_active", true).eq("currency", "USD").order("price_cents"),
-          supabase.from("specialist_availability").select("day_of_week,start_time,end_time").eq("specialist_id", specialistId).eq("is_active", true),
+          supabase.from("specialist_availability").select("available_date,day_of_week,start_time,end_time").eq("specialist_id", specialistId).eq("is_active", true),
           user ? supabase.from("customer_specialist_credits").select("credit_points").eq("customer_id", user.id).eq("specialist_id", specialistId).maybeSingle() : Promise.resolve({ data: null } as any),
         ]);
       if (tierError) toast.error(tierError.message);
@@ -146,7 +146,7 @@ export default function BookAppointment() {
     const specialistCalendarDate = new Date(userDateKey + "T12:00:00");
     const day = getZonedDayOfWeek(specialistCalendarDate, specialist.timezone ?? "UTC");
     const specialistDateKey = getZonedDateKey(specialistCalendarDate, specialist.timezone ?? "UTC");
-    const ranges = availability.filter((item) => item.day_of_week === day);
+    const ranges = availability.filter((item) => item.available_date === specialistDateKey);
     const todayKey = getZonedDateKey(new Date(), getDeviceTimeZone());
     const selectedKey = userDateKey;
     const minimum = sameDayMinimum(!!specialist.immediate_sessions);
