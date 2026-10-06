@@ -13,7 +13,7 @@ export default function ForgotPassword() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?reset=1`,
+      redirectTo: `${window.location.origin}/change-password`,
     });
     if (error) toast.error(error.message);
     else { setSent(true); toast.success("Check your email for a reset link"); }
