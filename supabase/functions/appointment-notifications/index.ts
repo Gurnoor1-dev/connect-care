@@ -117,6 +117,16 @@ async function reminder(id: string, stage: ReminderStage) {
     : stage === 10
       ? "reminder_10_email_sent_at"
       : "reminder_1_email_sent_at";
+  const consultantSentColumn = stage === 30
+    ? "reminder_30_consultant_email_sent_at"
+    : stage === 10
+      ? "reminder_10_consultant_email_sent_at"
+      : "reminder_1_consultant_email_sent_at";
+  const clientSentColumn = stage === 30
+    ? "reminder_30_client_email_sent_at"
+    : stage === 10
+      ? "reminder_10_client_email_sent_at"
+      : "reminder_1_client_email_sent_at";
 
   if (a[sentColumn]) return;
 
@@ -124,21 +134,58 @@ async function reminder(id: string, stage: ReminderStage) {
   const stageText = stage === 30 ? "30 minutes" : stage === 10 ? "10 minutes" : "1 minute";
   const body = `<h1 style="font:700 32px Georgia,serif">Your session starts in ${stageText}.</h1><p>This is your ${stageText} BreatheRise session reminder.</p>${card(a, w, "")}<a href="${APP_URL}" style="display:inline-block;padding:14px 24px;background:#6d4df5;color:#fff;border-radius:12px;text-decoration:none;font-weight:700">Open BreatheRise →</a>`;
   const subject = `BreatheRise session starts in ${stageText} ⏰`;
-  const sends: Promise<unknown>[] = [];
-  if (s?.email) sends.push(mail(s.email, subject, `Your appointment starts in ${stageText}.`, body));
-  if (c?.email) sends.push(mail(c.email, subject, `Your appointment starts in ${stageText}.`, body));
+  const nowIso = new Date().toISOString();
 
-  await Promise.all(sends);
-  await admin
+  // Track each recipient independently. A temporary failure for one address
+  // must never block the other address or prevent later reminder stages.
+  if (s?.email && !a[consultantSentColumn]) {
+    try {
+      await mail(s.email, subject, `Your appointment starts in ${stageText}.`, body);
+      await admin
+        .from("appointments")
+        .update({ [consultantSentColumn]: nowIso })
+        .eq("id", id)
+        .is(consultantSentColumn, null);
+    } catch (error) {
+      console.error(`consultant ${stageText} reminder failed for appointment ${id}`, error);
+    }
+  }
+
+  if (c?.email && !a[clientSentColumn]) {
+    try {
+      await mail(c.email, subject, `Your appointment starts in ${stageText}.`, body);
+      await admin
+        .from("appointments")
+        .update({ [clientSentColumn]: nowIso })
+        .eq("id", id)
+        .is(clientSentColumn, null);
+    } catch (error) {
+      console.error(`client ${stageText} reminder failed for appointment ${id}`, error);
+    }
+  }
+
+  const { data: latest, error: latestError } = await admin
     .from("appointments")
-    .update({
-      [sentColumn]: new Date().toISOString(),
-      reminder_email_sent_at: new Date().toISOString(),
-    })
+    .select(`${sentColumn},${consultantSentColumn},${clientSentColumn}`)
     .eq("id", id)
-    .is(sentColumn, null);
-}
+    .single();
 
+  if (latestError) {
+    console.error(`could not verify ${stageText} reminder state for appointment ${id}`, latestError);
+    return;
+  }
+
+  const consultantComplete = !s?.email || Boolean(latest?.[consultantSentColumn]);
+  const clientComplete = !c?.email || Boolean(latest?.[clientSentColumn]);
+
+  if (consultantComplete && clientComplete && !latest?.[sentColumn]) {
+    await admin
+      .from("appointments")
+      .update({ [sentColumn]: new Date().toISOString() })
+      .eq("id", id)
+      .is(sentColumn, null);
+  }
+}
 async function noShow(id: string) {
   const { a, c, s } = await details(id);
   if (a.no_show_email_sent_at) return;
@@ -151,24 +198,17 @@ async function noShow(id: string) {
 }
 
 async function sweep() {
-  await admin.rpc("expire_unattended_appointments");
+  const failures: string[] = [];
 
-  const { data: pendingBookings, error: pendingBookingsError } = await admin
-    .from("appointments")
-    .select("id")
-    .eq("status", "confirmed")
-    .is("booking_email_sent_at", null)
-    .order("scheduled_at", { ascending: true })
-    .limit(100);
-
-  if (pendingBookingsError) throw pendingBookingsError;
-  for (const row of pendingBookings ?? []) await booking(row.id);
-
+  // Process reminders first. This guarantees reminder delivery is not blocked
+  // by booking/no-show cleanup work in the same minute.
   const now = Date.now();
   const stages: Array<{ stage: ReminderStage; from: number; to: number }> = [
-    { stage: 30, from: 29, to: 31 },
-    { stage: 10, from: 9, to: 11 },
-    { stage: 1, from: 0, to: 2 },
+    // Wider windows tolerate a missed cron minute while the per-stage timestamp
+    // prevents duplicates. The 1-minute window also accepts a small late run.
+    { stage: 30, from: 25, to: 35 },
+    { stage: 10, from: 5, to: 15 },
+    { stage: 1, from: -1, to: 3 },
   ];
 
   for (const item of stages) {
@@ -186,20 +226,81 @@ async function sweep() {
       .eq("status", "confirmed")
       .is(sentColumn, null)
       .gt("scheduled_at", lo)
-      .lte("scheduled_at", hi);
+      .lte("scheduled_at", hi)
+      .order("scheduled_at", { ascending: true })
+      .limit(100);
 
-    if (error) throw error;
-    for (const row of rows ?? []) await reminder(row.id, item.stage);
+    if (error) {
+      console.error(`failed to find ${item.stage}-minute reminders`, error);
+      failures.push(`find-${item.stage}`);
+      continue;
+    }
+
+    for (const row of rows ?? []) {
+      try {
+        await reminder(row.id, item.stage);
+      } catch (error) {
+        console.error(`failed ${item.stage}-minute reminder for appointment ${row.id}`, error);
+        failures.push(`reminder-${item.stage}-${row.id}`);
+      }
+    }
+  }
+
+  // Booking confirmation retries are isolated so a broken confirmation email
+  // can never prevent scheduled reminders from being processed.
+  const { data: pendingBookings, error: pendingBookingsError } = await admin
+    .from("appointments")
+    .select("id")
+    .eq("status", "confirmed")
+    .is("booking_email_sent_at", null)
+    .order("scheduled_at", { ascending: true })
+    .limit(100);
+
+  if (pendingBookingsError) {
+    console.error("failed to find pending booking confirmations", pendingBookingsError);
+    failures.push("find-bookings");
+  } else {
+    for (const row of pendingBookings ?? []) {
+      try {
+        await booking(row.id);
+      } catch (error) {
+        console.error(`booking confirmation failed for appointment ${row.id}`, error);
+        failures.push(`booking-${row.id}`);
+      }
+    }
+  }
+
+  try {
+    await admin.rpc("expire_unattended_appointments");
+  } catch (error) {
+    console.error("failed to expire unattended appointments", error);
+    failures.push("expire-unattended");
   }
 
   const { data: n, error: noShowError } = await admin
     .from("appointments")
     .select("id")
     .eq("status", "no_show")
-    .is("no_show_email_sent_at", null);
+    .is("no_show_email_sent_at", null)
+    .limit(100);
 
-  if (noShowError) throw noShowError;
-  for (const x of n ?? []) await noShow(x.id);
+  if (noShowError) {
+    console.error("failed to find no-show notifications", noShowError);
+    failures.push("find-no-shows");
+  } else {
+    for (const x of n ?? []) {
+      try {
+        await noShow(x.id);
+      } catch (error) {
+        console.error(`no-show notification failed for appointment ${x.id}`, error);
+        failures.push(`no-show-${x.id}`);
+      }
+    }
+  }
+
+  if (failures.length) {
+    console.error("appointment notification sweep completed with retryable failures", failures);
+  }
 }
 
 Deno.serve(async (req) => {
