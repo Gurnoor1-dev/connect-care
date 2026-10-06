@@ -80,7 +80,7 @@ export default function AdminPayments() {
   }, [monthOptions, selectedMonth]);
 
   const monthlyCaptured = useMemo(
-    () => captured.filter(a => monthKey(new Date(a.payment_captured_at || a.created_at)) === selectedMonth),
+    () => captured.filter(a => a.payment_captured_at && monthKey(new Date(a.payment_captured_at)) === selectedMonth),
     [captured, selectedMonth]
   );
   const capturedTotal = useMemo(() => monthlyCaptured.reduce((sum, a) => sum + a.amount_cents, 0), [monthlyCaptured]);
