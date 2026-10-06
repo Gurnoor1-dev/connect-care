@@ -34,6 +34,10 @@ export default function SpecialistOverview() {
   const [pendingSessions, setPendingSessions] = useState<PendingSession[]>([]);
   const [stats, setStats] = useState({ patients: 0, sessions: 0, monthlyIncome: 0, currency: "USD" });
   const [specialistTimezone, setSpecialistTimezone] = useState("Asia/Calcutta");
+  const [selectedEarningsMonth, setSelectedEarningsMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   const loadDashboard = async () => {
     if (!user) return;
@@ -42,11 +46,12 @@ export default function SpecialistOverview() {
     const { data: profile } = await supabase.from("specialist_profiles").select("timezone").eq("id", user.id).maybeSingle();
     const timezone = profile?.timezone || "Asia/Calcutta";
     setSpecialistTimezone(timezone);
-    const monthParts = new Intl.DateTimeFormat("en-US", { timeZone: timezone, year: "numeric", month: "2-digit" }).formatToParts(now).reduce<Record<string, string>>((acc, part) => {
-      if (part.type !== "literal") acc[part.type] = part.value;
-      return acc;
-    }, {});
-    const monthStart = zonedTimeToUtc(`${monthParts.year}-${monthParts.month}-01`, "00:00", timezone).toISOString();
+    const [selectedYear, selectedMonth] = selectedEarningsMonth.split("-").map(Number);
+    const nextMonthDate = new Date(Date.UTC(selectedYear, selectedMonth, 1));
+    const selectedMonthStartLocal = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
+    const selectedMonthEndLocal = `${nextMonthDate.getUTCFullYear()}-${String(nextMonthDate.getUTCMonth() + 1).padStart(2, "0")}-01`;
+    const monthStart = zonedTimeToUtc(selectedMonthStartLocal, "00:00", timezone).toISOString();
+    const monthEnd = zonedTimeToUtc(selectedMonthEndLocal, "00:00", timezone).toISOString();
     const appointmentSelect = "*, specialist:specialist_profiles!appointments_specialist_id_fkey(timezone)";
     const { data: up } = await supabase.from("appointments").select(appointmentSelect).eq("specialist_id", user.id).eq("status", "confirmed").gte("scheduled_at", historyCutoff).order("scheduled_at", { ascending: true }).limit(10);
     const { data: completed } = await supabase.from("appointments").select(appointmentSelect).eq("specialist_id", user.id).in("status", ["completed", "partially_completed"]).order("scheduled_at", { ascending: false }).limit(10);
@@ -94,7 +99,7 @@ export default function SpecialistOverview() {
       window.clearInterval(interval);
       window.removeEventListener("focus", refresh);
     };
-  }, [user]);
+  }, [user, selectedEarningsMonth]);
 
   return (
     <div className="space-y-8">
@@ -107,7 +112,27 @@ export default function SpecialistOverview() {
         <Stat icon={Calendar} value={upcoming.length} label="Upcoming" />
         <Stat icon={Video} value={stats.sessions} label="Completed" />
         <Stat icon={ClipboardList} value={stats.patients} label="Patients" />
-        <Stat icon={DollarSign} value={formatMoney(stats.monthlyIncome, stats.currency)} label="Earnings (mo)" />
+        <Card className="p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-brand text-primary-foreground">
+              <DollarSign className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-2xl font-bold">{formatMoney(stats.monthlyIncome, stats.currency)}</div>
+              <div className="text-xs text-muted-foreground">Earnings · {formatMonthLabel(selectedEarningsMonth)}</div>
+            </div>
+          </div>
+          <div className="mt-4">
+            <label htmlFor="specialist-earnings-month" className="mb-1 block text-xs text-muted-foreground">Month & year</label>
+            <input
+              id="specialist-earnings-month"
+              type="month"
+              value={selectedEarningsMonth}
+              onChange={(event) => setSelectedEarningsMonth(event.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+        </Card>
       </div>
 
       <section>
@@ -180,6 +205,11 @@ function HistoryRow({ a, timezone }: { a: any; timezone: string }) {
   const attendanceSeconds = Number(a.specialist_attendance_seconds ?? 0);
   const attendance = Number.isFinite(attendanceSeconds) && attendanceSeconds > 0 ? Math.round(attendanceSeconds / 60) : null;
   return <Card className="p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="font-medium">{a.customer_name ?? "Patient"}</div><div className="mt-1 text-sm text-muted-foreground">Scheduled: {formatDateTimeInTimeZone(a.scheduled_at, timezone)} · {a.duration_minutes} min</div><div className="mt-1 text-xs text-muted-foreground">Started: {started} · Ended: {ended}</div>{attendance !== null && <div className="mt-1 text-xs text-muted-foreground">Consultant attendance: {attendance} min</div>}</div><div className="text-right"><div className="rounded-lg bg-teal/15 px-2.5 py-1 text-xs font-medium text-teal">{a.status}</div><div className="mt-2 text-xs text-muted-foreground">Payment: {payment}</div></div></div></Card>;
+}
+
+function formatMonthLabel(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
 }
 
 function formatMoney(amountCents: number, currency: string) { return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 }).format(amountCents / 100); }
