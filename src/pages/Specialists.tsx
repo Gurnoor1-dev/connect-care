@@ -125,7 +125,7 @@ export default function Specialists() {
           .select(`
             id, display_name, headline, bio, country, country_flag,
             specialities, qualifications, timezone, avatar_url,
-            specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label), specialist_availability(day_of_week, start_time, end_time, is_active)
+            specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label), specialist_availability(available_date, day_of_week, start_time, end_time, is_active)
           `)
           .eq("is_published", true);
         if (!fallback.error && fallback.data) {
@@ -361,23 +361,31 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
 function AvailabilityPreview({ specialist }: { specialist: SpecialistRow }) {
   const rows = (specialist.specialist_availability ?? []).filter((r) => r.is_active && r.available_date);
   if (!rows.length) return null;
+
   const tz = specialist.timezone ?? "UTC";
   const viewerTz = getDeviceTimeZone();
+  const now = Date.now();
   const entries = rows
-    .slice()
-    .sort((a, b) => a.available_date.localeCompare(b.available_date) || a.start_time.localeCompare(b.start_time))
-    .slice(0, 8)
     .map((row) => {
       const start = zonedTimeToUtc(row.available_date, row.start_time, tz);
-      const end = zonedTimeToUtc(row.available_date, row.end_time, tz);
+      const startMinutes = Number(row.start_time.slice(0, 2)) * 60 + Number(row.start_time.slice(3, 5));
+      const endMinutes = Number(row.end_time.slice(0, 2)) * 60 + Number(row.end_time.slice(3, 5));
+      const crossesMidnight = endMinutes <= startMinutes;
+      const endDate = new Date(`${row.available_date}T00:00:00Z`);
+      if (crossesMidnight) endDate.setUTCDate(endDate.getUTCDate() + 1);
+      const end = zonedTimeToUtc(endDate.toISOString().slice(0, 10), row.end_time, tz);
       if (end <= start) return null;
       return {
         key: row.available_date + row.start_time + row.end_time,
+        start,
         label: formatInTimeZone(start, viewerTz, { weekday: "short", month: "short", day: "numeric" }),
         time: formatInTimeZone(start, viewerTz, { hour: "numeric", minute: "2-digit" }) + "–" + formatInTimeZone(end, viewerTz, { hour: "numeric", minute: "2-digit" }),
       };
     })
-    .filter(Boolean) as Array<{ key: string; label: string; time: string }>;
+    .filter((entry): entry is { key: string; start: Date; label: string; time: string } => Boolean(entry && entry.start.getTime() >= now))
+    .sort((a, b) => a.start.getTime() - b.start.getTime())
+    .slice(0, 8);
+
   if (!entries.length) return null;
   return <div className="mt-3 rounded-xl border bg-background p-3">
     <div className="text-xs font-semibold">Upcoming availability</div>
