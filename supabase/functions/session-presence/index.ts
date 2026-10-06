@@ -36,7 +36,7 @@ Deno.serve(async(req)=>{
       const {error}=await admin.from("appointments").update(updates).eq("id",appointment_id);
       if(error)return json({error:error.message},500);
     }
-    const {data:latest,error:latestError}=await admin.from("appointments").select("id,scheduled_at,status,specialist_joined_at,customer_joined_at,specialist_left_at,customer_left_at,specialist_attendance_seconds,customer_attendance_seconds,session_started_at,session_ended_at").eq("id",appointment_id).single();
+    const {data:latest,error:latestError}=await admin.from("appointments").select("id,scheduled_at,status,specialist_joined_at,specialist_last_left_at,customer_joined_at,specialist_left_at,customer_left_at,specialist_attendance_seconds,customer_attendance_seconds,session_started_at,session_ended_at").eq("id",appointment_id).single();
     if(latestError||!latest)return json({error:latestError?.message??"Could not reload appointment"},500);
     const latestStart=new Date(latest.scheduled_at).getTime(),latestEnd=latestStart+JOIN_WINDOW_MS;
     if(latest.status==="confirmed"&&Date.now()>=latestEnd){
