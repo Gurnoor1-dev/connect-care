@@ -64,7 +64,7 @@ export default function AdminPayments() {
     };
   }, []);
 
-  const captured = useMemo(() => appointments.filter(a => a.razorpay_payment_status === "captured"), [appointments]);
+  const captured = useMemo(() => appointments.filter(a => a.razorpay_payment_status === "captured" && Boolean(a.payment_captured_at)), [appointments]);
   const monthOptions = useMemo(() => {
     const values = [
       ...captured.map(a => monthKey(new Date(a.payment_captured_at!))),
