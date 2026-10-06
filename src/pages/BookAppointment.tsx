@@ -53,6 +53,16 @@ function sameDayMinimum(immediateSessions: boolean, now = new Date()) {
   return new Date(rounded.getTime() + 5 * 60 * 60 * 1000);
 }
 
+async function notifyBookingConfirmation(appointmentId: string) {
+  const { data, error } = await supabase.functions.invoke("appointment-notifications", {
+    body: { action: "booking", appointment_id: appointmentId },
+  });
+
+  if (error || !data?.ok) {
+    console.error("[BookAppointment] booking confirmation email trigger failed:", error ?? data?.error);
+  }
+}
+
 export default function BookAppointment() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -274,6 +284,7 @@ export default function BookAppointment() {
             .eq("customer_id", user.id).eq("specialist_id", specialistId);
           throw new Error(appointmentError.message);
         }
+        await notifyBookingConfirmation(appointment.id);
         toast.success("Session booked using 2 credits");
         navigate("/dashboard/customer/appointments");
         return;
