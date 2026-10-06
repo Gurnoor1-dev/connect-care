@@ -80,7 +80,7 @@ export default function AdminPayments() {
   }, [monthOptions, selectedMonth]);
 
   const monthlyCaptured = useMemo(
-    () => captured.filter(a => a.payment_captured_at && monthKey(new Date(a.payment_captured_at)) === selectedMonth),
+    () => captured.filter(a => monthKey(new Date(a.payment_captured_at || a.created_at)) === selectedMonth),
     [captured, selectedMonth]
   );
   const capturedTotal = useMemo(() => monthlyCaptured.reduce((sum, a) => sum + a.amount_cents, 0), [monthlyCaptured]);
@@ -109,7 +109,7 @@ export default function AdminPayments() {
       const customer = (a.customer_name || "") + " " + (profiles[a.customer_id]?.full_name || "") + " " + (profiles[a.customer_id]?.email || "");
       const specialist = specialists[a.specialist_id]?.display_name || "";
       return (customer + " " + specialist + " " + (a.razorpay_payment_id || "") + " " + a.id).toLowerCase().includes(q);
-    }).sort((a, b) => new Date(b.payment_captured_at || 0).getTime() - new Date(a.payment_captured_at || 0).getTime());
+    }).sort((a, b) => new Date(b.payment_captured_at || b.created_at).getTime() - new Date(a.payment_captured_at || a.created_at).getTime());
   }, [monthlyCaptured, search, profiles, specialists]);
 
   const incomeRows = useMemo(() => {
@@ -186,9 +186,9 @@ function PaymentRecords({ rows, search, onSearch, profiles, specialists, month }
       <div><h2 className="text-2xl font-semibold">Payment records</h2><p className="mt-1 text-sm text-muted-foreground">Captured payments for {formatMonth(month)}, including payments made before the session is attended.</p></div>
       <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search customer, email, specialist, payment ID..." className="h-12 w-full rounded-2xl border border-border bg-transparent px-4 text-base outline-none placeholder:text-muted-foreground lg:max-w-xl" />
     </div>
-    <div className="overflow-x-auto"><table className="w-full min-w-[1650px] text-sm">
+    <div className="overflow-x-auto"><table className="w-full min-w-[1450px] text-sm">
       <thead><tr className="border-b text-left text-muted-foreground">
-        <th className="px-5 py-4">CUSTOMER</th><th className="px-5 py-4">SPECIALIST</th><th className="px-5 py-4">SESSION</th><th className="px-5 py-4">PAYMENT ID</th><th className="px-5 py-4">TRANSACTION TIME</th><th className="px-5 py-4">PURCHASE</th><th className="px-5 py-4">AMOUNT</th><th className="px-5 py-4">FEE</th><th className="px-5 py-4">ATTENDANCE</th><th className="px-5 py-4">STATUS</th>
+        <th className="px-5 py-4">CUSTOMER</th><th className="px-5 py-4">SPECIALIST</th><th className="px-5 py-4">SESSION</th><th className="px-5 py-4">PAYMENT ID</th><th className="px-5 py-4">PURCHASE</th><th className="px-5 py-4">AMOUNT</th><th className="px-5 py-4">FEE</th><th className="px-5 py-4">ATTENDANCE</th><th className="px-5 py-4">STATUS</th>
       </tr></thead>
       <tbody>{rows.map(a => {
         const p = profiles[a.customer_id], customer = a.customer_name || p?.full_name || p?.email || "—";
@@ -203,7 +203,7 @@ function PaymentRecords({ rows, search, onSearch, profiles, specialists, month }
           <td className="whitespace-nowrap px-5 py-4">Specialist {duration(a.specialist_attendance_seconds ?? 0)} · Client {duration(a.customer_attendance_seconds ?? 0)}</td>
           <td className="px-5 py-4"><div className="font-medium">Captured</div><div className="text-xs text-muted-foreground">{paymentMethodLabel(a.payment_method)}</div></td>
         </tr>;
-      })}{!rows.length && <tr><td colSpan={10} className="px-5 py-16 text-center text-muted-foreground">No captured payment records found for this month.</td></tr>}</tbody>
+      })}{!rows.length && <tr><td colSpan={9} className="px-5 py-16 text-center text-muted-foreground">No captured payment records found for this month.</td></tr>}</tbody>
     </table></div>
   </Card>;
 }
@@ -284,7 +284,6 @@ function paymentMethodLabel(method: string | null) {
 function duration(seconds: number) { if (seconds <= 0) return "0m"; const m = Math.floor(seconds / 60), h = Math.floor(m / 60); return h ? h + "h " + (m % 60) + "m" : m + "m"; }
 function validDate(v: string | null | undefined) { const d = v ? new Date(v) : new Date(NaN); return Number.isFinite(d.getTime()) ? d : null; }
 function formatDateTime(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d) : "—"; }
-function formatTransactionTime(v: string | null) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZoneName: "short" }).format(d) : "—"; }
 function formatDate(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(d) : "—"; }
 function formatTime(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(d) : "—"; }
 function monthKey(d: Date) { return Number.isFinite(d.getTime()) ? d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") : ""; }
