@@ -189,12 +189,31 @@ async function reminder(id: string, stage: ReminderStage) {
 async function noShow(id: string) {
   const { a, c, s } = await details(id);
   if (a.no_show_email_sent_at) return;
-  const body = `<h1 style="font:700 32px Georgia,serif">Appointment closed.</h1><p>The session was not joined within 10 minutes of its scheduled start time, so the appointment has been marked as <b>Didn't attend</b>.</p><a href="${APP_URL}" style="color:#6d4df5;font-weight:700">Visit BreatheRise →</a>`;
+
+  const cutoff = new Date(new Date(a.scheduled_at).getTime() + 10 * 60 * 1000);
+  const clientMissed = !a.customer_joined_at || new Date(a.customer_joined_at) > cutoff;
+  const consultantMissed = !a.specialist_joined_at || new Date(a.specialist_joined_at) > cutoff;
+
+  // Notify only the person who failed to join within the first 10 minutes.
+  // If both missed that window, both receive the notification.
+  const body = `<h1 style="font:700 32px Georgia,serif">Appointment closed.</h1><p>You did not join the session within 10 minutes of its scheduled start time, so this appointment has been marked as <b>Didn't attend</b>.</p><a href="${APP_URL}" style="color:#6d4df5;font-weight:700">Visit BreatheRise →</a>`;
   const sends: Promise<unknown>[] = [];
-  if (s?.email) sends.push(mail(s.email, "BreatheRise appointment not attended", "Appointment attendance update.", body));
-  if (c?.email) sends.push(mail(c.email, "BreatheRise appointment not attended", "Appointment attendance update.", body));
-  await Promise.all(sends);
-  await admin.from("appointments").update({ no_show_email_sent_at: new Date().toISOString() }).eq("id", id).is("no_show_email_sent_at", null);
+  if (s?.email && consultantMissed) {
+    sends.push(mail(s.email, "BreatheRise appointment not attended", "Appointment attendance update.", body));
+  }
+  if (c?.email && clientMissed) {
+    sends.push(mail(c.email, "BreatheRise appointment not attended", "Appointment attendance update.", body));
+  }
+
+  if (sends.length) {
+    await Promise.all(sends);
+  }
+
+  await admin
+    .from("appointments")
+    .update({ no_show_email_sent_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("no_show_email_sent_at", null);
 }
 
 async function sweep() {
