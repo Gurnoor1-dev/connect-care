@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { CalendarClock, CheckCircle2, Clock3, Coins, Loader2, ShieldCheck, Sparkles, Zap } from "lucide-react";
-import { getDeviceTimeZone, getTimeZoneLabel, formatInTimeZone, zonedTimeToUtc, getZonedDateKey, getZonedDayOfWeek } from "@/lib/timezone";
+import { getDeviceTimeZone, getTimeZoneLabel, formatInTimeZone, zonedTimeToUtc, getZonedDateKey } from "@/lib/timezone";
 
 type RazorpayInstance = { open: () => void };
 const RAZORPAY_TEST_MODE = true;
@@ -144,7 +144,6 @@ export default function BookAppointment() {
     if (!selectedDate || !tier || !specialist) return [];
     const userDateKey = format(selectedDate, "yyyy-MM-dd");
     const specialistCalendarDate = new Date(userDateKey + "T12:00:00");
-    const day = getZonedDayOfWeek(specialistCalendarDate, specialist.timezone ?? "UTC");
     const specialistDateKey = getZonedDateKey(specialistCalendarDate, specialist.timezone ?? "UTC");
     const ranges = availability.filter((item) => item.available_date === specialistDateKey);
     const todayKey = getZonedDateKey(new Date(), getDeviceTimeZone());
