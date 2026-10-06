@@ -51,7 +51,7 @@ Deno.serve(async(req)=>{
         const added=Math.max(0,Math.floor((Math.min(now,joinEnd)-new Date(appt.customer_joined_at).getTime())/1000));
         updates.customer_attendance_seconds=Math.min(3600,(appt.customer_attendance_seconds??0)+added);
       }
-      updates.customer_joined_at=stamp; updates.customer_left_at=null; updates.session_started_at=appt.session_started_at??stamp;
+      updates.customer_joined_at=stamp; updates.customer_left_at=null; updates.session_started_at=appt.session_started_at??(appt.specialist_joined_at??stamp);
     }
     await admin.from("appointments").update(updates).eq("id",appointment_id);
     return out({room_url:roomUrl,token,display_name:displayName});
