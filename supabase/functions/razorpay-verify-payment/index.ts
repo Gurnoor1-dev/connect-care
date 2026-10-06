@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
         razorpay_base_currency: payment.base_currency ?? null,
         razorpay_fee: payment.fee ?? null,
         razorpay_tax: payment.tax ?? null,
-        payment_captured_at: payment.captured_at ? new Date(Number(payment.captured_at) * 1000).toISOString() : new Date().toISOString(),
+        payment_captured_at: Number.isFinite(Number(payment.created_at)) ? new Date(Number(payment.created_at) * 1000).toISOString() : null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", appointment.id)
