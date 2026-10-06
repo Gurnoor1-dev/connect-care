@@ -273,10 +273,12 @@ function paymentMethodLabel(method: string | null) {
 }
 
 function duration(seconds: number) { if (seconds <= 0) return "0m"; const m = Math.floor(seconds / 60), h = Math.floor(m / 60); return h ? h + "h " + (m % 60) + "m" : m + "m"; }
-function formatDateTime(v: string) { return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(v)); }
-function formatDate(v: string) { return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(v)); }
-function formatTime(v: string) { return new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(new Date(v)); }
-function monthKey(d: Date) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
-function formatMonth(k: string) { const p = k.split("-").map(Number); return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(new Date(p[0], p[1] - 1, 1)); }
-function money(c: number, currency: string) { return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 }).format(c / 100); }
+function validDate(v: string | null | undefined) { const d = v ? new Date(v) : new Date(NaN); return Number.isFinite(d.getTime()) ? d : null; }
+function formatDateTime(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d) : "—"; }
+function formatDate(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(d) : "—"; }
+function formatTime(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(d) : "—"; }
+function monthKey(d: Date) { return Number.isFinite(d.getTime()) ? d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") : ""; }
+function formatMonth(k: string) { const p = k.split("-").map(Number); const d = p.length === 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]) ? new Date(p[0], p[1] - 1, 1) : null; return d ? new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(d) : "—"; }
+function safeCurrency(currency: string | null | undefined) { const code = String(currency || "").trim().toUpperCase(); return /^[A-Z]{3}$/.test(code) ? code : "USD"; }
+function money(c: number | null | undefined, currency: string | null | undefined) { const amount = Number.isFinite(Number(c)) ? Number(c) / 100 : 0; return new Intl.NumberFormat(undefined, { style: "currency", currency: safeCurrency(currency), maximumFractionDigits: 2 }).format(amount); }
 function SimpleStat({ value, label, loading }: { value: string; label: string; loading: boolean }) { return <Card className="p-5"><div className="text-2xl font-bold">{loading ? "…" : value}</div><div className="mt-1 text-sm text-muted-foreground">{label}</div></Card>; }
