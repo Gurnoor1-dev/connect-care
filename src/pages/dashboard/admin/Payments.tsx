@@ -183,12 +183,12 @@ async function fetchAllAppointments(): Promise<Appointment[]> {
 function PaymentRecords({ rows, search, onSearch, profiles, specialists, month }: { rows: Appointment[]; search: string; onSearch: (v: string) => void; profiles: Record<string, Profile>; specialists: Record<string, Specialist>; month: string }) {
   return <Card className="overflow-hidden">
     <div className="flex flex-col gap-4 border-b p-5 lg:flex-row lg:items-center lg:justify-between">
-      <div><h2 className="text-2xl font-semibold">Payment records</h2><p className="mt-1 text-sm text-muted-foreground">Captured payments for {formatMonth(month)}, including payments made before the session is attended.</p></div>
+      <div><h2 className="text-2xl font-semibold">Payment records</h2><p className="mt-1 text-sm text-muted-foreground">Captured payments for {formatMonth(month)}, including payments made before the session is attended.</p><p className="mt-1 text-xs text-muted-foreground">Razorpay transaction time is read from the verified payment record and displayed in your device&apos;s local time zone.</p></div>
       <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search customer, email, specialist, payment ID..." className="h-12 w-full rounded-2xl border border-border bg-transparent px-4 text-base outline-none placeholder:text-muted-foreground lg:max-w-xl" />
     </div>
-    <div className="overflow-x-auto"><table className="w-full min-w-[1450px] text-sm">
+    <div className="overflow-x-auto"><table className="w-full min-w-[1650px] text-sm">
       <thead><tr className="border-b text-left text-muted-foreground">
-        <th className="px-5 py-4">CUSTOMER</th><th className="px-5 py-4">SPECIALIST</th><th className="px-5 py-4">SESSION</th><th className="px-5 py-4">PAYMENT ID</th><th className="px-5 py-4">PURCHASE</th><th className="px-5 py-4">AMOUNT</th><th className="px-5 py-4">FEE</th><th className="px-5 py-4">ATTENDANCE</th><th className="px-5 py-4">STATUS</th>
+        <th className="px-5 py-4">CUSTOMER</th><th className="px-5 py-4">SPECIALIST</th><th className="px-5 py-4">SESSION</th><th className="px-5 py-4">PAYMENT ID</th><th className="px-5 py-4">PURCHASE</th><th className="px-5 py-4">AMOUNT</th><th className="px-5 py-4">FEE</th><th className="px-5 py-4">ATTENDANCE</th><th className="px-5 py-4">STATUS</th><th className="px-5 py-4 whitespace-nowrap">RAZORPAY TRANSACTION TIME (LOCAL)</th>
       </tr></thead>
       <tbody>{rows.map(a => {
         const p = profiles[a.customer_id], customer = a.customer_name || p?.full_name || p?.email || "—";
@@ -201,9 +201,9 @@ function PaymentRecords({ rows, search, onSearch, profiles, specialists, month }
           <td className="whitespace-nowrap px-5 py-4">{money(a.amount_cents, a.currency)}</td>
           <td className="whitespace-nowrap px-5 py-4">{a.razorpay_fee == null ? "—" : money(a.razorpay_fee, a.razorpay_base_currency || "INR")}</td>
           <td className="whitespace-nowrap px-5 py-4">Specialist {duration(a.specialist_attendance_seconds ?? 0)} · Client {duration(a.customer_attendance_seconds ?? 0)}</td>
-          <td className="px-5 py-4"><div className="font-medium">Captured</div><div className="text-xs text-muted-foreground">{paymentMethodLabel(a.payment_method)}</div></td>
+          <td className="px-5 py-4"><div className="font-medium">Captured</div><div className="text-xs text-muted-foreground">{paymentMethodLabel(a.payment_method)}</div></td><td className="whitespace-nowrap px-5 py-4 font-medium">{formatTransactionTime(a.payment_captured_at)}</td>
         </tr>;
-      })}{!rows.length && <tr><td colSpan={9} className="px-5 py-16 text-center text-muted-foreground">No captured payment records found for this month.</td></tr>}</tbody>
+      })}{!rows.length && <tr><td colSpan={10} className="px-5 py-16 text-center text-muted-foreground">No captured payment records found for this month.</td></tr>}</tbody>
     </table></div>
   </Card>;
 }
@@ -284,6 +284,7 @@ function paymentMethodLabel(method: string | null) {
 function duration(seconds: number) { if (seconds <= 0) return "0m"; const m = Math.floor(seconds / 60), h = Math.floor(m / 60); return h ? h + "h " + (m % 60) + "m" : m + "m"; }
 function validDate(v: string | null | undefined) { const d = v ? new Date(v) : new Date(NaN); return Number.isFinite(d.getTime()) ? d : null; }
 function formatDateTime(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d) : "—"; }
+function formatTransactionTime(v: string | null) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short" }).format(d) : "—"; }
 function formatDate(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(d) : "—"; }
 function formatTime(v: string) { const d = validDate(v); return d ? new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(d) : "—"; }
 function monthKey(d: Date) { return Number.isFinite(d.getTime()) ? d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") : ""; }
