@@ -1,0 +1,27 @@
+name: temporary admin visibility build check
+on:
+  push:
+    branches:
+      - work/2026-10-07-admin-consultant-visibility-toggle
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Production build
+        run: |
+          bun install --no-save
+          bun run build
+      - name: Source artifact checks
+        run: |
+          if grep -nE '\\n|\\t|\\\\`' src/pages/dashboard/admin/Users.tsx; then
+            echo "Unexpected literal escape artifact found"
+            exit 1
+          fi
+          if grep -n '\\\\`' src/pages/dashboard/admin/Users.tsx; then
+            echo "Escaped backtick artifact found"
+            exit 1
+          fi
