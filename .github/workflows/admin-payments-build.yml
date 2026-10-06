@@ -1,4 +1,4 @@
-name: Admin payments build validation
+name: Admin payments build validation v2
 
 on:
   push:
