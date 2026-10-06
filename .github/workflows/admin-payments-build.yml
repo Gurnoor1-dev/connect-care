@@ -1,8 +1,8 @@
 name: Admin payments build validation v2
 
 on:
-  push:
-    branches: [fix/admin-payment-income-data]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
