@@ -15,7 +15,7 @@ Deno.serve(async(req)=>{
     const {appointment_id,action}=await req.json();
     if(!appointment_id||!["leave","finalize"].includes(action))return json({error:"appointment_id and action are required"},400);
     const admin=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const {data:appt,error:apptError}=await admin.from("appointments").select("id,customer_id,specialist_id,scheduled_at,status,specialist_joined_at,customer_joined_at,specialist_left_at,customer_left_at,specialist_attendance_seconds,customer_attendance_seconds,session_started_at,session_ended_at").eq("id",appointment_id).single();
+    const {data:appt,error:apptError}=await admin.from("appointments").select("id,customer_id,specialist_id,scheduled_at,status,specialist_joined_at,specialist_first_joined_at,specialist_left_at,specialist_last_left_at,customer_joined_at,customer_left_at,specialist_attendance_seconds,customer_attendance_seconds,session_started_at,session_ended_at").eq("id",appointment_id).single();
     if(apptError||!appt)return json({error:"Appointment not found"},404);
     const isCustomer=appt.customer_id===user.id,isSpecialist=appt.specialist_id===user.id;
     if(!isCustomer&&!isSpecialist)return json({error:"Forbidden"},403);
@@ -26,7 +26,7 @@ Deno.serve(async(req)=>{
       if(isSpecialist&&appt.specialist_joined_at&&!appt.specialist_left_at){
         const added=Math.max(0,Math.floor((Math.min(now,joinEnd)-new Date(appt.specialist_joined_at).getTime())/1000));
         updates.specialist_attendance_seconds=Math.min(3600,(appt.specialist_attendance_seconds??0)+added);
-        updates.specialist_left_at=stamp;
+        updates.specialist_left_at=stamp; updates.specialist_last_left_at=stamp;
       }
       if(isCustomer&&appt.customer_joined_at&&!appt.customer_left_at){
         const added=Math.max(0,Math.floor((Math.min(now,joinEnd)-new Date(appt.customer_joined_at).getTime())/1000));
@@ -45,7 +45,7 @@ Deno.serve(async(req)=>{
       const specialistQualified=specialistSeconds>=ATTENDANCE_THRESHOLD_SECONDS,customerQualified=customerSeconds>=ATTENDANCE_THRESHOLD_SECONDS;
       const status=specialistQualified?"completed":(specialistSeconds>0||customerSeconds>0?"partially_completed":"no_show");
       const sessionEndStamp=new Date(latestEnd).toISOString();
-      const {error}=await admin.from("appointments").update({specialist_attendance_seconds:specialistSeconds,customer_attendance_seconds:customerSeconds,status,specialist_left_at:latest.specialist_joined_at&&!latest.specialist_left_at?sessionEndStamp:latest.specialist_left_at,customer_left_at:latest.customer_joined_at&&!latest.customer_left_at?sessionEndStamp:latest.customer_left_at,session_ended_at:sessionEndStamp,updated_at:new Date().toISOString()}).eq("id",appointment_id).eq("status","confirmed");
+      const {error}=await admin.from("appointments").update({specialist_attendance_seconds:specialistSeconds,customer_attendance_seconds:customerSeconds,status,specialist_left_at:latest.specialist_joined_at&&!latest.specialist_left_at?sessionEndStamp:latest.specialist_left_at, specialist_last_left_at:latest.specialist_joined_at&&!latest.specialist_left_at?sessionEndStamp:latest.specialist_last_left_at,customer_left_at:latest.customer_joined_at&&!latest.customer_left_at?sessionEndStamp:latest.customer_left_at,session_ended_at:sessionEndStamp,updated_at:new Date().toISOString()}).eq("id",appointment_id).eq("status","confirmed");
       if(error)return json({error:error.message},500);
       return json({success:true,status,specialist_attendance_seconds:specialistSeconds,customer_attendance_seconds:customerSeconds,attendance_threshold_minutes:50});
     }
