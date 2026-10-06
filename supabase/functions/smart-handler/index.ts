@@ -45,7 +45,7 @@ Deno.serve(async(req)=>{
         const added=Math.max(0,Math.floor((Math.min(now,joinEnd)-new Date(appt.specialist_joined_at).getTime())/1000));
         updates.specialist_attendance_seconds=Math.min(3600,(appt.specialist_attendance_seconds??0)+added);
       }
-      updates.specialist_joined_at=stamp; updates.specialist_left_at=null; updates.session_started_at=appt.session_started_at??stamp;
+      updates.specialist_joined_at=stamp; updates.specialist_left_at=null; updates.session_started_at=appt.specialist_joined_at??stamp;
     }else{
       if(appt.customer_joined_at&&appt.customer_left_at){
         const added=Math.max(0,Math.floor((Math.min(now,joinEnd)-new Date(appt.customer_joined_at).getTime())/1000));
