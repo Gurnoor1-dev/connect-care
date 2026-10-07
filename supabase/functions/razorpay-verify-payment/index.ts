@@ -118,6 +118,13 @@ Deno.serve(async (req) => {
       return json({ error: "Razorpay server configuration is incomplete" }, 500);
     }
 
+    if (!keyId.startsWith("rzp_live_")) {
+      return json(
+        { error: "Razorpay is not in Live Mode. Configure the live Razorpay key in Supabase." },
+        500,
+      );
+    }
+
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } } });
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: { user }, error: authError } = await userClient.auth.getUser();
