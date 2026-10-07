@@ -71,6 +71,7 @@ export default function Specialists() {
   const [specialityFilter, setSpecialityFilter] = useState("all");
   const [qualificationFilter, setQualificationFilter] = useState("all");
   const [sortBy, setSortBy] = useState("name-asc");
+  const [priceSort, setPriceSort] = useState("all");
 
   const breatheRiseSpecialities = [
     { label: "Stress & anxiety", keywords: ["stress", "anxiety"] },
@@ -99,13 +100,13 @@ export default function Specialists() {
     );
     return [...filtered].sort((a, b) => {
       if (sortBy === "name-desc") return b.display_name.localeCompare(a.display_name);
-      if (sortBy === "price-low") return (a.specialist_tiers[0]?.price_cents ?? Infinity) - (b.specialist_tiers[0]?.price_cents ?? Infinity);
-      if (sortBy === "price-high") return (b.specialist_tiers[0]?.price_cents ?? -1) - (a.specialist_tiers[0]?.price_cents ?? -1);
+      if (priceSort === "low") return (a.specialist_tiers.find((t) => (t.tier_type ?? "single") === "single")?.price_cents ?? Infinity) - (b.specialist_tiers.find((t) => (t.tier_type ?? "single") === "single")?.price_cents ?? Infinity);
+      if (priceSort === "high") return (b.specialist_tiers.find((t) => (t.tier_type ?? "single") === "single")?.price_cents ?? -1) - (a.specialist_tiers.find((t) => (t.tier_type ?? "single") === "single")?.price_cents ?? -1);
       if (sortBy === "duration-short") return (a.specialist_tiers[0]?.duration_minutes ?? Infinity) - (b.specialist_tiers[0]?.duration_minutes ?? Infinity);
       if (sortBy === "duration-long") return (b.specialist_tiers[0]?.duration_minutes ?? -1) - (a.specialist_tiers[0]?.duration_minutes ?? -1);
       return a.display_name.localeCompare(b.display_name);
     });
-  }, [items, specialityFilter, qualificationFilter, sortBy]);
+  }, [items, specialityFilter, qualificationFilter, sortBy, priceSort]);
 
   useEffect(() => {
     (async () => {
@@ -186,13 +187,19 @@ export default function Specialists() {
                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-background px-3 text-sm">
                   <option value="name-asc">Name (A–Z)</option>
                   <option value="name-desc">Name (Z–A)</option>
-                  <option value="price-low">Lowest session price</option>
-                  <option value="price-high">Highest session price</option>
                   <option value="duration-short">Shortest session</option>
                   <option value="duration-long">Longest session</option>
                 </select>
               </label>
-              {(specialityFilter !== "all" || qualificationFilter !== "all") && <Button type="button" variant="outline" onClick={() => { setSpecialityFilter("all"); setQualificationFilter("all"); }}>Clear</Button>}
+              <label className="flex-1">
+                <span className="mb-1 block text-xs text-muted-foreground">Price</span>
+                <select value={priceSort} onChange={(e) => setPriceSort(e.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-background px-3 text-sm">
+                  <option value="all">All prices</option>
+                  <option value="low">Low to high</option>
+                  <option value="high">High to low</option>
+                </select>
+              </label>
+              {(specialityFilter !== "all" || qualificationFilter !== "all" || priceSort !== "all") && <Button type="button" variant="outline" onClick={() => { setSpecialityFilter("all"); setQualificationFilter("all"); setPriceSort("all"); }}>Clear</Button>}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">{visibleItems.length} published specialist{visibleItems.length === 1 ? "" : "s"} shown</p>
           </div>
