@@ -36,8 +36,8 @@ Deno.serve(async (req) => {
       return json({ error: "Razorpay server configuration is incomplete. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET." }, 500);
     }
 
-    if (!keyId.startsWith("rzp_test_")) {
-      return json({ error: "Razorpay is not in Test Mode. Configure an rzp_test_ key in Supabase." }, 500);
+    if (!keyId.startsWith("rzp_live_")) {
+      return json({ error: "Razorpay is not in Live Mode. Configure the live Razorpay key in Supabase." }, 500);
     }
 
     const userClient = createClient(supabaseUrl, anonKey, {
