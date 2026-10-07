@@ -366,7 +366,7 @@ function AvailabilityPreview({ specialist }: { specialist: SpecialistRow }) {
   const viewerTz = getDeviceTimeZone();
   const now = Date.now();
   const entries = rows
-    .map((row) => {
+    .flatMap((row) => {
       const start = zonedTimeToUtc(row.available_date, row.start_time, tz);
       const startMinutes = Number(row.start_time.slice(0, 2)) * 60 + Number(row.start_time.slice(3, 5));
       const endMinutes = Number(row.end_time.slice(0, 2)) * 60 + Number(row.end_time.slice(3, 5));
@@ -374,15 +374,24 @@ function AvailabilityPreview({ specialist }: { specialist: SpecialistRow }) {
       const endDate = new Date(`${row.available_date}T00:00:00Z`);
       if (crossesMidnight) endDate.setUTCDate(endDate.getUTCDate() + 1);
       const end = zonedTimeToUtc(endDate.toISOString().slice(0, 10), row.end_time, tz);
-      if (end <= start) return null;
-      return {
-        key: row.available_date + row.start_time + row.end_time,
-        start,
-        label: formatInTimeZone(start, viewerTz, { weekday: "short", month: "short", day: "numeric" }),
-        time: formatInTimeZone(start, viewerTz, { hour: "numeric", minute: "2-digit" }) + "–" + formatInTimeZone(end, viewerTz, { hour: "numeric", minute: "2-digit" }),
-      };
+      if (end <= start) return [];
+
+      const firstSlot = Math.max(
+        start.getTime(),
+        Math.ceil(now / (15 * 60 * 1000)) * 15 * 60 * 1000,
+      );
+      const slots: { key: string; start: Date; label: string; time: string }[] = [];
+      for (let cursor = firstSlot; cursor < end.getTime(); cursor += 15 * 60 * 1000) {
+        const slotStart = new Date(cursor);
+        slots.push({
+          key: row.available_date + row.start_time + row.end_time + cursor,
+          start: slotStart,
+          label: formatInTimeZone(slotStart, viewerTz, { weekday: "short", month: "short", day: "numeric" }),
+          time: formatInTimeZone(slotStart, viewerTz, { hour: "numeric", minute: "2-digit" }),
+        });
+      }
+      return slots;
     })
-    .filter((entry): entry is { key: string; start: Date; label: string; time: string } => Boolean(entry && entry.start.getTime() >= now))
     .sort((a, b) => a.start.getTime() - b.start.getTime())
     .slice(0, 8);
 
