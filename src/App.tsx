@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -40,8 +41,18 @@ import DashboardRedirect from "@/pages/dashboard/DashboardRedirect";
 import PaymentSuccess from "@/pages/payment/Success";
 import PaymentFailure from "@/pages/payment/Failure";
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
+
+  return null;
+};
+
 const App = () => (
-  <ThemeProvider><AuthProvider><TooltipProvider><Toaster richColors position="top-right" /><BrowserRouter><Routes>
+  <ThemeProvider><AuthProvider><TooltipProvider><Toaster richColors position="top-right" /><BrowserRouter><ScrollToTop /><Routes>
     <Route element={<PublicLayout />}>
       <Route path="/" element={<Index />} />
       <Route path="/how-it-works" element={<HowItWorks />} />
