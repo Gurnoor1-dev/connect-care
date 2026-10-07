@@ -102,6 +102,7 @@ Deno.serve(async (req) => {
         amount,
         currency: "USD",
         receipt,
+        config_id: "config_Tkpqv2PhG118qC",
         notes: {
           appointment_id: appointment.id,
           specialist_id: appointment.specialist_id,
