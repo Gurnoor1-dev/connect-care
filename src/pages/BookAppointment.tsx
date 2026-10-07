@@ -239,6 +239,7 @@ export default function BookAppointment() {
       name: data.name,
       description: data.description,
       order_id: data.order_id,
+      checkout_config_id: data.checkout_config_id,
       prefill: data.prefill,
       theme: { color: "#14b8a6" },
       modal: {

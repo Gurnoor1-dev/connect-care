@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
         name: "BreatheRise",
         description: `BreatheRise session (${appointment.duration_minutes} min)`,
         prefill: { name, email },
+        checkout_config_id: "config_Tkpqv2PhG118qC",
       });
     }
 
@@ -102,7 +103,7 @@ Deno.serve(async (req) => {
         amount,
         currency: "USD",
         receipt,
-        config_id: "config_Tkpqv2PhG118qC",
+        checkout_config_id: "config_Tkpqv2PhG118qC",
         notes: {
           appointment_id: appointment.id,
           specialist_id: appointment.specialist_id,
@@ -138,6 +139,7 @@ Deno.serve(async (req) => {
       name: "BreatheRise",
       description: `BreatheRise session (${appointment.duration_minutes} min)`,
       prefill: { name, email },
+      checkout_config_id: "config_Tkpqv2PhG118qC",
     });
   } catch (error) {
     console.error("[razorpay-create-order] unexpected error:", error);
