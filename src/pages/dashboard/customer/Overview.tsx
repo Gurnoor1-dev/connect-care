@@ -5,12 +5,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, FileText, Video, Bell } from "lucide-react";
-import { formatInTimeZone, getDeviceTimeZone } from "@/lib/timezone";
+import { formatInTimeZone, getDeviceTimeZone, getZonedDateKey } from "@/lib/timezone";
 
 export default function CustomerOverview() {
   const { user } = useAuth();
   const [upcoming, setUpcoming] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
+  const [selectedHistoryMonth, setSelectedHistoryMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
   useEffect(() => {
     if (!user) return;
     const load = async () => {
@@ -30,8 +34,7 @@ export default function CustomerOverview() {
         .select("*, specialist:specialist_profiles!appointments_specialist_id_fkey(display_name, country_flag, timezone)")
         .eq("customer_id", user.id)
         .lt("scheduled_at", activeCutoff)
-        .order("scheduled_at", { ascending: false })
-        .limit(5);
+        .order("scheduled_at", { ascending: false });
       setUpcoming(up ?? []);
       setHistory(hist ?? []);
     };
@@ -40,6 +43,13 @@ export default function CustomerOverview() {
     return () => window.clearInterval(id);
   }, [user]);
 
+  const historyTimeZone = getDeviceTimeZone();
+  const historyMonths = Array.from(new Set([
+    `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
+    ...history.map((a) => getZonedDateKey(new Date(a.scheduled_at), historyTimeZone).slice(0, 7)),
+  ])).sort((a, b) => b.localeCompare(a));
+  const filteredHistory = history.filter((a) => getZonedDateKey(new Date(a.scheduled_at), historyTimeZone).slice(0, 7) === selectedHistoryMonth);
+  const selectedMonthLabel = formatInTimeZone(`${selectedHistoryMonth}-01T12:00:00Z`, historyTimeZone, { month: "long", year: "numeric" });
   const prescriptions = [...upcoming, ...history].filter((a) => a.prescription?.trim()).slice(0, 3);
 
   return (
@@ -48,7 +58,7 @@ export default function CustomerOverview() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><StatCard icon={Calendar} label="Upcoming" value={upcoming.length} /><StatCard icon={Video} label="Completed" value={history.length} /><StatCard icon={FileText} label="Prescriptions" value={prescriptions.length} /><StatCard icon={Bell} label="Reminders" value="On" /></div>
       <section><div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">Upcoming appointments</h2><Button asChild variant="ghost" size="sm"><Link to="/dashboard/customer/appointments">View all</Link></Button></div>{upcoming.length === 0 ? <Card className="border-white/55 bg-card/90 p-10 text-center shadow-brand backdrop-blur"><p className="text-muted-foreground">No upcoming sessions yet.</p><Button asChild className="mt-4 bg-gradient-brand text-primary-foreground shadow-brand"><Link to="/book">Book your first session</Link></Button></Card> : <div className="space-y-3">{upcoming.map((a) => <AppointmentRow key={a.id} a={a} role="customer" />)}</div>}</section>
       {prescriptions.length > 0 && <section><h2 className="mb-4 text-xl font-semibold">Recent prescriptions</h2><div className="grid gap-3 lg:grid-cols-3">{prescriptions.map((a) => <Card key={a.id} className="border-white/55 bg-card/90 p-4 shadow-brand backdrop-blur"><div className="flex items-center gap-2 text-sm font-semibold"><FileText className="h-4 w-4 text-teal" /> {a.specialist?.display_name ?? "Specialist"}</div><p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm text-muted-foreground">{a.prescription}</p><div className="mt-3 text-xs text-muted-foreground">{formatInTimeZone(a.scheduled_at, getDeviceTimeZone(), { month: "short", day: "numeric", year: "numeric" })}</div></Card>)}</div></section>}
-      <section><h2 className="mb-4 text-xl font-semibold">Recent history</h2>{history.length === 0 ? <Card className="border-white/55 bg-card/90 p-6 text-sm text-muted-foreground shadow-brand backdrop-blur">No past sessions.</Card> : <div className="space-y-3">{history.map((a) => <AppointmentRow key={a.id} a={a} role="customer" past />)}</div>}</section>
+      <section><div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><h2 className="text-xl font-semibold">Recent history</h2><label className="flex items-center gap-2 text-sm text-muted-foreground"><span>Month</span><select value={selectedHistoryMonth} onChange={(e) => setSelectedHistoryMonth(e.target.value)} className="rounded-lg border border-white/30 bg-card px-3 py-2 text-sm text-foreground outline-none ring-offset-background focus:ring-2 focus:ring-ring">{historyMonths.map((month) => <option key={month} value={month}>{formatInTimeZone(`${month}-01T12:00:00Z`, historyTimeZone, { month: "long", year: "numeric" })}</option>)}</select></label></div>{filteredHistory.length === 0 ? <Card className="border-white/55 bg-card/90 p-6 text-sm text-muted-foreground shadow-brand backdrop-blur">No past sessions in {selectedMonthLabel}.</Card> : <div className="space-y-3">{filteredHistory.map((a) => <AppointmentRow key={a.id} a={a} role="customer" past />)}</div>}</section>
     </div>
   );
 }
