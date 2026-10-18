@@ -1,15 +1,26 @@
 <!doctype html>
 <html lang="en">
   <head>
-<!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z61PY2XSS3"></script>
+<!-- Defer analytics until the page has loaded so third-party scripts don't compete with first paint. -->
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-
     gtag('config', 'AW-18464359511');
     gtag('config', 'G-Z61PY2XSS3');
+    window.addEventListener('load', function () {
+      var loadAnalytics = function () {
+        var script = document.createElement('script');
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=G-Z61PY2XSS3';
+        script.async = true;
+        document.head.appendChild(script);
+      };
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(loadAnalytics, { timeout: 2500 });
+      } else {
+        window.setTimeout(loadAnalytics, 1500);
+      }
+    }, { once: true });
   </script>
     <meta charset="UTF-8" />
     <link rel="preconnect" href="https://awsdzxsbuqzoucrqsizd.supabase.co" crossorigin />
