@@ -138,3 +138,16 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Several existing components use translucent white utility borders for the dark palette.
+   Give those same surfaces a visible, theme-aware edge in light mode without changing their layout. */
+:root:not(.dark) [class~="border-white/10"],
+:root:not(.dark) [class~="border-white/15"],
+:root:not(.dark) [class~="border-white/20"] {
+  border-color: color-mix(in oklab, var(--foreground) 15%, transparent) !important;
+}
+:root:not(.dark) [class~="bg-card/70"],
+:root:not(.dark) [class~="bg-card/85"],
+:root:not(.dark) [class~="bg-card/90"] {
+  box-shadow: var(--shadow-card);
+}
