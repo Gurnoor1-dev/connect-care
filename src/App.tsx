@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useEffect, lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -14,9 +14,15 @@ const BookAppointment = lazy(() => import("@/pages/BookAppointment"));
 const About = lazy(() => import("@/pages/About"));
 const Contact = lazy(() => import("@/pages/Contact"));
 const TrustCenter = lazy(() => import("@/pages/TrustCenter"));
-const Privacy = lazy(() => import("@/pages/Policies").then((module) => ({ default: module.Privacy })));
-const Terms = lazy(() => import("@/pages/Policies").then((module) => ({ default: module.Terms })));
-const Cancellation = lazy(() => import("@/pages/Policies").then((module) => ({ default: module.Cancellation })));
+const Privacy = lazy(() =>
+  import("@/pages/Policies").then((module) => ({ default: module.Privacy })),
+);
+const Terms = lazy(() =>
+  import("@/pages/Policies").then((module) => ({ default: module.Terms })),
+);
+const Cancellation = lazy(() =>
+  import("@/pages/Policies").then((module) => ({ default: module.Cancellation })),
+);
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Login = lazy(() => import("@/pages/auth/Login"));
 const Signup = lazy(() => import("@/pages/auth/Signup"));
