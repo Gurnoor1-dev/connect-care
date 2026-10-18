@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
@@ -85,11 +84,7 @@ export default function Index() {
         <div className="absolute -left-24 bottom-0 -z-10 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
 
         <div className="container mx-auto grid items-center gap-12 pb-20 pt-14 md:grid-cols-[1.05fr_0.95fr] md:pb-28 md:pt-20 lg:gap-20">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55 }}
-          >
+          <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/75 px-4 py-2 text-xs font-semibold text-primary shadow-sm backdrop-blur">
               <Sparkles className="h-3.5 w-3.5" />
               Support for your whole self
@@ -134,14 +129,9 @@ export default function Index() {
                 </span>
               ))}
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.7, delay: 0.12 }}
-            className="relative mx-auto w-full max-w-[560px]"
-          >
+          <div className="relative mx-auto w-full max-w-[560px]">
             <div className="relative overflow-hidden rounded-[2.25rem] border border-primary/10 bg-card p-4 shadow-[0_35px_80px_-45px_oklch(0.3_0.07_165/55%)]">
               <div className="rounded-[1.8rem] bg-secondary/65 p-6 sm:p-8">
                 <div className="flex items-center justify-between">
@@ -200,7 +190,7 @@ export default function Index() {
                 <p className="text-[11px] text-muted-foreground">finding better ways forward</p>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
