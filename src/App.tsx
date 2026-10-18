@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -7,39 +7,41 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import Index from "@/pages/Index";
-import HowItWorks from "@/pages/HowItWorks";
-import Specialists from "@/pages/Specialists";
-import BookAppointment from "@/pages/BookAppointment";
-import About from "@/pages/About";
-import Contact from "@/pages/Contact";
-import TrustCenter from "@/pages/TrustCenter";
-import { Privacy, Terms, Cancellation } from "@/pages/Policies";
-import NotFound from "@/pages/NotFound";
-import Login from "@/pages/auth/Login";
-import Signup from "@/pages/auth/Signup";
-import VerifyOtp from "@/pages/auth/VerifyOtp";
-import ForgotPassword from "@/pages/auth/ForgotPassword";
-import ResetPassword from "@/pages/auth/ResetPassword";
-import AuthCallback from "@/pages/auth/AuthCallback";
-import AcceptInvite from "@/pages/auth/AcceptInvite";
-import CustomerOverview from "@/pages/dashboard/customer/Overview";
-import CustomerAppointments from "@/pages/dashboard/customer/Appointments";
-import CustomerVideoCall from "@/pages/dashboard/customer/VideoCall";
-import SpecialistOverview from "@/pages/dashboard/specialist/Overview";
-import SpecialistAvailability from "@/pages/dashboard/specialist/Availability";
-import SpecialistTiers from "@/pages/dashboard/specialist/Tiers";
-import SpecialistProfile from "@/pages/dashboard/specialist/Profile";
-import SpecialistVideoCall from "@/pages/dashboard/specialist/VideoCall";
-import SpecialistPatients from "@/pages/dashboard/specialist/Patients";
-import AdminOverview from "@/pages/dashboard/admin/Overview";
-import AdminInvitations from "@/pages/dashboard/admin/Invitations";
-import AdminUsers from "@/pages/dashboard/admin/Users";
-import AdminTiers from "@/pages/dashboard/admin/Tiers";
-import AdminPayments from "@/pages/dashboard/admin/Payments";
-import DashboardRedirect from "@/pages/dashboard/DashboardRedirect";
-import PaymentSuccess from "@/pages/payment/Success";
-import PaymentFailure from "@/pages/payment/Failure";
+const Index = lazy(() => import("@/pages/Index"));
+const HowItWorks = lazy(() => import("@/pages/HowItWorks"));
+const Specialists = lazy(() => import("@/pages/Specialists"));
+const BookAppointment = lazy(() => import("@/pages/BookAppointment"));
+const About = lazy(() => import("@/pages/About"));
+const Contact = lazy(() => import("@/pages/Contact"));
+const TrustCenter = lazy(() => import("@/pages/TrustCenter"));
+const Privacy = lazy(() => import("@/pages/Policies").then((module) => ({ default: module.Privacy })));
+const Terms = lazy(() => import("@/pages/Policies").then((module) => ({ default: module.Terms })));
+const Cancellation = lazy(() => import("@/pages/Policies").then((module) => ({ default: module.Cancellation })));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const Login = lazy(() => import("@/pages/auth/Login"));
+const Signup = lazy(() => import("@/pages/auth/Signup"));
+const VerifyOtp = lazy(() => import("@/pages/auth/VerifyOtp"));
+const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("@/pages/auth/ResetPassword"));
+const AuthCallback = lazy(() => import("@/pages/auth/AuthCallback"));
+const AcceptInvite = lazy(() => import("@/pages/auth/AcceptInvite"));
+const CustomerOverview = lazy(() => import("@/pages/dashboard/customer/Overview"));
+const CustomerAppointments = lazy(() => import("@/pages/dashboard/customer/Appointments"));
+const CustomerVideoCall = lazy(() => import("@/pages/dashboard/customer/VideoCall"));
+const SpecialistOverview = lazy(() => import("@/pages/dashboard/specialist/Overview"));
+const SpecialistAvailability = lazy(() => import("@/pages/dashboard/specialist/Availability"));
+const SpecialistTiers = lazy(() => import("@/pages/dashboard/specialist/Tiers"));
+const SpecialistProfile = lazy(() => import("@/pages/dashboard/specialist/Profile"));
+const SpecialistVideoCall = lazy(() => import("@/pages/dashboard/specialist/VideoCall"));
+const SpecialistPatients = lazy(() => import("@/pages/dashboard/specialist/Patients"));
+const AdminOverview = lazy(() => import("@/pages/dashboard/admin/Overview"));
+const AdminInvitations = lazy(() => import("@/pages/dashboard/admin/Invitations"));
+const AdminUsers = lazy(() => import("@/pages/dashboard/admin/Users"));
+const AdminTiers = lazy(() => import("@/pages/dashboard/admin/Tiers"));
+const AdminPayments = lazy(() => import("@/pages/dashboard/admin/Payments"));
+const DashboardRedirect = lazy(() => import("@/pages/dashboard/DashboardRedirect"));
+const PaymentSuccess = lazy(() => import("@/pages/payment/Success"));
+const PaymentFailure = lazy(() => import("@/pages/payment/Failure"));
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -52,7 +54,7 @@ const ScrollToTop = () => {
 };
 
 const App = () => (
-  <ThemeProvider><AuthProvider><TooltipProvider><Toaster richColors position="top-right" /><BrowserRouter><ScrollToTop /><Routes>
+  <ThemeProvider><AuthProvider><TooltipProvider><Toaster richColors position="top-right" /><BrowserRouter><ScrollToTop /><Suspense fallback={null}><Routes>
     <Route element={<PublicLayout />}>
       <Route path="/" element={<Index />} />
       <Route path="/how-it-works" element={<HowItWorks />} />
@@ -73,6 +75,6 @@ const App = () => (
       <Route path="admin" element={<ProtectedRoute requireRole="admin" />}><Route index element={<AdminOverview />} /><Route path="invitations" element={<AdminInvitations />} /><Route path="users" element={<AdminUsers />} /><Route path="tiers" element={<AdminTiers />} /><Route path="payments" element={<AdminPayments />} /></Route>
     </Route></Route>
     <Route path="/404" element={<NotFound />} /><Route path="*" element={<Navigate to="/404" replace />} />
-  </Routes></BrowserRouter></TooltipProvider></AuthProvider></ThemeProvider>
+  </Routes></Suspense></BrowserRouter></TooltipProvider></AuthProvider></ThemeProvider>
 );
 export default App;
