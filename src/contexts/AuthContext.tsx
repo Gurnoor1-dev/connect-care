@@ -32,17 +32,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let deletedUserChannel: ReturnType<typeof supabase.channel> | null = null;
+    let activeUserId: string | undefined;
+
+    const forceLogoutDeletedUser = () => {
+      setSession(null);
+      setUser(null);
+      setRole(null);
+      void supabase.auth.signOut();
+    };
+
+    const watchDeletedUser = (uid: string | undefined) => {
+      if (!uid || uid === activeUserId) return;
+      if (deletedUserChannel) void supabase.removeChannel(deletedUserChannel);
+      activeUserId = uid;
+      deletedUserChannel = supabase
+        .channel(`account-deletion-${uid}`)
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "profiles", filter: `id=eq.${uid}` },
+          (payload) => {
+            if (payload.old?.id === uid) forceLogoutDeletedUser();
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "user_roles", filter: `user_id=eq.${uid}` },
+          (payload) => {
+            if (payload.old?.user_id === uid) forceLogoutDeletedUser();
+          },
+        )
+        .subscribe();
+    };
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
+      watchDeletedUser(s?.user?.id);
       setTimeout(() => { loadRole(s?.user?.id); }, 0);
     });
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
+      watchDeletedUser(data.session?.user?.id);
       loadRole(data.session?.user?.id).finally(() => setLoading(false));
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+      if (deletedUserChannel) void supabase.removeChannel(deletedUserChannel);
+    };
   }, []);
 
   const signOut = async () => { await supabase.auth.signOut(); };
