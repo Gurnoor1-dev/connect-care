@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -66,6 +67,9 @@ export default function BookAppointment() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [fullName, setFullName] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
   const [specialists, setSpecialists] = useState<Specialist[]>([]);
   const [specialistId, setSpecialistId] = useState(params.get("specialist") ?? "");
   const [tiers, setTiers] = useState<Tier[]>([]);
@@ -271,7 +275,11 @@ export default function BookAppointment() {
   const book = async (event: React.FormEvent) => {
     event.preventDefault();
     if (submitLock.current) return;
-    if (!user || !specialistId || !tier || !scheduledAt) return;
+    if (!specialistId || !tier || !scheduledAt) return;
+    if (!user && (!fullName.trim() || !accountEmail.trim() || accountPassword.length < 8)) {
+      toast.error("Enter your full name, a valid email, and a password of at least 8 characters.");
+      return;
+    }
     if (!acceptPolicies) {
       toast.error("Please accept the Terms, Privacy Policy, Trust & Safety Policy, and Cancellation & Refund Policy before booking.");
       return;
@@ -280,20 +288,46 @@ export default function BookAppointment() {
     setSubmitting(true);
 
     try {
-      if (useCredits && credits >= 2) {
+      let bookingUser = user;
+      if (!bookingUser) {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: accountEmail.trim(),
+          password: accountPassword,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+              notifications_opt_in: true,
+              policies_accepted: true,
+              policies_accepted_at: new Date().toISOString(),
+            },
+          },
+        });
+        if (signUpError) {
+          if (/already registered|already exists|user already/i.test(signUpError.message)) {
+            throw new Error("An account with this email may already exist. Please sign in with that email and password, then return to booking.");
+          }
+          throw new Error(signUpError.message);
+        }
+        if (!signUpData.user || !signUpData.session) {
+          throw new Error("We could not start your account session. Please try again or sign in if you already have an account.");
+        }
+        bookingUser = signUpData.user;
+      }
+
+      if (useCredits && credits >= 2 && bookingUser) {
         const { error } = await supabase.from("customer_specialist_credits").update({ credit_points: credits - 2, updated_at: new Date().toISOString() })
-          .eq("customer_id", user.id).eq("specialist_id", specialistId).gte("credit_points", 2);
+          .eq("customer_id", bookingUser.id).eq("specialist_id", specialistId).gte("credit_points", 2);
         if (error) throw new Error(error.message);
 
         const { data: creditAppointment, error: appointmentError } = await supabase.from("appointments").insert({
-          customer_id: user.id, specialist_id: specialistId, tier_id: tier.id,
+          customer_id: bookingUser.id, specialist_id: specialistId, tier_id: tier.id,
           scheduled_at: scheduledAt, duration_minutes: tier.duration_minutes,
           amount_cents: 0, currency: tier.currency, status: "confirmed",
-          customer_name: user.user_metadata?.full_name ?? user.email ?? "Customer", payment_method: "credits",
+          customer_name: bookingUser.user_metadata?.full_name ?? bookingUser.email ?? (fullName.trim() || "Customer"), payment_method: "credits",
         }).select("id").single();
         if (appointmentError || !creditAppointment) {
           await supabase.from("customer_specialist_credits").update({ credit_points: credits })
-            .eq("customer_id", user.id).eq("specialist_id", specialistId);
+            .eq("customer_id", bookingUser.id).eq("specialist_id", specialistId);
           throw new Error(appointmentError?.message ?? "Could not create the credit booking.");
         }
         await notifyBookingConfirmation(creditAppointment.id);
@@ -303,10 +337,10 @@ export default function BookAppointment() {
       }
 
       const { data: appointment, error: appointmentError } = await supabase.from("appointments").insert({
-        customer_id: user.id, specialist_id: specialistId, tier_id: tier.id,
+        customer_id: bookingUser.id, specialist_id: specialistId, tier_id: tier.id,
         scheduled_at: scheduledAt, duration_minutes: tier.duration_minutes,
         amount_cents: tier.price_cents, currency: tier.currency, status: "pending_payment",
-        customer_name: user.user_metadata?.full_name ?? user.email ?? "Customer",
+        customer_name: bookingUser.user_metadata?.full_name ?? bookingUser.email ?? (fullName.trim() || "Customer"),
       }).select().single();
 
       if (appointmentError || !appointment) throw new Error(appointmentError?.message ?? "Could not create appointment");
@@ -360,11 +394,31 @@ export default function BookAppointment() {
           {scheduledAt && <div className="rounded-2xl border bg-background p-4 text-sm"><div className="font-semibold">Selected appointment</div><div className="mt-1 break-words text-muted-foreground">{formatInTimeZone(scheduledAt, getDeviceTimeZone(), { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {tier?.duration_minutes} minutes</div></div>}
           {tier && <div className="rounded-2xl border bg-accent/40 p-4 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="text-muted-foreground">Total</span><span className="font-semibold">{useCredits && credits >= 2 ? "2 credits" : `${tier.currency} ${(tier.price_cents / 100).toFixed(2)}`}</span></div></div>}
 
+          {!user && <div className="space-y-4 rounded-2xl border border-primary/20 bg-background p-4">
+            <div>
+              <h2 className="font-semibold">Create your account</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Your account will be created securely when you continue to payment. No separate sign-up step needed.</p>
+            </div>
+            <div>
+              <Label htmlFor="booking-full-name">Full name</Label>
+              <Input id="booking-full-name" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} className="mt-2" />
+            </div>
+            <div>
+              <Label htmlFor="booking-email">Email</Label>
+              <Input id="booking-email" type="email" autoComplete="email" required value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} className="mt-2" />
+            </div>
+            <div>
+              <Label htmlFor="booking-password">Password</Label>
+              <Input id="booking-password" type="password" autoComplete="new-password" minLength={8} required value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} className="mt-2" />
+              <p className="mt-1 text-xs text-muted-foreground">At least 8 characters.</p>
+            </div>
+          </div>}
+
           <label className="flex items-start gap-3 rounded-2xl border bg-background p-4 text-sm"><Checkbox checked={acceptPolicies} onCheckedChange={(value) => setAcceptPolicies(!!value)} className="mt-0.5 shrink-0" /><span className="leading-6 text-muted-foreground">I have read and agree to the <Link to="/terms" target="_blank" className="font-medium text-foreground underline underline-offset-4">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link>, <Link to="/trust" target="_blank" className="font-medium text-foreground underline underline-offset-4">Trust & Safety Policy</Link>, and <Link to="/cancellation" target="_blank" className="font-medium text-foreground underline underline-offset-4">Cancellation & Refund Policy</Link>.</span></label>
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row"><Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={submitting} className="sm:w-auto">Cancel</Button><Button type="submit" disabled={submitting || !specialistId || !tierId || !scheduledAt || !acceptPolicies} className="min-w-0 flex-1 rounded-full bg-primary text-primary-foreground shadow-brand">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</> : "Continue to payment"}</Button></div>
         </form>
-        <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">New here? <Link to="/signup" className="underline">Create an account</Link> before booking.</p>
+        {!user && <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">Already have an account? <Link to="/login?redirect=%2Fbook" className="underline">Sign in</Link> to continue booking.</p>}
       </Card>
     </div>
   </section>;
