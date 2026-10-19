@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
 
     const { data: appointment, error: appointmentError } = await admin
       .from("appointments")
-      .select("id,customer_id,specialist_id,tier_id,duration_minutes,amount_cents,currency,status,customer_name")
+      .select("id,customer_id,specialist_id,tier_id,duration_minutes,amount_cents,currency,status,customer_name,razorpay_order_id")
       .eq("id", appointment_id)
       .maybeSingle();
 
