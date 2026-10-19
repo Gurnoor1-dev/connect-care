@@ -1,12 +1,22 @@
 const DEFAULT_TIME_ZONE = "UTC";
 
+function safeTimeZone(timeZone: string | null | undefined) {
+  if (!timeZone?.trim()) return DEFAULT_TIME_ZONE;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
+    return timeZone;
+  } catch {
+    return DEFAULT_TIME_ZONE;
+  }
+}
+
 export function getDeviceTimeZone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIME_ZONE;
+  return safeTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
 }
 
 function partsInTimeZone(date: Date, timeZone: string) {
   return new Intl.DateTimeFormat("en-US", {
-    timeZone,
+    timeZone: safeTimeZone(timeZone),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -41,7 +51,7 @@ export function formatInTimeZone(
   timeZone: string,
   options: Intl.DateTimeFormatOptions = {},
 ) {
-  return new Intl.DateTimeFormat(undefined, { timeZone, ...options }).format(new Date(value));
+  return new Intl.DateTimeFormat(undefined, { timeZone: safeTimeZone(timeZone), ...options }).format(new Date(value));
 }
 
 export function formatDateTimeInTimeZone(value: string | Date, timeZone: string) {
@@ -70,7 +80,7 @@ export function getZonedParts(date: Date, timeZone: string) {
 
 export function getTimeZoneLabel(timeZone: string) {
   const offset = new Intl.DateTimeFormat("en-US", {
-    timeZone,
+    timeZone: safeTimeZone(timeZone),
     timeZoneName: "short",
   }).formatToParts(new Date()).find((part) => part.type === "timeZoneName")?.value;
   return offset ? `${timeZone} (${offset})` : timeZone;
