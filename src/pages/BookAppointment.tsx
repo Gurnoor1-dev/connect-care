@@ -82,6 +82,8 @@ export default function BookAppointment() {
   const [useCredits, setUseCredits] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [refreshingBookings, setRefreshingBookings] = useState(false);
+  const [bookingStep, setBookingStep] = useState<1 | 2>(1);
+  const [accountMode, setAccountMode] = useState<"signup" | "signin">("signup");
 
   const [acceptPolicies, setAcceptPolicies] = useState(false);
   const submitLock = useRef(false);
@@ -275,11 +277,14 @@ export default function BookAppointment() {
   const book = async (event: React.FormEvent) => {
     event.preventDefault();
     if (submitLock.current) return;
-    if (!specialistId || !tier || !scheduledAt) return;
-    if (!user && (!fullName.trim() || !accountEmail.trim() || accountPassword.length < 8)) {
-      toast.error("Enter your full name, a valid email, and a password of at least 8 characters.");
+    if (bookingStep === 1) {
+      if (!specialistId || !tier || !scheduledAt) { toast.error("Choose a specialist, session plan, date, and available time first."); return; }
+      setBookingStep(2);
       return;
     }
+    if (!specialistId || !tier || !scheduledAt) return;
+    if (!user && accountMode === "signup" && (!fullName.trim() || !accountEmail.trim() || accountPassword.length < 8)) { toast.error("Enter your full name, a valid email, and a password of at least 8 characters."); return; }
+    if (!user && accountMode === "signin" && (!accountEmail.trim() || !accountPassword)) { toast.error("Enter your email and password to sign in."); return; }
     if (!acceptPolicies) {
       toast.error("Please accept the Terms, Privacy Policy, Trust & Safety Policy, and Cancellation & Refund Policy before booking.");
       return;
@@ -289,7 +294,13 @@ export default function BookAppointment() {
 
     try {
       let bookingUser = user;
-      if (!bookingUser) {
+      if (!bookingUser && accountMode === "signin") {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: accountEmail.trim(), password: accountPassword });
+        if (signInError || !signInData.user) throw new Error(signInError?.message ?? "Could not sign in. Please check your details.");
+        bookingUser = signInData.user;
+      }
+
+      if (!bookingUser && accountMode === "signup") {
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: accountEmail.trim(),
           password: accountPassword,
@@ -371,9 +382,11 @@ export default function BookAppointment() {
         {credits > 0 && <Card className="border-teal/30 bg-teal/5 p-4 shadow-brand"><div className="flex items-center gap-2 font-semibold text-teal"><Coins className="h-4 w-4" />{credits} specialist credit{credits === 1 ? "" : "s"} available</div></Card>}
       </div>
 
-      <Card className="min-w-0 overflow-hidden border-white/60 bg-card/90 p-4 shadow-card sm:p-6">
-        <form onSubmit={book} className="min-w-0 space-y-5">
-          <div><Label>Specialist</Label><Select value={specialistId} onValueChange={setSpecialistId}><SelectTrigger className="mt-2 w-full"><SelectValue placeholder="Select a specialist" /></SelectTrigger><SelectContent>{specialists.map((item) => <SelectItem key={item.id} value={item.id}>{item.country_flag} {item.display_name}{item.immediate_sessions ? " · Immediate" : ""}</SelectItem>)}</SelectContent></Select></div>
+      <Card className="min-w-0 overflow-hidden rounded-[1.75rem] border-primary/15 bg-card/95 p-0 shadow-brand sm:sticky sm:top-24 sm:self-start">
+        <div className="border-b border-primary/10 bg-gradient-to-r from-primary/[0.10] via-accent/20 to-transparent p-5 sm:p-6"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Your booking</p><h2 className="mt-1 text-xl font-bold">{bookingStep === 1 ? "Choose your session" : "Review & checkout"}</h2></div><span className="rounded-full border border-primary/20 bg-background/80 px-3 py-1.5 text-xs font-semibold text-primary">Step {bookingStep} of 2</span></div><div className="mt-5 grid grid-cols-2 gap-2"><div className={`h-1.5 rounded-full transition-colors ${bookingStep >= 1 ? "bg-primary" : "bg-muted"}`} /><div className={`h-1.5 rounded-full transition-colors ${bookingStep >= 2 ? "bg-primary" : "bg-muted"}`} /></div><div className="mt-2 flex justify-between text-[11px] font-medium"><span className={bookingStep === 1 ? "text-primary" : "text-muted-foreground"}>Date & time</span><span className={bookingStep === 2 ? "text-primary" : "text-muted-foreground"}>Account & payment</span></div></div>
+        <form onSubmit={book} className="min-w-0 space-y-5 p-4 sm:p-6">
+          {bookingStep === 1 && <>
+          <div><Label>Specialist</Label><Select value={specialistId} onValueChange={(value) => { setSpecialistId(value); setBookingStep(1); }}><SelectTrigger className="mt-2 w-full"><SelectValue placeholder="Select a specialist" /></SelectTrigger><SelectContent>{specialists.map((item) => <SelectItem key={item.id} value={item.id}>{item.country_flag} {item.display_name}{item.immediate_sessions ? " · Immediate" : ""}</SelectItem>)}</SelectContent></Select></div>
 
           {specialistId && <div><Label>Payment method</Label><div className="mt-2 grid gap-2 sm:grid-cols-2">
             <button type="button" disabled={credits < 2} onClick={() => setUseCredits(true)} className={`min-w-0 rounded-2xl border p-3 text-left transition-colors ${useCredits && credits >= 2 ? "border-teal bg-teal/10" : "bg-background hover:bg-accent/40"}`}><Coins className="h-4 w-4 text-teal" /><div className="mt-1 text-sm font-medium">Use credits</div><div className="text-xs text-muted-foreground">{credits} available · 2 required</div></button>
@@ -392,9 +405,15 @@ export default function BookAppointment() {
           </div>
 
           {scheduledAt && <div className="rounded-2xl border bg-background p-4 text-sm"><div className="font-semibold">Selected appointment</div><div className="mt-1 break-words text-muted-foreground">{formatInTimeZone(scheduledAt, getDeviceTimeZone(), { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {tier?.duration_minutes} minutes</div></div>}
-          {tier && <div className="rounded-2xl border bg-accent/40 p-4 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="text-muted-foreground">Total</span><span className="font-semibold">{useCredits && credits >= 2 ? "2 credits" : `${tier.currency} ${(tier.price_cents / 100).toFixed(2)}`}</span></div></div>}
+          {tier && <div className="rounded-2xl border bg-accent/40 p-4 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="text-muted-foreground">Session total</span><span className="font-semibold">{useCredits && credits >= 2 ? "2 credits" : `${(tier.price_cents / 100).toFixed(2)}`}</span></div></div>}
+          </>}
 
-          {!user && <div className="space-y-4 rounded-2xl border border-primary/20 bg-background p-4">
+          {bookingStep === 2 && <div className="space-y-4">
+            <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.08] via-background to-accent/20 p-4 sm:p-5"><div className="flex items-center gap-2 text-sm font-semibold"><CheckCircle2 className="h-4 w-4 text-primary" />Booking summary</div><div className="mt-4 flex items-start gap-3">{specialist?.avatar_url ? <img src={specialist.avatar_url} alt="" className="h-14 w-14 rounded-2xl object-cover" /> : <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-lg font-bold text-primary">{specialist?.display_name?.[0] ?? "B"}</div>}<div className="min-w-0 flex-1"><div className="font-semibold">{specialist?.display_name ?? "Your specialist"}</div><div className="mt-1 text-sm text-muted-foreground">{tier?.label} · {tier?.duration_minutes} minutes</div><div className="mt-2 text-sm text-muted-foreground">{scheduledAt ? formatInTimeZone(scheduledAt, getDeviceTimeZone(), { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Choose a time"}</div></div></div><div className="mt-4 flex items-center justify-between border-t pt-4"><span className="text-sm text-muted-foreground">{useCredits && credits >= 2 ? "Credit payment" : "Total due"}</span><span className="text-2xl font-bold tracking-tight">{useCredits && credits >= 2 ? "2 credits" : `${((tier?.price_cents ?? 0) / 100).toFixed(2)}`}</span></div><p className="mt-2 text-xs leading-5 text-muted-foreground">Your appointment is confirmed after successful payment verification. Your time is shown in {getTimeZoneLabel(getDeviceTimeZone())}.</p></div>
+          {!user && <div className="space-y-4 rounded-2xl border border-primary/15 bg-background p-4">
+            <div><h2 className="font-semibold">{accountMode === "signup" ? "Create your BreatheRise account" : "Welcome back"}</h2><p className="mt-1 text-sm text-muted-foreground">{accountMode === "signup" ? "Create an account to keep your bookings and care journey together." : "Sign in to continue to secure checkout."}</p></div>
+            <div className="grid grid-cols-2 rounded-xl bg-muted/60 p-1"><button type="button" onClick={() => setAccountMode("signup")} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${accountMode === "signup" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Create account</button><button type="button" onClick={() => setAccountMode("signin")} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${accountMode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Sign in</button></div>
+            {accountMode === "signup" && <div><Label htmlFor="booking-full-name">Full name</Label><Input id="booking-full-name" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} className="mt-2" /></div>}
             <div>
               <h2 className="font-semibold">Create your account</h2>
               <p className="mt-1 text-sm text-muted-foreground">Your account will be created securely when you continue to payment. No separate sign-up step needed.</p>
@@ -409,16 +428,17 @@ export default function BookAppointment() {
             </div>
             <div>
               <Label htmlFor="booking-password">Password</Label>
-              <Input id="booking-password" type="password" autoComplete="new-password" minLength={8} required value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} className="mt-2" />
-              <p className="mt-1 text-xs text-muted-foreground">At least 8 characters.</p>
+              <Input id="booking-password" type="password" autoComplete="new-password" minLength={accountMode === "signup" ? 8 : undefined} required value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} className="mt-2" />
+              {accountMode === "signup" && <p className="mt-1 text-xs text-muted-foreground">At least 8 characters.</p>}
             </div>
           </div>}
+          </div>}
 
-          <label className="flex items-start gap-3 rounded-2xl border bg-background p-4 text-sm"><Checkbox checked={acceptPolicies} onCheckedChange={(value) => setAcceptPolicies(!!value)} className="mt-0.5 shrink-0" /><span className="leading-6 text-muted-foreground">I have read and agree to the <Link to="/terms" target="_blank" className="font-medium text-foreground underline underline-offset-4">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link>, <Link to="/trust" target="_blank" className="font-medium text-foreground underline underline-offset-4">Trust & Safety Policy</Link>, and <Link to="/cancellation" target="_blank" className="font-medium text-foreground underline underline-offset-4">Cancellation & Refund Policy</Link>.</span></label>
+          {bookingStep === 2 && <label className="flex items-start gap-3 rounded-2xl border bg-background p-4 text-sm"><Checkbox checked={acceptPolicies} onCheckedChange={(value) => setAcceptPolicies(!!value)} className="mt-0.5 shrink-0" /><span className="leading-6 text-muted-foreground">I have read and agree to the <Link to="/terms" target="_blank" className="font-medium text-foreground underline underline-offset-4">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link>, <Link to="/trust" target="_blank" className="font-medium text-foreground underline underline-offset-4">Trust & Safety Policy</Link>, and <Link to="/cancellation" target="_blank" className="font-medium text-foreground underline underline-offset-4">Cancellation & Refund Policy</Link>.</span></label>}
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row"><Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={submitting} className="sm:w-auto">Cancel</Button><Button type="submit" disabled={submitting || !specialistId || !tierId || !scheduledAt || !acceptPolicies} className="min-w-0 flex-1 rounded-full bg-primary text-primary-foreground shadow-brand">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</> : "Continue to payment"}</Button></div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">{bookingStep === 2 && <Button type="button" variant="outline" onClick={() => setBookingStep(1)} disabled={submitting} className="sm:w-auto">Back to times</Button>}{bookingStep === 1 && <Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={submitting} className="sm:w-auto">Cancel</Button>}<Button type="submit" disabled={submitting || (bookingStep === 1 ? (!specialistId || !tierId || !scheduledAt) : (!acceptPolicies || (!user && (!accountEmail.trim() || !accountPassword || (accountMode === "signup" && !fullName.trim())))))} className="min-w-0 flex-1 rounded-full bg-gradient-brand text-primary-foreground shadow-brand">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : bookingStep === 1 ? "Continue to review" : useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</> : `Pay ${((tier?.price_cents ?? 0) / 100).toFixed(2)}`}</Button></div>
         </form>
-        {!user && <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">Already have an account? <Link to="/login?redirect=%2Fbook" className="underline">Sign in</Link> to continue booking.</p>}
+        {bookingStep === 2 && !user && <p className="px-5 pb-5 text-center text-xs leading-5 text-muted-foreground">Your account details stay secure. Payment is processed by Razorpay.</p>}
       </Card>
     </div>
   </section>;
