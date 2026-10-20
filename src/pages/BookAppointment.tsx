@@ -63,7 +63,9 @@ async function notifyBookingConfirmation(appointmentId: string) {
   }
 }
 
-export default function BookAppointment() {
+interface BookAppointmentProps { initialSpecialistId?: string; initialTierId?: string; embedded?: boolean; onClose?: () => void; }
+
+export default function BookAppointment({ initialSpecialistId, initialTierId, embedded = false, onClose }: BookAppointmentProps = {}) {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -71,9 +73,9 @@ export default function BookAppointment() {
   const [accountEmail, setAccountEmail] = useState("");
   const [accountPassword, setAccountPassword] = useState("");
   const [specialists, setSpecialists] = useState<Specialist[]>([]);
-  const [specialistId, setSpecialistId] = useState(params.get("specialist") ?? "");
+  const [specialistId, setSpecialistId] = useState(initialSpecialistId ?? params.get("specialist") ?? "");
   const [tiers, setTiers] = useState<Tier[]>([]);
-  const [tierId, setTierId] = useState(params.get("tier") ?? "");
+  const [tierId, setTierId] = useState(initialTierId ?? params.get("tier") ?? "");
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [booked, setBooked] = useState<BookedAppointment[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>();
@@ -372,17 +374,17 @@ export default function BookAppointment() {
 
   const todaySelected = selectedDate && format(selectedDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
 
-  return <section className="relative overflow-hidden bg-gradient-page px-4 py-8 sm:py-12 lg:py-16">
-    <div className="container mx-auto grid min-w-0 gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:gap-8">
-      <div className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
+  return <section className={embedded ? "relative bg-gradient-page p-0" : "relative overflow-hidden bg-gradient-page px-4 py-8 sm:py-12 lg:py-16"}>
+    <div className={embedded ? "mx-auto grid min-w-0 gap-4" : "container mx-auto grid min-w-0 gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:gap-8"}>
+      {!embedded && <div className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
         <div className="inline-flex max-w-full items-center gap-2 rounded-full border bg-card/85 px-3 py-2 text-xs font-semibold text-primary shadow-brand"><Sparkles className="h-3.5 w-3.5 shrink-0" />Protected booking & secure checkout</div>
         <div><h1 className="text-3xl font-semibold leading-tight sm:text-5xl lg:text-6xl">Book a specialist session</h1><p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">Choose a specialist, plan, today or one of the next seven days, and an available time.</p></div>
         <div className="grid gap-3 sm:grid-cols-3">{[[ShieldCheck, "Protected", "Auth required"], [CalendarClock, "Today + 5", "workdays"], [CheckCircle2, "Razorpay", "Secure payment"]].map(([Icon, value, label]) => <Card key={String(label)} className="min-w-0 border-white/55 bg-card/85 p-3 shadow-brand sm:p-4"><Icon className="h-5 w-5 text-teal" /><div className="mt-2 text-sm font-semibold">{String(value)}</div><div className="text-xs text-muted-foreground">{String(label)}</div></Card>)}</div>
         {specialist && <Card className="flex min-w-0 items-center gap-3 border-white/60 bg-card/90 p-4 shadow-brand"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-brand">{specialist.avatar_url ? <img src={specialist.avatar_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xl font-bold text-white">{specialist.display_name[0]}</div>}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><div className="truncate font-semibold">{specialist.display_name}</div>{specialist.immediate_sessions && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary"><Zap className="h-3 w-3" />Immediate</span>}</div><div className="truncate text-sm text-muted-foreground">{specialist.country_flag} {specialist.country} · {specialist.timezone}</div><div className="mt-1 line-clamp-2 text-sm text-muted-foreground">{specialist.headline}</div></div></Card>}
         {credits > 0 && <Card className="border-teal/30 bg-teal/5 p-4 shadow-brand"><div className="flex items-center gap-2 font-semibold text-teal"><Coins className="h-4 w-4" />{credits} specialist credit{credits === 1 ? "" : "s"} available</div></Card>}
-      </div>
+      </div>}
 
-      <Card className="min-w-0 overflow-hidden rounded-[1.75rem] border-primary/15 bg-card/95 p-0 shadow-brand sm:sticky sm:top-24 sm:self-start">
+      <Card className={`min-w-0 overflow-hidden rounded-[1.75rem] border-primary/15 bg-card/95 p-0 shadow-brand ${embedded ? "border-0 shadow-none" : "sm:sticky sm:top-24 sm:self-start"}`}>
         <div className="border-b border-primary/10 bg-gradient-to-r from-primary/[0.10] via-accent/20 to-transparent p-5 sm:p-6"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Your booking</p><h2 className="mt-1 text-xl font-bold">{bookingStep === 1 ? "Choose your session" : "Review & checkout"}</h2></div><span className="rounded-full border border-primary/20 bg-background/80 px-3 py-1.5 text-xs font-semibold text-primary">Step {bookingStep} of 2</span></div><div className="mt-5 grid grid-cols-2 gap-2"><div className={`h-1.5 rounded-full transition-colors ${bookingStep >= 1 ? "bg-primary" : "bg-muted"}`} /><div className={`h-1.5 rounded-full transition-colors ${bookingStep >= 2 ? "bg-primary" : "bg-muted"}`} /></div><div className="mt-2 flex justify-between text-[11px] font-medium"><span className={bookingStep === 1 ? "text-primary" : "text-muted-foreground"}>Date & time</span><span className={bookingStep === 2 ? "text-primary" : "text-muted-foreground"}>Account & payment</span></div></div>
         <form onSubmit={book} className="min-w-0 space-y-5 p-4 sm:p-6">
           {bookingStep === 1 && <>
@@ -428,7 +430,7 @@ export default function BookAppointment() {
 
           {bookingStep === 2 && <label className="flex items-start gap-3 rounded-2xl border bg-background p-4 text-sm"><Checkbox checked={acceptPolicies} onCheckedChange={(value) => setAcceptPolicies(!!value)} className="mt-0.5 shrink-0" /><span className="leading-6 text-muted-foreground">I have read and agree to the <Link to="/terms" target="_blank" className="font-medium text-foreground underline underline-offset-4">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link>, <Link to="/trust" target="_blank" className="font-medium text-foreground underline underline-offset-4">Trust & Safety Policy</Link>, and <Link to="/cancellation" target="_blank" className="font-medium text-foreground underline underline-offset-4">Cancellation & Refund Policy</Link>.</span></label>}
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">{bookingStep === 2 && <Button type="button" variant="outline" onClick={() => setBookingStep(1)} disabled={submitting} className="sm:w-auto">Back to times</Button>}{bookingStep === 1 && <Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={submitting} className="sm:w-auto">Cancel</Button>}<Button type="submit" disabled={submitting || (bookingStep === 1 ? (!specialistId || !tierId || !scheduledAt) : (!acceptPolicies || (!user && (!accountEmail.trim() || !accountPassword || (accountMode === "signup" && !fullName.trim())))))} className="min-w-0 flex-1 rounded-full bg-gradient-brand text-primary-foreground shadow-brand">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : bookingStep === 1 ? "Continue to review" : useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</> : "Pay $" + ((tier?.price_cents ?? 0) / 100).toFixed(2)}</Button></div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">{bookingStep === 2 && <Button type="button" variant="outline" onClick={() => setBookingStep(1)} disabled={submitting} className="sm:w-auto">Back to times</Button>}{bookingStep === 1 && <Button type="button" variant="outline" onClick={() => embedded ? onClose?.() : navigate(-1)} disabled={submitting} className="sm:w-auto">Cancel</Button>}<Button type="submit" disabled={submitting || (bookingStep === 1 ? (!specialistId || !tierId || !scheduledAt) : (!acceptPolicies || (!user && (!accountEmail.trim() || !accountPassword || (accountMode === "signup" && !fullName.trim())))))} className="min-w-0 flex-1 rounded-full bg-gradient-brand text-primary-foreground shadow-brand">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : bookingStep === 1 ? "Continue to review" : useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</> : "Pay $" + ((tier?.price_cents ?? 0) / 100).toFixed(2)}</Button></div>
         </form>
         {bookingStep === 2 && !user && <p className="px-5 pb-5 text-center text-xs leading-5 text-muted-foreground">Your account details stay secure. Payment is processed by Razorpay.</p>}
       </Card>
