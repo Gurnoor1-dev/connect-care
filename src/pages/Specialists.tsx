@@ -273,7 +273,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
   const selectedTier = tiers.find((t) => t.id === activeTier) ?? tiers[0];
 
   return (
-    <Card className="group flex min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-[#d1dccd] bg-[#fbfaf4] shadow-none transition-all duration-300 hover:-translate-y-0.5 hover:border-[#9fb69f] hover:shadow-md dark:border-[#3d5946] dark:bg-[#1b3025] dark:hover:border-[#648467]">
+    <Card className="group relative flex min-w-0 flex-col overflow-hidden rounded-[1.6rem] border border-[#cbd8c5] bg-[#fbfaf4] shadow-[0_18px_48px_-34px_rgba(32,75,59,0.45)] transition-all duration-300 hover:-translate-y-1 hover:border-[#86a889] hover:shadow-[0_24px_58px_-32px_rgba(32,75,59,0.5)] dark:border-[#3d5946] dark:bg-[#1b3025] dark:shadow-[0_18px_48px_-34px_rgba(0,0,0,0.7)] dark:hover:border-[#648467]"><div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#c8dfc5]/35 blur-3xl transition-opacity duration-300 group-hover:opacity-100 dark:bg-[#4b8c74]/15" />
       {/* ── HEADER BAND ── */}
       <div className="relative border-b border-[#d7e0d2] bg-[#edf1e7] p-4 sm:p-5 dark:border-[#3d5946] dark:bg-[#233b2c]">
         <div className="flex min-w-0 items-start gap-3 sm:gap-4">
@@ -356,19 +356,26 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
         </div>
       )}
 
-      {/* ── PRICING TIERS ── */}
-      <div className="min-w-0 flex-1 px-4 py-4 sm:px-5">
-        <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <Briefcase className="h-3.5 w-3.5" /> Session tiers
+      {/* ── PREMIUM SESSION PICKER ── */}
+      <div className="relative min-w-0 flex-1 bg-gradient-to-b from-[#f8faf3] to-[#fbfaf4] px-4 py-5 sm:px-5 dark:from-[#1d3528] dark:to-[#1b3025]">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.2em] text-[#65866a] dark:text-[#a5c4a4]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#e1ecdf] text-[#315b49] ring-1 ring-[#cbdac5] dark:bg-[#294737] dark:text-[#dcebd8] dark:ring-[#45624c]"><Briefcase className="h-3.5 w-3.5" /></span>
+              Find your fit
+            </div>
+            <h4 className="mt-2 text-lg font-semibold tracking-tight text-[#204b3b] dark:text-[#edf4e8]">Choose your session</h4>
+            <p className="mt-1 text-xs leading-5 text-[#718273] dark:text-[#b8cbbb]">Flexible options, clear pricing, your pace.</p>
+          </div>
+          {tiers.length > 0 && <span className="mt-1 inline-flex shrink-0 items-center gap-1 rounded-full border border-[#d0dfca] bg-white/70 px-2.5 py-1 text-[10px] font-semibold text-[#53765d] dark:border-[#3d5946] dark:bg-[#203629] dark:text-[#c0d9bf]"><Check className="h-3 w-3" /> {tiers.length} {tiers.length === 1 ? "option" : "options"}</span>}
         </div>
 
         {tiers.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[#cbd7c7] p-4 text-center text-xs text-muted-foreground dark:border-[#3d5946]">
-            No active tiers yet.
+          <div className="rounded-2xl border border-dashed border-[#cbd7c7] bg-white/50 p-5 text-center text-xs text-muted-foreground dark:border-[#3d5946] dark:bg-[#203629]/60">
+            No active sessions just yet.
           </div>
         ) : (
-          <div className="space-y-2">
-            {/* Single session */}
+          <div className="space-y-2.5">
             {singleTier && (
               <TierPill
                 tier={singleTier}
@@ -377,8 +384,6 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
                 badge={null}
               />
             )}
-
-            {/* Bundle tiers */}
             {bundleTiers.map((t, i) => (
               <TierPill
                 key={t.id}
@@ -392,9 +397,22 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
         )}
       </div>
 
-      {/* ── CTA FOOTER ── */}
-      <div className="border-t border-[#d7e0d2] bg-[#f0f2e9] p-4 dark:border-[#3d5946] dark:bg-[#203629]">
-        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="group/book relative w-full overflow-hidden rounded-full border border-[#65cdb5]/50 bg-gradient-to-r from-[#147d70] via-[#259e8a] to-[#537fba] font-semibold !text-white shadow-[0_8px_22px_-8px_rgba(37,158,138,0.65)] transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent before:transition-transform before:duration-700 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-8px_rgba(37,158,138,0.75)] hover:before:translate-x-full active:scale-[0.98] dark:border-[#65cdb5]/40 dark:from-[#176f64] dark:via-[#218c7c] dark:to-[#496fa4]"><Zap className="mr-2 h-4 w-4" />Book now{selectedTier && <span className="ml-auto pl-2 font-bold">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</span>}<ArrowRight className="ml-1 h-4 w-4" /></Button>
+      {/* ── BOOKING CTA ── */}
+      <div className="relative overflow-hidden border-t border-[#d4e0cf] bg-gradient-to-br from-[#eaf1e4] via-[#f0f4e9] to-[#e2eee7] p-4 sm:p-5 dark:border-[#3d5946] dark:from-[#203b2c] dark:via-[#203629] dark:to-[#1c3833]">
+        <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#79b9a5]/25 blur-2xl" />
+        {selectedTier && <div className="relative mb-3 flex items-center justify-between gap-3 px-1">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#65866a] dark:text-[#a5c4a4]">Your selection</p>
+            <p className="mt-1 truncate text-sm font-semibold text-[#204b3b] dark:text-[#edf4e8]">{selectedTier.label}</p>
+            <p className="mt-0.5 text-xs text-[#718273] dark:text-[#b8cbbb]"><Clock className="mr-1 inline h-3 w-3" />{selectedTier.duration_minutes} minute session</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-2xl font-bold tracking-tight text-[#204b3b] dark:text-[#edf4e8]">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</p>
+            <p className="text-[10px] text-[#718273] dark:text-[#b8cbbb]">clear, upfront pricing</p>
+          </div>
+        </div>}
+        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="group/book relative z-10 flex h-12 w-full items-center overflow-hidden rounded-2xl border border-[#65cdb5]/50 bg-gradient-to-r from-[#147d70] via-[#259e8a] to-[#537fba] px-5 font-semibold !text-white shadow-[0_10px_26px_-9px_rgba(37,158,138,0.72)] transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent before:transition-transform before:duration-700 hover:-translate-y-0.5 hover:shadow-[0_15px_32px_-8px_rgba(37,158,138,0.8)] hover:before:translate-x-full active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#65cdb5]/40 dark:from-[#176f64] dark:via-[#218c7c] dark:to-[#496fa4]"><Zap className="mr-2 h-4 w-4" />Book this session<span className="ml-auto flex items-center gap-1 text-sm font-bold"><span>{selectedTier ? selectedTier.currency + " " + (selectedTier.price_cents / 100).toFixed(0) : "Choose a session"}</span><ArrowRight className="h-4 w-4 transition-transform group-hover/book:translate-x-1" /></span></Button>
+        <p className="relative mt-2.5 text-center text-[10px] text-[#718273] dark:text-[#b8cbbb]">A thoughtful next step, at your own pace.</p>
       </div>
     </Card>
   );
@@ -486,47 +504,44 @@ function TierPill({
   return (
     <button
       onClick={onSelect}
-      className={`group/tier w-full rounded-xl border p-3 text-left transition-all ${
+      aria-pressed={selected}
+      className={`group/tier relative w-full overflow-hidden rounded-2xl border p-3.5 text-left transition-all duration-200 ${
         selected
-          ? "border-[#739575] bg-[#e6eee0] ring-1 ring-[#b5cbb0] dark:border-[#789d7d] dark:bg-[#294737] dark:ring-[#42664a]"
-          : "border-[#d1dccd] bg-[#f7f7ee] hover:border-[#9fb69f] hover:bg-[#edf1e7] dark:border-[#3d5946] dark:bg-[#203629] dark:hover:border-[#648467] dark:hover:bg-[#294737]"
+          ? "border-[#7ea783] bg-gradient-to-br from-[#e7f1e2] via-[#f1f5e9] to-[#e4f0e9] shadow-[0_8px_22px_-16px_rgba(32,75,59,0.65)] ring-1 ring-[#b5cbb0] dark:border-[#789d7d] dark:from-[#294737] dark:via-[#233b2c] dark:to-[#1f3a31] dark:ring-[#42664a]"
+          : "border-[#d7e2d2] bg-white/65 hover:border-[#9fb69f] hover:bg-[#f0f5eb] dark:border-[#3d5946] dark:bg-[#203629]/70 dark:hover:border-[#648467] dark:hover:bg-[#294737]"
       }`}
     >
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-start gap-2">
-          <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-            selected ? "border-[#315b49] bg-[#315b49] dark:border-[#9fbe9d] dark:bg-[#9fbe9d]" : "border-[#bdcdbb] dark:border-[#506b55]"
+      {selected && <span className="pointer-events-none absolute inset-y-0 left-0 w-1 rounded-l-2xl bg-gradient-to-b from-[#259e8a] to-[#537fba]" />}
+      <div className="flex min-w-0 items-start justify-between gap-3 pl-1">
+        <div className="flex min-w-0 flex-1 items-start gap-2.5">
+          <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+            selected ? "border-[#315b49] bg-[#315b49] text-white dark:border-[#9fbe9d] dark:bg-[#9fbe9d] dark:text-[#183e32]" : "border-[#bdcdbb] bg-white/70 text-transparent dark:border-[#506b55] dark:bg-[#1b3025]"
           }`}>
-            {selected && <Check className="h-2.5 w-2.5 text-white" />}
+            {selected && <Check className="h-3 w-3" />}
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium truncate">{tier.label}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="break-words text-sm font-semibold text-[#204b3b] dark:text-[#edf4e8]">{tier.label}</span>
               {badge && (
-                <span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">
+                <span className="shrink-0 rounded-full border border-[#a8d4b4]/70 bg-[#dff1e3] px-2 py-0.5 text-[9px] font-extrabold tracking-wide text-[#276545] dark:border-[#42664a] dark:bg-[#294737] dark:text-[#c3e2cf]">
                   {badge}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              {tier.duration_minutes} min
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#718273] dark:text-[#b8cbbb]">
+              <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{tier.duration_minutes} min</span>
               {isBundle && tier.session_count && tier.session_count > 1 && (
-                <>
-                  <span className="text-white/20">·</span>
-                  <Star className="h-3 w-3 text-amber-400" />
-                  {tier.session_count} sessions
-                </>
+                <span className="inline-flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" />{tier.session_count} sessions</span>
               )}
             </div>
           </div>
         </div>
         <div className="max-w-[42%] shrink-0 text-right">
-          <div className="text-base font-bold">
+          <div className={`text-base font-bold tracking-tight ${selected ? "text-[#204b3b] dark:text-[#edf4e8]" : "text-[#405d4b] dark:text-[#d7e6d5]"}`}>
             {tier.currency} {(tier.price_cents / 100).toFixed(0)}
           </div>
           {isBundle && tier.session_count && tier.session_count > 1 && (
-            <div className="text-[10px] text-muted-foreground">
+            <div className="mt-0.5 text-[10px] text-[#718273] dark:text-[#b8cbbb]">
               {tier.currency} {(tier.price_cents / tier.session_count / 100).toFixed(0)}/session
             </div>
           )}
