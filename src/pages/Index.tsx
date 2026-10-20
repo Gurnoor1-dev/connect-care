@@ -46,7 +46,7 @@ export default function Index() {
         <div className="container mx-auto grid min-h-[660px] items-center gap-10 py-12 sm:py-16 lg:grid-cols-[1.02fr_.98fr] lg:gap-8 lg:py-20">
           <div className="relative z-10 max-w-2xl py-4 lg:py-8">
             <div className="mb-8 inline-flex items-center gap-2 border-b border-[#315b49]/25 pb-3 text-[11px] font-bold uppercase tracking-[.2em] text-[#315b49]">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#dbe7d7]"><Leaf className="h-3.5 w-3.5" /></span>
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#dbe7d7] text-[#315b49] dark:bg-[#294737] dark:text-[#dcebd8]"><Leaf className="h-3.5 w-3.5" /></span>
               A little more room to be you
             </div>
             <h1 className="max-w-[700px] font-display text-[3.6rem] font-medium leading-[.98] tracking-[-.075em] text-[#183e32] dark:text-[#e1eadc] sm:text-7xl lg:text-[5.7rem]">
