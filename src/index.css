@@ -100,11 +100,11 @@
 
 /* Scroll-progress reveal: the route observer updates opacity, blur and translate
    continuously, so content resolves smoothly instead of popping in at a threshold. */
-:where(#root section, #root article, #root main form, #root [class*="rounded-xl border"], #root [class*="rounded-2xl border"], #root [class*="rounded-3xl border"], #root footer) {
+:where(#root section, #root article, #root form, #root [class*="rounded-xl border"], #root [class*="rounded-2xl border"], #root [class*="rounded-3xl border"], #root footer) {
   transition: opacity 90ms linear, filter 90ms linear, translate 90ms linear;
 }
 @media (prefers-reduced-motion: reduce) {
-  :where(#root section, #root article, #root main form, #root [class*="rounded-xl border"], #root [class*="rounded-2xl border"], #root [class*="rounded-3xl border"], #root footer) {
+  :where(#root section, #root article, #root form, #root [class*="rounded-xl border"], #root [class*="rounded-2xl border"], #root [class*="rounded-3xl border"], #root footer) {
     transition: none !important;
     filter: none !important;
     translate: none !important;
