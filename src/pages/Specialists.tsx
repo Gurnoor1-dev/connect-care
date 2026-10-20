@@ -378,7 +378,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
 
       {/* ── CTA FOOTER ── */}
       <div className="border-t border-[#d7e0d2] bg-[#f0f2e9] p-4 dark:border-[#3d5946] dark:bg-[#203629]">
-        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="w-full rounded-full bg-[#204b3b] font-semibold text-[#f4f3e9] shadow-none transition-transform active:scale-95 hover:bg-[#163a2d] dark:bg-[#a5c4a4] dark:text-[#183e32] dark:hover:bg-[#c0d8bd]"><Zap className="mr-2 h-4 w-4" />Book now{selectedTier && <span className="ml-auto pl-2 font-bold">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</span>}<ArrowRight className="ml-1 h-4 w-4" /></Button>
+        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="w-full rounded-full bg-[#204b3b] font-semibold !text-[#f4f3e9] shadow-none transition-transform active:scale-95 hover:bg-[#163a2d] hover:!text-white dark:bg-[#204b3b] dark:!text-[#f4f3e9] dark:hover:bg-[#163a2d]"><Zap className="mr-2 h-4 w-4" />Book now{selectedTier && <span className="ml-auto pl-2 font-bold">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</span>}<ArrowRight className="ml-1 h-4 w-4" /></Button>
       </div>
     </Card>
   );
