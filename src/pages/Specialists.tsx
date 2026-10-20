@@ -157,33 +157,33 @@ export default function Specialists() {
 
 
   return (
-    <section className="relative min-h-screen overflow-hidden bg-gradient-page px-4 py-10 sm:py-14">
+    <section className="relative min-h-screen overflow-hidden bg-gradient-page px-3 py-8 sm:px-5 sm:py-12 lg:py-14">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-primary/10 via-accent/10 to-transparent" />
-      <div className="container relative mx-auto">
-        <div className="overflow-hidden rounded-[2rem] border border-primary/15 bg-card/80 p-6 shadow-brand backdrop-blur sm:p-10 lg:p-12">
-          <div className="grid items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-            <div><span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"><Star className="h-3.5 w-3.5" /> Thoughtful care, chosen around you</span>
-              <h1 className="mt-5 max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">Find the right support for your next step.</h1>
+      <div className="container relative mx-auto w-full max-w-7xl">
+        <div className="overflow-hidden rounded-[2rem] border border-primary/15 bg-card/80 p-4 shadow-brand backdrop-blur sm:p-7 lg:p-10">
+          <div className="grid min-w-0 items-center gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.9fr)] lg:gap-8">
+            <div className="min-w-0"><span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"><Star className="h-3.5 w-3.5" /> Thoughtful care, chosen around you</span>
+              <h1 className="mt-5 max-w-2xl text-3xl font-bold tracking-tight sm:text-5xl lg:text-6xl">Find the right support for your next step.</h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">Explore experienced specialists, compare session options, and choose a time that fits your life.</p>
-              <div className="mt-6 flex flex-wrap gap-3 text-xs font-medium text-muted-foreground"><span className="rounded-full border bg-background/70 px-3 py-2">Personalised discovery</span><span className="rounded-full border bg-background/70 px-3 py-2">Clear session pricing</span><span className="rounded-full border bg-background/70 px-3 py-2">Times in your timezone</span></div>
+              <div className="mt-6 flex flex-wrap gap-2 text-xs font-medium text-muted-foreground"><span className="rounded-full border bg-background/70 px-3 py-2">Personalised discovery</span><span className="rounded-full border bg-background/70 px-3 py-2">Clear session pricing</span><span className="rounded-full border bg-background/70 px-3 py-2">Times in your timezone</span></div>
             </div>
-            <div className="rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/10 via-background to-accent/30 p-5 sm:p-7"><div className="text-sm font-semibold">A little help finding your fit</div><p className="mt-1 text-sm leading-6 text-muted-foreground">Search by name, specialty, or qualification. Compare availability and pricing before booking.</p>
+            <div className="min-w-0 rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/10 via-background to-accent/30 p-4 sm:p-6"><div className="text-sm font-semibold">A little help finding your fit</div><p className="mt-1 text-sm leading-6 text-muted-foreground">Search by name, specialty, or qualification. Compare availability and pricing before booking.</p>
               <label className="mt-5 block"><span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Search specialists</span><div className="flex items-center gap-2 rounded-2xl border bg-background px-3 shadow-sm"><UserRound className="h-4 w-4 shrink-0 text-primary" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Try anxiety, sleep, counselling…" className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" aria-label="Search specialists by name or specialty" />{searchQuery && <button type="button" onClick={() => setSearchQuery("")} className="text-xs font-semibold text-primary">Clear</button>}</div></label>
-              <div className="mt-4 flex items-center justify-between gap-3 text-sm"><span className="text-muted-foreground">{loading ? "Finding specialists…" : `${visibleItems.length} specialist${visibleItems.length === 1 ? "" : "s"} to explore`}</span><span className="inline-flex items-center gap-1 font-semibold text-primary"><Check className="h-4 w-4" /> Your pace, your choice</span></div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span className="text-muted-foreground">{loading ? "Finding specialists…" : `${visibleItems.length} specialist${visibleItems.length === 1 ? "" : "s"} to explore`}</span><span className="inline-flex items-center gap-1 font-semibold text-primary"><Check className="h-4 w-4" /> Your pace, your choice</span></div>
             </div>
           </div>
         </div>
 
         {/* Filters & sorting — options come only from published specialists */}
         {!loading && items.length > 0 && (
-          <div className="mt-7 rounded-3xl border border-primary/10 bg-card/85 p-4 shadow-brand backdrop-blur sm:p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-              <div className="flex items-center gap-2 text-sm font-semibold lg:mr-2">
+          <div className="mt-6 rounded-3xl border border-primary/10 bg-card/85 p-4 shadow-brand backdrop-blur sm:p-5">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[auto_repeat(4,minmax(0,1fr))] lg:items-end">
+              <div className="flex min-h-10 items-center gap-2 text-sm font-semibold sm:col-span-2 lg:col-span-1 lg:mr-2">
                 <SlidersHorizontal className="h-4 w-4 text-teal" /> Filter specialists
               </div>
-              <label className="flex-1">
+              <label className="min-w-0">
                 <span className="mb-1 block text-xs text-muted-foreground">Speciality</span>
-                <select value={specialityFilter} onChange={(e) => setSpecialityFilter(e.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-background px-3 text-sm">
+                <select value={specialityFilter} onChange={(e) => setSpecialityFilter(e.target.value)} className="h-10 w-full min-w-0 rounded-lg border border-white/10 bg-background px-3 text-sm">
                   <option value="all">All specialities</option>
                   {breatheRiseSpecialities.map((v) => <option key={v.label} value={v.label}>{v.label}</option>)}
                 </select>
@@ -219,7 +219,7 @@ export default function Specialists() {
         )}
 
         {/* Grid */}
-        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-6 grid min-w-0 grid-cols-1 items-stretch gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
           {loading &&
             Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-[540px] animate-pulse rounded-3xl border bg-card/70 shadow-brand" />
@@ -258,10 +258,10 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
   const selectedTier = tiers.find((t) => t.id === activeTier) ?? tiers[0];
 
   return (
-    <Card className="group flex flex-col overflow-hidden rounded-3xl border-primary/10 bg-card/90 shadow-brand backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-glow">
+    <Card className="group flex min-w-0 flex-col overflow-hidden rounded-3xl border-primary/10 bg-card/90 shadow-brand backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-glow">
       {/* ── HEADER BAND ── */}
-      <div className="relative border-b border-primary/10 bg-gradient-to-br from-primary/[0.06] via-transparent to-accent/20 p-5 sm:p-6">
-        <div className="flex items-start gap-4">
+      <div className="relative border-b border-primary/10 bg-gradient-to-br from-primary/[0.06] via-transparent to-accent/20 p-4 sm:p-5">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           {/* Avatar */}
           <div className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-2xl ring-2 ring-primary/15 shadow-sm">
             {specialist.avatar_url ? (
@@ -273,10 +273,10 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
             )}
           </div>
 
-          <div className="min-w-0 flex-1 pr-16">
-            <h3 className="truncate text-lg font-bold">{specialist.display_name}</h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="break-words text-lg font-bold leading-snug">{specialist.display_name}</h3>
             {specialist.headline && (
-              <p className="mt-0.5 truncate text-sm text-teal">{specialist.headline}</p>
+              <p className="mt-0.5 break-words text-sm leading-snug text-teal">{specialist.headline}</p>
             )}
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
               {specialist.country && (
@@ -295,12 +295,12 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
           </div>
         </div>
 
-        <div className="mt-3 rounded-xl border bg-accent/30 p-3 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> availability is shown in your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}).</div>
+        <div className="mt-3 break-words rounded-xl border bg-accent/30 p-3 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> availability is shown in your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}).</div>
         <AvailabilityPreview specialist={specialist} />
 
         {/* Specialities */}
         {specialist.specialities && specialist.specialities.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex min-w-0 flex-wrap gap-1.5">
             {specialist.specialities.slice(0, 4).map((s) => (
               <span
                 key={s}
@@ -318,7 +318,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
 
       {/* ── BIO ── */}
       {specialist.bio && (
-        <div className="border-b border-white/10 px-5 py-4"><button type="button" onClick={() => setShowBio(true)} className="w-full cursor-pointer rounded-md text-left focus:outline-none focus:ring-2 focus:ring-primary/40" aria-label={`Read full bio for ${specialist.display_name}`}><p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{specialist.bio}{specialist.bio.length > 180 ? "..." : ""}</p></button></div>
+        <div className="min-w-0 border-b border-white/10 px-4 py-4 sm:px-5"><button type="button" onClick={() => setShowBio(true)} className="w-full cursor-pointer rounded-md text-left focus:outline-none focus:ring-2 focus:ring-primary/40" aria-label={`Read full bio for ${specialist.display_name}`}><p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{specialist.bio}{specialist.bio.length > 180 ? "..." : ""}</p></button></div>
       )}
 
       <Dialog open={showSpecialities} onOpenChange={setShowSpecialities}><DialogContent className="max-h-[80vh] overflow-y-auto"><DialogHeader><DialogTitle>{specialist.display_name}&apos;s specialties</DialogTitle></DialogHeader><div className="flex flex-wrap gap-2">{(specialist.specialities ?? []).map((s) => <span key={s} className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${specialtyColor(s)}`}>{s}</span>)}</div></DialogContent></Dialog>
@@ -341,7 +341,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
       )}
 
       {/* ── PRICING TIERS ── */}
-      <div className="flex-1 px-5 py-4">
+      <div className="min-w-0 flex-1 px-4 py-4 sm:px-5">
         <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           <Briefcase className="h-3.5 w-3.5" /> Session tiers
         </div>
@@ -377,7 +377,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
       </div>
 
       {/* ── CTA FOOTER ── */}
-      <div className="border-t border-primary/10 bg-gradient-to-b from-transparent to-primary/[0.05] p-4 sm:p-5">
+      <div className="border-t border-primary/10 bg-gradient-to-b from-transparent to-primary/[0.05] p-4">
         <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="w-full bg-gradient-brand font-semibold text-primary-foreground shadow-brand transition-transform active:scale-95"><Zap className="mr-2 h-4 w-4" />Book now{selectedTier && <span className="ml-auto pl-2 font-bold">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</span>}<ArrowRight className="ml-1 h-4 w-4" /></Button>
       </div>
     </Card>
@@ -413,10 +413,10 @@ function AvailabilityPreview({ specialist }: { specialist: SpecialistRow }) {
     .slice(0, 8);
 
   if (!entries.length) return null;
-  return <div className="mt-3 rounded-xl border bg-background p-3">
+  return <div className="mt-3 min-w-0 rounded-xl border bg-background p-3">
     <div className="text-xs font-semibold">Upcoming availability</div>
-    <div className="mt-2 grid grid-cols-1 gap-1.5 text-xs sm:grid-cols-2">
-      {entries.map((entry) => <div key={entry.key} className="flex justify-between gap-2 text-muted-foreground"><span>{entry.label}</span><span className="font-medium text-foreground">{entry.time}</span></div>)}
+    <div className="mt-2 grid min-w-0 grid-cols-1 gap-2 text-xs">
+      {entries.map((entry) => <div key={entry.key} className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1 text-muted-foreground"><span className="min-w-0">{entry.label}</span><span className="shrink-0 font-medium text-foreground">{entry.time}</span></div>)}
     </div>
   </div>;
 }
@@ -443,8 +443,8 @@ function TierPill({
           : "border-white/10 bg-muted/30 hover:border-white/20 hover:bg-muted/50"
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-2">
           <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
             selected ? "border-primary bg-primary" : "border-white/20"
           }`}>
@@ -472,7 +472,7 @@ function TierPill({
             </div>
           </div>
         </div>
-        <div className="shrink-0 text-right">
+        <div className="max-w-[42%] shrink-0 text-right">
           <div className="text-base font-bold">
             {tier.currency} {(tier.price_cents / 100).toFixed(0)}
           </div>
