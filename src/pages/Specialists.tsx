@@ -157,17 +157,17 @@ export default function Specialists() {
 
 
   return (
-    <section className="relative min-h-screen overflow-hidden bg-gradient-page px-3 py-8 sm:px-5 sm:py-12 lg:py-14">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-primary/10 via-accent/10 to-transparent" />
+    <section className="relative min-h-screen overflow-hidden bg-[#f4f3e9] px-3 py-8 sm:px-5 sm:py-12 lg:py-14">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-[#dfe9d9] via-[#edf0e5]/60 to-transparent" />
       <div className="container relative mx-auto w-full max-w-7xl">
-        <div className="overflow-hidden rounded-[2rem] border border-primary/15 bg-card/80 p-4 shadow-brand backdrop-blur sm:p-7 lg:p-10">
+        <div className="overflow-hidden rounded-[1.4rem] border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none sm:p-7 lg:p-10">
           <div className="grid min-w-0 items-center gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.9fr)] lg:gap-8">
             <div className="min-w-0"><span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"><Star className="h-3.5 w-3.5" /> Thoughtful care, chosen around you</span>
               <h1 className="mt-5 max-w-2xl text-3xl font-bold tracking-tight sm:text-5xl lg:text-6xl">Find the right support for your next step.</h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">Explore experienced specialists, compare session options, and choose a time that fits your life.</p>
               <div className="mt-6 flex flex-wrap gap-2 text-xs font-medium text-muted-foreground"><span className="rounded-full border bg-background/70 px-3 py-2">Personalised discovery</span><span className="rounded-full border bg-background/70 px-3 py-2">Clear session pricing</span><span className="rounded-full border bg-background/70 px-3 py-2">Times in your timezone</span></div>
             </div>
-            <div className="min-w-0 rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/10 via-background to-accent/30 p-4 sm:p-6"><div className="text-sm font-semibold">A little help finding your fit</div><p className="mt-1 text-sm leading-6 text-muted-foreground">Search by name, specialty, or qualification. Compare availability and pricing before booking.</p>
+            <div className="min-w-0 rounded-2xl border border-[#cbd7c7] bg-[#e8ede2] p-4 sm:p-6"><div className="text-sm font-semibold">A little help finding your fit</div><p className="mt-1 text-sm leading-6 text-muted-foreground">Search by name, specialty, or qualification. Compare availability and pricing before booking.</p>
               <label className="mt-5 block"><span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Search specialists</span><div className="flex items-center gap-2 rounded-2xl border bg-background px-3 shadow-sm"><UserRound className="h-4 w-4 shrink-0 text-primary" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Try anxiety, sleep, counselling…" className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" aria-label="Search specialists by name or specialty" />{searchQuery && <button type="button" onClick={() => setSearchQuery("")} className="text-xs font-semibold text-primary">Clear</button>}</div></label>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span className="text-muted-foreground">{loading ? "Finding specialists…" : `${visibleItems.length} specialist${visibleItems.length === 1 ? "" : "s"} to explore`}</span><span className="inline-flex items-center gap-1 font-semibold text-primary"><Check className="h-4 w-4" /> Your pace, your choice</span></div>
             </div>
@@ -176,7 +176,7 @@ export default function Specialists() {
 
         {/* Filters & sorting — options come only from published specialists */}
         {!loading && items.length > 0 && (
-          <div className="mt-6 rounded-3xl border border-primary/10 bg-card/85 p-4 shadow-brand backdrop-blur sm:p-5">
+          <div className="mt-6 rounded-2xl border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none sm:p-5">
             <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[auto_repeat(4,minmax(0,1fr))] lg:items-end">
               <div className="flex min-h-10 items-center gap-2 text-sm font-semibold sm:col-span-2 lg:col-span-1 lg:mr-2">
                 <SlidersHorizontal className="h-4 w-4 text-teal" /> Filter specialists
@@ -258,9 +258,9 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
   const selectedTier = tiers.find((t) => t.id === activeTier) ?? tiers[0];
 
   return (
-    <Card className="group flex min-w-0 flex-col overflow-hidden rounded-3xl border-primary/10 bg-card/90 shadow-brand backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-glow">
+    <Card className="group flex min-w-0 flex-col overflow-hidden rounded-[1.4rem] border-[#d1dccd] bg-[#fbfaf4] shadow-none transition-all duration-300 hover:-translate-y-0.5 hover:border-[#9fb69f] hover:shadow-md">
       {/* ── HEADER BAND ── */}
-      <div className="relative border-b border-primary/10 bg-gradient-to-br from-primary/[0.06] via-transparent to-accent/20 p-4 sm:p-5">
+      <div className="relative border-b border-[#d7e0d2] bg-[#edf1e7] p-4 sm:p-5">
         <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           {/* Avatar */}
           <div className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-2xl ring-2 ring-primary/15 shadow-sm">
@@ -295,7 +295,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
           </div>
         </div>
 
-        <div className="mt-3 break-words rounded-xl border bg-accent/30 p-3 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> availability is shown in your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}).</div>
+        <div className="mt-3 break-words rounded-xl border border-[#d1dccd] bg-[#f7f7ee] p-3 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> availability is shown in your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}).</div>
         <AvailabilityPreview specialist={specialist} />
 
         {/* Specialities */}
