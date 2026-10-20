@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Link } from "react-router-dom";
+import BookAppointment from "@/pages/BookAppointment";
 import {
   ArrowRight, MapPin, UserRound,
   GraduationCap, Briefcase, Globe, Check, Star,
@@ -73,6 +73,7 @@ export default function Specialists() {
   const [sortBy, setSortBy] = useState("name-asc");
   const [priceSort, setPriceSort] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [bookingSelection, setBookingSelection] = useState<{ specialistId: string; tierId: string } | null>(null);
 
   const breatheRiseSpecialities = [
     { label: "Stress & anxiety", keywords: ["stress", "anxiety"] },
@@ -232,15 +233,21 @@ export default function Specialists() {
           )}
 
           {!loading && visibleItems.map((specialist) => (
-            <SpecialistCard key={specialist.id} specialist={specialist} />
+            <SpecialistCard key={specialist.id} specialist={specialist} onBook={(tierId) => setBookingSelection({ specialistId: specialist.id, tierId })} />
           ))}
         </div>
+        <Dialog open={!!bookingSelection} onOpenChange={(open) => { if (!open) setBookingSelection(null); }}>
+          <DialogContent className="max-h-[92vh] w-[calc(100%-1rem)] max-w-5xl overflow-y-auto p-0 sm:rounded-3xl">
+            <DialogHeader className="sr-only"><DialogTitle>Book a specialist session</DialogTitle></DialogHeader>
+            {bookingSelection && <BookAppointment initialSpecialistId={bookingSelection.specialistId} initialTierId={bookingSelection.tierId} embedded onClose={() => setBookingSelection(null)} />}
+          </DialogContent>
+        </Dialog>
       </div>
     </section>
   );
 }
 
-function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
+function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onBook: (tierId: string) => void }) {
   const tiers = sortTiers(specialist.specialist_tiers ?? []);
   const singleTier = tiers.find((t) => (t.tier_type ?? "single") === "single");
   const bundleTiers = tiers.filter((t) => t.tier_type === "bundle");
@@ -371,7 +378,7 @@ function SpecialistCard({ specialist }: { specialist: SpecialistRow }) {
 
       {/* ── CTA FOOTER ── */}
       <div className="border-t border-primary/10 bg-gradient-to-b from-transparent to-primary/[0.05] p-4 sm:p-5">
-        <Button asChild className="w-full bg-gradient-brand font-semibold text-primary-foreground shadow-brand transition-transform active:scale-95"><Link to={`/book?specialist=${specialist.id}${selectedTier ? `&tier=${selectedTier.id}` : ""}`}><Zap className="mr-2 h-4 w-4" />Book now{selectedTier && <span className="ml-auto pl-2 font-bold">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</span>}<ArrowRight className="ml-1 h-4 w-4" /></Link></Button>
+        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="w-full bg-gradient-brand font-semibold text-primary-foreground shadow-brand transition-transform active:scale-95"><Zap className="mr-2 h-4 w-4" />Book now{selectedTier && <span className="ml-auto pl-2 font-bold">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</span>}<ArrowRight className="ml-1 h-4 w-4" /></Button>
       </div>
     </Card>
   );
