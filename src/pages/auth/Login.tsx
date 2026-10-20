@@ -18,20 +18,49 @@ export default function Login() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Welcome back");
-    navigate(redirect);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      toast.success("Welcome back");
+      navigate(redirect);
+    } catch (error) {
+      console.error("[BreatheRise] Sign-in failed:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to sign in right now. Please check your connection and try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const oauth = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}` },
-    });
-    if (error) toast.error(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}` },
+      });
+      if (error) toast.error(error.message);
+    } catch (error) {
+      console.error("[BreatheRise] Google sign-in failed:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to start Google sign-in. Please try again.",
+      );
+    }
   };
 
   return (
