@@ -21,7 +21,7 @@ export default function HowItWorks() {
           <div className="mt-12 hidden max-w-xs border-t border-[#cbd7c7] pt-5 text-sm leading-6 text-[#65796b] lg:block">You can take one step at a time. There’s no need to rush the process.</div>
         </div>
         <ol className="border-t border-[#cbd7c7]">
-          {steps.map(({i: Icon,n,t,d}, index) => <li key={n} className="grid gap-5 border-b border-[#cbd7c7] py-7 sm:grid-cols-[70px_1fr] sm:gap-7 sm:py-9">
+          {steps.map(({i: Icon,n,t,d}) => <li key={n} className="grid gap-5 border-b border-[#cbd7c7] py-7 sm:grid-cols-[70px_1fr] sm:gap-7 sm:py-9">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#dfe8d9] text-[#315b49]"><Icon className="h-5 w-5 stroke-[1.5]" /></div>
             <div><div className="text-[10px] font-bold uppercase tracking-[.18em] text-[#79917a]">Step {n}</div><h2 className="mt-2 text-2xl font-medium tracking-tight text-[#204b3b] sm:text-3xl">{t}</h2><p className="mt-3 max-w-xl text-sm leading-7 text-[#627467]">{d}</p></div>
           </li>)}
