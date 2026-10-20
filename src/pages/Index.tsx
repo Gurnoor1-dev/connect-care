@@ -72,7 +72,7 @@ export default function Index() {
             <div className="absolute left-[7%] top-[8%] h-[80%] w-[86%] rounded-[48%_52%_46%_54%/45%_42%_58%_55%] bg-[#dce7d6] dark:bg-[#263f30]" />
             <div className="absolute left-[16%] top-[15%] h-[66%] w-[70%] rounded-[50%] border border-[#91ae94]/70 dark:border-[#729578]/70" />
             <div className="absolute left-[24%] top-[23%] h-[50%] w-[54%] rounded-[50%] border border-[#91ae94]/70" />
-            <div className="absolute left-[32%] top-[31%] h-[34%] w-[38%] rounded-[50%] bg-[#b5cbb4]/60 dark:bg-[#45694d]/70" />
+            <div className="absolute left-[32%] top-[31%] h-[34%] w-[38%] rounded-[50%] bg-[#b5cbb4]/60 dark:bg-[#81734b]/80" />
             <div className="relative z-10 flex h-52 w-52 flex-col items-center justify-center rounded-full bg-[#204b3b] text-center text-[#f4f3e9] shadow-[0_24px_60px_-28px_rgba(24,62,50,.5)] sm:h-60 sm:w-60">
               <Wind className="mb-3 h-8 w-8 stroke-[1.25]" />
               <span className="font-serif text-3xl italic">breathe in.</span>
