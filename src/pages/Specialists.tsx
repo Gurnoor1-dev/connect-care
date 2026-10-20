@@ -175,7 +175,6 @@ export default function Specialists() {
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span className="text-muted-foreground">{loading ? "Finding specialists…" : `${visibleItems.length} specialist${visibleItems.length === 1 ? "" : "s"} to explore`}</span><span className="inline-flex items-center gap-1 font-semibold text-primary"><Check className="h-4 w-4" /> Your pace, your choice</span></div>
             </div>
           </div>
-        </div>
 
         </RevealOnScroll>
 
