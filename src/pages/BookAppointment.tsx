@@ -415,14 +415,6 @@ export default function BookAppointment() {
             <div className="grid grid-cols-2 rounded-xl bg-muted/60 p-1"><button type="button" onClick={() => setAccountMode("signup")} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${accountMode === "signup" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Create account</button><button type="button" onClick={() => setAccountMode("signin")} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${accountMode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Sign in</button></div>
             {accountMode === "signup" && <div><Label htmlFor="booking-full-name">Full name</Label><Input id="booking-full-name" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} className="mt-2" /></div>}
             <div>
-              <h2 className="font-semibold">Create your account</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Your account will be created securely when you continue to payment. No separate sign-up step needed.</p>
-            </div>
-            <div>
-              <Label htmlFor="booking-full-name">Full name</Label>
-              <Input id="booking-full-name" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} className="mt-2" />
-            </div>
-            <div>
               <Label htmlFor="booking-email">Email</Label>
               <Input id="booking-email" type="email" autoComplete="email" required value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} className="mt-2" />
             </div>
