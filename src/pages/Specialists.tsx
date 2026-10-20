@@ -197,7 +197,7 @@ export default function Specialists() {
               </label>
               <label className="flex-1">
                 <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground"><ArrowUpDown className="h-3 w-3" /> Sort by</span>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-background px-3 text-sm">
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-10 w-full rounded-lg border border-[#cbd7c7] bg-[#fbfaf4] px-3 text-sm dark:border-[#3d5946] dark:bg-[#192e23]">
                   <option value="name-asc">Name (A–Z)</option>
                   <option value="name-desc">Name (Z–A)</option>
                   <option value="duration-short">Shortest session</option>
@@ -267,7 +267,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
             {specialist.avatar_url ? (
               <img src={specialist.avatar_url} alt={specialist.display_name} className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-brand text-2xl font-bold text-white">
+              <div className="flex h-full w-full items-center justify-center bg-[#204b3b] font-display text-2xl font-medium text-[#f4f3e9] dark:bg-[#a5c4a4] dark:text-[#183e32]">
                 {specialist.display_name?.[0] ?? <UserRound className="h-7 w-7" />}
               </div>
             )}
@@ -310,7 +310,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
               </span>
             ))}
             {specialist.specialities.length > 4 && (
-              <button type="button" onClick={() => setShowSpecialities(true)} className="cursor-pointer rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40" aria-label={`View ${specialist.specialities.length - 4} more specialties`}>+{specialist.specialities.length - 4} more</button>
+              <button type="button" onClick={() => setShowSpecialities(true)} className="cursor-pointer rounded-full border border-[#cbd7c7] px-2.5 py-0.5 text-[11px] text-[#587060] transition-colors hover:border-[#9fb69f] hover:text-[#204b3b] focus:outline-none focus:ring-2 focus:ring-primary/40 dark:border-[#3d5946] dark:text-[#c0d0c2] dark:hover:border-[#648467] dark:hover:text-white" aria-label={`View ${specialist.specialities.length - 4} more specialties`}>+{specialist.specialities.length - 4} more</button>
             )}
           </div>
         )}
@@ -318,7 +318,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
 
       {/* ── BIO ── */}
       {specialist.bio && (
-        <div className="min-w-0 border-b border-white/10 px-4 py-4 sm:px-5"><button type="button" onClick={() => setShowBio(true)} className="w-full cursor-pointer rounded-md text-left focus:outline-none focus:ring-2 focus:ring-primary/40" aria-label={`Read full bio for ${specialist.display_name}`}><p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{specialist.bio}{specialist.bio.length > 180 ? "..." : ""}</p></button></div>
+        <div className="min-w-0 border-b border-[#d7e0d2] px-4 py-4 sm:px-5 dark:border-[#3d5946]"><button type="button" onClick={() => setShowBio(true)} className="w-full cursor-pointer rounded-md text-left focus:outline-none focus:ring-2 focus:ring-primary/40" aria-label={`Read full bio for ${specialist.display_name}`}><p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{specialist.bio}{specialist.bio.length > 180 ? "..." : ""}</p></button></div>
       )}
 
       <Dialog open={showSpecialities} onOpenChange={setShowSpecialities}><DialogContent className="max-h-[80vh] overflow-y-auto"><DialogHeader><DialogTitle>{specialist.display_name}&apos;s specialties</DialogTitle></DialogHeader><div className="flex flex-wrap gap-2">{(specialist.specialities ?? []).map((s) => <span key={s} className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${specialtyColor(s)}`}>{s}</span>)}</div></DialogContent></Dialog>
@@ -347,7 +347,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
         </div>
 
         {tiers.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-[#cbd7c7] p-4 text-center text-xs text-muted-foreground dark:border-[#3d5946]">
             No active tiers yet.
           </div>
         ) : (
