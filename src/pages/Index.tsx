@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   ArrowDownRight, ArrowRight, ArrowUpRight, Brain, Check, HeartHandshake,
-  Leaf, LockKeyhole, MoonStar, Sparkles, Star, Users, Wind, Sun,
+  Leaf, LockKeyhole, MoonStar, Sparkles, Star, Users, Sun,
 } from "lucide-react";
 
 const supportAreas = [
@@ -74,7 +74,7 @@ export default function Index() {
             <div className="absolute left-[24%] top-[23%] h-[50%] w-[54%] rounded-[50%] border border-[#91ae94]/70" />
             <div className="absolute left-[32%] top-[31%] h-[34%] w-[38%] rounded-[50%] bg-[#b5cbb4]/50 dark:bg-[#365743]" />
             <div className="relative z-10 flex h-52 w-52 flex-col items-center justify-center rounded-full bg-[#204b3b] text-center text-[#f4f3e9] shadow-[0_24px_60px_-28px_rgba(24,62,50,.5)] sm:h-60 sm:w-60">
-              <Wind className="mb-3 h-8 w-8 stroke-[1.25]" />
+              <Sun className="mb-3 h-8 w-8 stroke-[1.25]" />
               <span className="font-serif text-3xl italic">breathe in.</span>
               <span className="mt-1 text-[10px] uppercase tracking-[.22em] text-[#cbdac9]">begin where you are</span>
             </div>
@@ -87,7 +87,6 @@ export default function Index() {
               <p className="mt-2 text-sm font-medium leading-5 text-[#244637] dark:text-[#edf3e8]">“A calmer way to take the first step.”</p>
               <p className="mt-2 text-[10px] uppercase tracking-[.14em] text-[#718273] dark:text-[#b4c8b2]">The BreatheRise approach</p>
             </div>
-            <span className="absolute bottom-[15%] right-[8%] z-10 flex h-12 w-12 items-center justify-center rounded-full bg-[#e6cfa3] text-[#315b49]"><Sun className="h-5 w-5" /></span>
           </div>
         </div>
         <div className="border-t border-[#d7dfd1] dark:border-[#365341]">
