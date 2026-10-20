@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   ArrowDownRight, ArrowUpRight, Brain, Check, HeartHandshake,
-  Leaf, LockKeyhole, MoonStar, Star, Users, Wind,
+  Leaf, LockKeyhole, MoonStar, Sparkles, Star, Users, Wind,
 } from "lucide-react";
 
 const supportAreas = [
