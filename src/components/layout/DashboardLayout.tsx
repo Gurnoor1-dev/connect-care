@@ -10,7 +10,7 @@ import { LayoutDashboard, Calendar, Users, ClipboardList, Mail, ShieldCheck, Log
 
 type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
 const customerNav: NavItem[] = [{ to: "/dashboard/customer", label: "Overview", icon: LayoutDashboard, end: true }, { to: "/dashboard/customer/appointments", label: "Appointments", icon: Calendar }];
-const specialistNav: NavItem[] = [{ to: "/dashboard/specialist", label: "Overview", icon: LayoutDashboard, end: true }, { to: "/dashboard/specialist/patients", label: "Private notes", icon: ClipboardList }, { to: "/dashboard/specialist/availability", label: "Availability", icon: Clock }, { to: "/dashboard/specialist/profile", label: "Profile", icon: User }];
+const specialistNav: NavItem[] = [{ to: "/dashboard/specialist", label: "Overview", icon: LayoutDashboard, end: true }, { to: "/dashboard/specialist/patients", label: "Private notes", icon: ClipboardList }, { to: "/dashboard/specialist/availability", label: "Availability", icon: Clock }, { to: "/dashboard/specialist/tiers", label: "Session tiers", icon: DollarSign }, { to: "/dashboard/specialist/profile", label: "Profile", icon: User }];
 const adminNav: NavItem[] = [{ to: "/dashboard/admin", label: "Overview", icon: LayoutDashboard, end: true }, { to: "/dashboard/admin/invitations", label: "Specialist invites", icon: Mail }, { to: "/dashboard/admin/users", label: "Users", icon: Users }, { to: "/dashboard/admin/tiers", label: "Pricing & tiers", icon: DollarSign }, { to: "/dashboard/admin/payments", label: "Payments & income", icon: CreditCard }];
 
 function NavItems({ nav, onNavigate }: { nav: NavItem[]; onNavigate?: () => void }) {
