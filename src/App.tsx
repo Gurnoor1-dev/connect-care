@@ -84,10 +84,10 @@ const ScrollToTop = () => {
   useEffect(() => {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const selector = [
-      "#root main section",
-      "#root main article",
-      "#root main form",
-      "#root main [data-scroll-reveal]",
+      "#root section",
+      "#root article",
+      "#root form",
+      "#root [data-scroll-reveal]",
       "#root main [class*='rounded-xl border']",
       "#root main [class*='rounded-2xl border']",
       "#root main [class*='rounded-3xl border']",
