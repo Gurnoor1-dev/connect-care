@@ -88,9 +88,9 @@ const ScrollToTop = () => {
       "#root article",
       "#root form",
       "#root [data-scroll-reveal]",
-      "#root main [class*='rounded-xl border']",
-      "#root main [class*='rounded-2xl border']",
-      "#root main [class*='rounded-3xl border']",
+      "#root [class*='rounded-xl border']",
+      "#root [class*='rounded-2xl border']",
+      "#root [class*='rounded-3xl border']",
       "#root > section",
       "#root article",
       "#root footer",
@@ -107,7 +107,7 @@ const ScrollToTop = () => {
         .forEach((element) => {
           if (elements.has(element)) return;
           // Do not animate hidden modal/menu content.
-          if (element.closest('[role="dialog"], [data-state="closed"]')) return;
+          if (element.closest('header, nav, aside, [role="dialog"], [data-state="closed"]')) return;
           elements.add(element);
           if (reduceMotion) return;
           element.dataset.brScrollReveal = "true";
