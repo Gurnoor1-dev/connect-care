@@ -41,14 +41,14 @@ interface SpecialistRow {
 
 // Colour accent per specialty tag
 const SPECIALTY_COLORS: Record<string, string> = {
-  anxiety: "bg-violet-500/15 text-violet-400 border-violet-500/25",
-  sleep: "bg-indigo-500/15 text-indigo-400 border-indigo-500/25",
-  leadership: "bg-amber-500/15 text-amber-400 border-amber-500/25",
-  relationships: "bg-rose-500/15 text-rose-400 border-rose-500/25",
-  burnout: "bg-sky-500/15 text-sky-400 border-sky-500/25",
-  mindfulness: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
-  stress: "bg-violet-500/15 text-violet-400 border-violet-500/25",
-  default: "bg-teal/15 text-teal border-teal/25",
+  anxiety: "bg-[#eee9f4] text-[#66517d] border-[#d8cce7] dark:bg-[#352944] dark:text-[#d8c8ee] dark:border-[#514064]",
+  sleep: "bg-[#e5eaf0] text-[#4b6479] border-[#cbd8e3] dark:bg-[#263744] dark:text-[#c5d9e8] dark:border-[#3c5364]",
+  leadership: "bg-[#f2ead7] text-[#856a36] border-[#e3d4ad] dark:bg-[#3c3322] dark:text-[#e7d09a] dark:border-[#5a4b2d]",
+  relationships: "bg-[#f2e6e1] text-[#8b5e4e] border-[#e3ccc2] dark:bg-[#3c2b27] dark:text-[#e8c4b7] dark:border-[#5c4037]",
+  burnout: "bg-[#e3eee8] text-[#426f5c] border-[#c3d9cc] dark:bg-[#233b30] dark:text-[#c3e2cf] dark:border-[#3a5947]",
+  mindfulness: "bg-[#e1ecdf] text-[#3f704b] border-[#c2d8bf] dark:bg-[#263e2b] dark:text-[#c4e3c4] dark:border-[#3f5b41]",
+  stress: "bg-[#eee9f4] text-[#66517d] border-[#d8cce7] dark:bg-[#352944] dark:text-[#d8c8ee] dark:border-[#514064]",
+  default: "bg-[#e1ecdf] text-[#315b49] border-[#c2d8bf] dark:bg-[#263e2b] dark:text-[#c4e3c4] dark:border-[#3f5b41]",
 };
 
 function specialtyColor(s: string) {
@@ -157,18 +157,18 @@ export default function Specialists() {
 
 
   return (
-    <section className="relative min-h-screen overflow-hidden bg-[#f4f3e9] px-3 py-8 sm:px-5 sm:py-12 lg:py-14">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-[#dfe9d9] via-[#edf0e5]/60 to-transparent" />
+    <section className="relative min-h-screen overflow-hidden bg-[#f4f3e9] px-3 py-8 text-[#204b3b] dark:bg-[#14271e] dark:text-[#edf4e8] sm:px-5 sm:py-12 lg:py-14">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-[#dfe9d9] via-[#edf0e5]/60 to-transparent dark:from-[#233b2c] dark:via-[#182d22]/70" />
       <div className="container relative mx-auto w-full max-w-7xl">
-        <div className="overflow-hidden rounded-[1.4rem] border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none sm:p-7 lg:p-10">
-          <div className="grid min-w-0 items-center gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.9fr)] lg:gap-8">
-            <div className="min-w-0"><span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"><Star className="h-3.5 w-3.5" /> Thoughtful care, chosen around you</span>
-              <h1 className="mt-5 max-w-2xl text-3xl font-bold tracking-tight sm:text-5xl lg:text-6xl">Find the right support for your next step.</h1>
+        <div className="relative overflow-hidden rounded-[1.4rem] border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none dark:border-[#3d5946] dark:bg-[#1b3025] sm:p-7 lg:p-10"><div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full border border-[#c5d6bf] dark:border-[#3f604a]" /><div className="pointer-events-none absolute -right-5 -top-9 h-44 w-44 rounded-full border border-[#c5d6bf] dark:border-[#3f604a]" /><div className="pointer-events-none absolute right-8 top-8 h-24 w-24 rounded-full bg-[#dfe9d9]/70 dark:bg-[#315640]/50" />
+          <div className="relative z-10 grid min-w-0 items-center gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.9fr)] lg:gap-8">
+            <div className="min-w-0"><span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-[#cbdac5] bg-[#e5ecdf] px-3 py-1.5 text-xs font-semibold text-[#315b49] dark:border-[#3f604a] dark:bg-[#294737] dark:text-[#dcebd8]"><Star className="h-3.5 w-3.5" /> Thoughtful care, chosen around you</span>
+              <h1 className="mt-5 max-w-2xl font-display text-4xl font-medium leading-[1.04] tracking-[-.065em] text-[#204b3b] dark:text-[#edf4e8] sm:text-6xl lg:text-7xl">Find the right support for your <span className="font-serif italic font-normal text-[#789577] dark:text-[#9fbe9d]">next step.</span></h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">Explore experienced specialists, compare session options, and choose a time that fits your life.</p>
               <div className="mt-6 flex flex-wrap gap-2 text-xs font-medium text-muted-foreground"><span className="rounded-full border bg-background/70 px-3 py-2">Personalised discovery</span><span className="rounded-full border bg-background/70 px-3 py-2">Clear session pricing</span><span className="rounded-full border bg-background/70 px-3 py-2">Times in your timezone</span></div>
             </div>
-            <div className="min-w-0 rounded-2xl border border-[#cbd7c7] bg-[#e8ede2] p-4 sm:p-6"><div className="text-sm font-semibold">A little help finding your fit</div><p className="mt-1 text-sm leading-6 text-muted-foreground">Search by name, specialty, or qualification. Compare availability and pricing before booking.</p>
-              <label className="mt-5 block"><span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Search specialists</span><div className="flex items-center gap-2 rounded-2xl border bg-background px-3 shadow-sm"><UserRound className="h-4 w-4 shrink-0 text-primary" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Try anxiety, sleep, counselling…" className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" aria-label="Search specialists by name or specialty" />{searchQuery && <button type="button" onClick={() => setSearchQuery("")} className="text-xs font-semibold text-primary">Clear</button>}</div></label>
+            <div className="min-w-0 rounded-2xl border border-[#cbd7c7] bg-[#e8ede2] p-4 sm:p-6 dark:border-[#3d5946] dark:bg-[#233b2c]"><div className="text-sm font-semibold">A little help finding your fit</div><p className="mt-1 text-sm leading-6 text-muted-foreground">Search by name, specialty, or qualification. Compare availability and pricing before booking.</p>
+              <label className="mt-5 block"><span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Search specialists</span><div className="flex items-center gap-2 rounded-2xl border border-[#cbd7c7] bg-[#fbfaf4] px-3 shadow-sm dark:border-[#3d5946] dark:bg-[#192e23]"><UserRound className="h-4 w-4 shrink-0 text-primary" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Try anxiety, sleep, counselling…" className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" aria-label="Search specialists by name or specialty" />{searchQuery && <button type="button" onClick={() => setSearchQuery("")} className="text-xs font-semibold text-primary">Clear</button>}</div></label>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span className="text-muted-foreground">{loading ? "Finding specialists…" : `${visibleItems.length} specialist${visibleItems.length === 1 ? "" : "s"} to explore`}</span><span className="inline-flex items-center gap-1 font-semibold text-primary"><Check className="h-4 w-4" /> Your pace, your choice</span></div>
             </div>
           </div>
@@ -176,21 +176,21 @@ export default function Specialists() {
 
         {/* Filters & sorting — options come only from published specialists */}
         {!loading && items.length > 0 && (
-          <div className="mt-6 rounded-2xl border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none sm:p-5">
+          <div className="mt-6 rounded-2xl border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none dark:border-[#3d5946] dark:bg-[#1b3025] sm:p-5">
             <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[auto_repeat(4,minmax(0,1fr))] lg:items-end">
               <div className="flex min-h-10 items-center gap-2 text-sm font-semibold sm:col-span-2 lg:col-span-1 lg:mr-2">
                 <SlidersHorizontal className="h-4 w-4 text-teal" /> Filter specialists
               </div>
               <label className="min-w-0">
                 <span className="mb-1 block text-xs text-muted-foreground">Speciality</span>
-                <select value={specialityFilter} onChange={(e) => setSpecialityFilter(e.target.value)} className="h-10 w-full min-w-0 rounded-lg border border-white/10 bg-background px-3 text-sm">
+                <select value={specialityFilter} onChange={(e) => setSpecialityFilter(e.target.value)} className="h-10 w-full min-w-0 rounded-lg border border-[#cbd7c7] bg-[#fbfaf4] px-3 text-sm dark:border-[#3d5946] dark:bg-[#192e23]">
                   <option value="all">All specialities</option>
                   {breatheRiseSpecialities.map((v) => <option key={v.label} value={v.label}>{v.label}</option>)}
                 </select>
               </label>
               <label className="flex-1">
                 <span className="mb-1 block text-xs text-muted-foreground">Qualification</span>
-                <select value={qualificationFilter} onChange={(e) => setQualificationFilter(e.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-background px-3 text-sm">
+                <select value={qualificationFilter} onChange={(e) => setQualificationFilter(e.target.value)} className="h-10 w-full rounded-lg border border-[#cbd7c7] bg-[#fbfaf4] px-3 text-sm dark:border-[#3d5946] dark:bg-[#192e23]">
                   <option value="all">All qualifications</option>
                   {breatheRiseQualifications.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
@@ -222,11 +222,11 @@ export default function Specialists() {
         <div className="mt-6 grid min-w-0 grid-cols-1 items-stretch gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
           {loading &&
             Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-[540px] animate-pulse rounded-3xl border bg-card/70 shadow-brand" />
+              <div key={i} className="h-[540px] animate-pulse rounded-[1.4rem] border border-[#d1dccd] bg-[#e8ede2] dark:border-[#3d5946] dark:bg-[#203629]" />
             ))}
 
           {!loading && visibleItems.length === 0 && (
-            <Card className="col-span-full border-white/10 bg-card/90 p-12 text-center text-muted-foreground shadow-brand backdrop-blur-md">
+            <Card className="col-span-full border-[#d1dccd] bg-[#fbfaf4] p-12 text-center text-muted-foreground shadow-none dark:border-[#3d5946] dark:bg-[#1b3025]">
               <UserRound className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <p className="mt-4 text-lg font-medium">No published specialists match these filters.</p>
             </Card>
@@ -258,9 +258,9 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
   const selectedTier = tiers.find((t) => t.id === activeTier) ?? tiers[0];
 
   return (
-    <Card className="group flex min-w-0 flex-col overflow-hidden rounded-[1.4rem] border-[#d1dccd] bg-[#fbfaf4] shadow-none transition-all duration-300 hover:-translate-y-0.5 hover:border-[#9fb69f] hover:shadow-md">
+    <Card className="group flex min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-[#d1dccd] bg-[#fbfaf4] shadow-none transition-all duration-300 hover:-translate-y-0.5 hover:border-[#9fb69f] hover:shadow-md dark:border-[#3d5946] dark:bg-[#1b3025] dark:hover:border-[#648467]">
       {/* ── HEADER BAND ── */}
-      <div className="relative border-b border-[#d7e0d2] bg-[#edf1e7] p-4 sm:p-5">
+      <div className="relative border-b border-[#d7e0d2] bg-[#edf1e7] p-4 sm:p-5 dark:border-[#3d5946] dark:bg-[#233b2c]">
         <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           {/* Avatar */}
           <div className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-2xl ring-2 ring-primary/15 shadow-sm">
@@ -295,7 +295,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
           </div>
         </div>
 
-        <div className="mt-3 break-words rounded-xl border border-[#d1dccd] bg-[#f7f7ee] p-3 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> availability is shown in your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}).</div>
+        <div className="mt-3 break-words rounded-xl border border-[#d1dccd] bg-[#f7f7ee] p-3 text-xs leading-5 text-muted-foreground dark:border-[#3d5946] dark:bg-[#203629]"><span className="font-semibold text-foreground">Timezone notice:</span> availability is shown in your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}).</div>
         <AvailabilityPreview specialist={specialist} />
 
         {/* Specialities */}
@@ -326,13 +326,13 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
 
       {/* ── QUALIFICATIONS ── */}
       {specialist.qualifications && specialist.qualifications.length > 0 && (
-        <div className="border-b border-white/10 px-5 py-3">
+        <div className="border-b border-[#d7e0d2] px-5 py-3 dark:border-[#3d5946]">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             <GraduationCap className="h-3.5 w-3.5" /> Qualifications
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {specialist.qualifications.slice(0, 3).map((q) => (
-              <span key={q} className="rounded-md border border-white/10 bg-muted/60 px-2 py-0.5 text-xs text-foreground/80">
+              <span key={q} className="rounded-md border border-[#d1dccd] bg-[#f7f7ee] px-2 py-0.5 text-xs text-foreground/80 dark:border-[#3d5946] dark:bg-[#203629]">
                 {q}
               </span>
             ))}
@@ -377,8 +377,8 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
       </div>
 
       {/* ── CTA FOOTER ── */}
-      <div className="border-t border-primary/10 bg-gradient-to-b from-transparent to-primary/[0.05] p-4">
-        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="w-full bg-gradient-brand font-semibold text-primary-foreground shadow-brand transition-transform active:scale-95"><Zap className="mr-2 h-4 w-4" />Book now{selectedTier && <span className="ml-auto pl-2 font-bold">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</span>}<ArrowRight className="ml-1 h-4 w-4" /></Button>
+      <div className="border-t border-[#d7e0d2] bg-[#f0f2e9] p-4 dark:border-[#3d5946] dark:bg-[#203629]">
+        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="w-full rounded-full bg-[#204b3b] font-semibold text-[#f4f3e9] shadow-none transition-transform active:scale-95 hover:bg-[#163a2d] dark:bg-[#a5c4a4] dark:text-[#183e32] dark:hover:bg-[#c0d8bd]"><Zap className="mr-2 h-4 w-4" />Book now{selectedTier && <span className="ml-auto pl-2 font-bold">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</span>}<ArrowRight className="ml-1 h-4 w-4" /></Button>
       </div>
     </Card>
   );
@@ -413,7 +413,7 @@ function AvailabilityPreview({ specialist }: { specialist: SpecialistRow }) {
     .slice(0, 8);
 
   if (!entries.length) return null;
-  return <div className="mt-3 min-w-0 rounded-xl border bg-background p-3">
+  return <div className="mt-3 min-w-0 rounded-xl border border-[#d1dccd] bg-[#f7f7ee] p-3 dark:border-[#3d5946] dark:bg-[#203629]">
     <div className="text-xs font-semibold">Upcoming availability</div>
     <div className="mt-2 grid min-w-0 grid-cols-1 gap-2 text-xs">
       {entries.map((entry) => <div key={entry.key} className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1 text-muted-foreground"><span className="min-w-0">{entry.label}</span><span className="shrink-0 font-medium text-foreground">{entry.time}</span></div>)}
@@ -439,14 +439,14 @@ function TierPill({
       onClick={onSelect}
       className={`group/tier w-full rounded-xl border p-3 text-left transition-all ${
         selected
-          ? "border-primary/60 bg-primary/8 ring-1 ring-primary/30"
-          : "border-white/10 bg-muted/30 hover:border-white/20 hover:bg-muted/50"
+          ? "border-[#739575] bg-[#e6eee0] ring-1 ring-[#b5cbb0] dark:border-[#789d7d] dark:bg-[#294737] dark:ring-[#42664a]"
+          : "border-[#d1dccd] bg-[#f7f7ee] hover:border-[#9fb69f] hover:bg-[#edf1e7] dark:border-[#3d5946] dark:bg-[#203629] dark:hover:border-[#648467] dark:hover:bg-[#294737]"
       }`}
     >
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-start gap-2">
           <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-            selected ? "border-primary bg-primary" : "border-white/20"
+            selected ? "border-[#315b49] bg-[#315b49] dark:border-[#9fbe9d] dark:bg-[#9fbe9d]" : "border-[#bdcdbb] dark:border-[#506b55]"
           }`}>
             {selected && <Check className="h-2.5 w-2.5 text-white" />}
           </div>
