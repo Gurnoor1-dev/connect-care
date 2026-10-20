@@ -33,6 +33,7 @@ interface SpecialistRow {
   country_flag: string | null;
   specialities: string[] | null;
   qualifications: string[] | null;
+  experience_level: string | null;
   timezone: string | null;
   avatar_url: string | null;
   specialist_tiers: Tier[];
@@ -70,6 +71,7 @@ export default function Specialists() {
   const [loading, setLoading] = useState(true);
   const [specialityFilter, setSpecialityFilter] = useState("all");
   const [qualificationFilter, setQualificationFilter] = useState("all");
+  const [experienceFilter, setExperienceFilter] = useState("all");
   const [sortBy, setSortBy] = useState("name-asc");
   const [priceSort, setPriceSort] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -100,7 +102,8 @@ export default function Specialists() {
         const category = breatheRiseSpecialities.find((v) => v.label === specialityFilter);
         return category ? (s.specialities ?? []).some((v) => category.keywords.some((keyword) => v.toLowerCase().includes(keyword))) : false;
       })()) &&
-      (qualificationFilter === "all" || (s.qualifications ?? []).some((v) => v.toLowerCase().includes(qualificationFilter.toLowerCase())));
+      (qualificationFilter === "all" || (s.qualifications ?? []).some((v) => v.toLowerCase().includes(qualificationFilter.toLowerCase()))) &&
+      (experienceFilter === "all" || s.experience_level === experienceFilter);
     });
     return [...filtered].sort((a, b) => {
       if (sortBy === "name-desc") return b.display_name.localeCompare(a.display_name);
@@ -110,7 +113,7 @@ export default function Specialists() {
       if (sortBy === "duration-long") return (b.specialist_tiers[0]?.duration_minutes ?? -1) - (a.specialist_tiers[0]?.duration_minutes ?? -1);
       return a.display_name.localeCompare(b.display_name);
     });
-  }, [items, specialityFilter, qualificationFilter, sortBy, priceSort, searchQuery]);
+  }, [items, specialityFilter, qualificationFilter, experienceFilter, sortBy, priceSort, searchQuery]);
 
   useEffect(() => {
     (async () => {
@@ -118,7 +121,7 @@ export default function Specialists() {
         .from("specialist_profiles")
         .select(`
           id, display_name, headline, bio, country, country_flag,
-          specialities, qualifications, timezone, avatar_url,
+          specialities, qualifications, experience_level, timezone, avatar_url,
           specialist_tiers!specialist_tiers_specialist_id_fkey(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label), specialist_availability(available_date, day_of_week, start_time, end_time, is_active)
         `)
         .eq("is_published", true)
@@ -129,7 +132,7 @@ export default function Specialists() {
           .from("specialist_profiles")
           .select(`
             id, display_name, headline, bio, country, country_flag,
-            specialities, qualifications, timezone, avatar_url,
+            specialities, qualifications, experience_level, timezone, avatar_url,
             specialist_tiers!specialist_id(id, label, duration_minutes, price_cents, currency, is_active, tier_type, session_count, savings_label), specialist_availability(available_date, day_of_week, start_time, end_time, is_active)
           `)
           .eq("is_published", true);
@@ -177,7 +180,7 @@ export default function Specialists() {
         {/* Filters & sorting — options come only from published specialists */}
         {!loading && items.length > 0 && (
           <div className="mt-6 rounded-2xl border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none dark:border-[#3d5946] dark:bg-[#1b3025] sm:p-5">
-            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[auto_repeat(4,minmax(0,1fr))] lg:items-end">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[auto_repeat(5,minmax(0,1fr))] lg:items-end">
               <div className="flex min-h-10 items-center gap-2 text-sm font-semibold sm:col-span-2 lg:col-span-1 lg:mr-2">
                 <SlidersHorizontal className="h-4 w-4 text-teal" /> Filter specialists
               </div>
@@ -193,6 +196,15 @@ export default function Specialists() {
                 <select value={qualificationFilter} onChange={(e) => setQualificationFilter(e.target.value)} className="h-10 w-full rounded-lg border border-[#cbd7c7] bg-[#fbfaf4] px-3 text-sm dark:border-[#3d5946] dark:bg-[#192e23]">
                   <option value="all">All qualifications</option>
                   {breatheRiseQualifications.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </label>
+              <label className="min-w-0">
+                <span className="mb-1 block text-xs text-muted-foreground">Experience Level</span>
+                <select value={experienceFilter} onChange={(e) => setExperienceFilter(e.target.value)} className="h-10 w-full min-w-0 rounded-lg border border-[#cbd7c7] bg-[#fbfaf4] px-3 text-sm dark:border-[#3d5946] dark:bg-[#192e23]">
+                  <option value="all">All experience levels</option>
+                  <option value="0-3 years">0–3 years</option>
+                  <option value="4-7 years">4–7 years</option>
+                  <option value="7+ years">7+ years</option>
                 </select>
               </label>
               <label className="flex-1">
@@ -212,7 +224,7 @@ export default function Specialists() {
                   <option value="high">High to low</option>
                 </select>
               </label>
-              {(specialityFilter !== "all" || qualificationFilter !== "all" || priceSort !== "all") && <Button type="button" variant="outline" onClick={() => { setSpecialityFilter("all"); setQualificationFilter("all"); setPriceSort("all"); }}>Clear</Button>}
+              {(specialityFilter !== "all" || qualificationFilter !== "all" || experienceFilter !== "all" || priceSort !== "all") && <Button type="button" variant="outline" onClick={() => { setSpecialityFilter("all"); setQualificationFilter("all"); setExperienceFilter("all"); setPriceSort("all"); }}>Clear</Button>}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">{visibleItems.length} published specialist{visibleItems.length === 1 ? "" : "s"} shown</p>
           </div>
@@ -292,6 +304,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
                 </span>
               )}
             </div>
+            {specialist.experience_level && <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#cbdac5] bg-[#e5ecdf] px-2.5 py-1 text-xs font-medium text-[#315b49] dark:border-[#3f604a] dark:bg-[#294737] dark:text-[#dcebd8]"><Briefcase className="h-3.5 w-3.5" />{specialist.experience_level}</div>}
           </div>
         </div>
 
