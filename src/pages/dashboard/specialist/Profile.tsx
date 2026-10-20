@@ -21,13 +21,13 @@ const TIMEZONES = Intl.supportedValuesOf?.("timeZone") ?? ["UTC", "America/New_Y
 
 type ProfileState = {
   display_name: string; headline: string; bio: string; country: string; country_flag: string; timezone: string;
-  specialities: string[]; qualifications: string[]; is_published: boolean; avatar_url: string;
+  specialities: string[]; qualifications: string[]; experience_level: string; is_published: boolean; avatar_url: string;
   immediate_sessions: boolean;
 };
 
 const emptyProfile: ProfileState = {
   display_name: "", headline: "", bio: "", country: "", country_flag: "",
-  timezone: getDeviceTimeZone(), specialities: [], qualifications: [],
+  timezone: getDeviceTimeZone(), specialities: [], qualifications: [], experience_level: "",
   is_published: false, avatar_url: "", immediate_sessions: false,
 };
 
@@ -51,7 +51,7 @@ export default function SpecialistProfile() {
       if (data) setP({
         ...emptyProfile, ...data, avatar_url: data.avatar_url ?? "",
         immediate_sessions: !!data.immediate_sessions,
-        specialities: data.specialities ?? [], qualifications: data.qualifications ?? [],
+        specialities: data.specialities ?? [], qualifications: data.qualifications ?? [], experience_level: data.experience_level ?? "",
       });
       setLoading(false);
     })();
@@ -63,7 +63,7 @@ export default function SpecialistProfile() {
     const profileValues = {
       display_name: p.display_name, headline: p.headline, bio: p.bio,
       country: p.country, country_flag: p.country_flag, timezone: p.timezone,
-      specialities: p.specialities, qualifications: p.qualifications,
+      specialities: p.specialities, qualifications: p.qualifications, experience_level: p.experience_level || null,
       is_published: p.is_published, avatar_url: p.avatar_url || null,
       immediate_sessions: p.immediate_sessions,
     };
@@ -163,6 +163,7 @@ export default function SpecialistProfile() {
           <div className="grid gap-5 sm:grid-cols-2"><Field label="Display name"><Input value={p.display_name ?? ""} onChange={(event) => setP({ ...p, display_name: event.target.value })} /></Field><Field label="Headline"><Input placeholder="e.g. Performance psychologist" value={p.headline ?? ""} onChange={(event) => setP({ ...p, headline: event.target.value })} /></Field></div>
           <Field label="Bio"><Textarea rows={4} value={p.bio ?? ""} onChange={(event) => setP({ ...p, bio: event.target.value })} /></Field>
           <div className="mb-4 rounded-2xl border bg-accent/40 p-4 text-sm leading-6 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> Your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}) is used as the default. Schedule times are saved in your selected specialist timezone and converted for clients.</div><div className="grid gap-5 sm:grid-cols-2"><Field label="Country"><select value={p.country ?? ""} onChange={(event) => { const country = COUNTRIES.find(([name]) => name === event.target.value); setP({ ...p, country: event.target.value, country_flag: country?.[1] ?? "" }); }} className="h-10 w-full rounded-lg border bg-background px-3 text-sm"><option value="">Select...</option>{COUNTRIES.map(([name, flag]) => <option key={name} value={name}>{flag} {name}</option>)}</select></Field><Field label="Timezone"><select value={p.timezone ?? ""} onChange={(event) => setP({ ...p, timezone: event.target.value })} className="h-10 w-full rounded-lg border bg-background px-3 text-sm">{TIMEZONES.map((timezone) => <option key={timezone} value={timezone}>{getTimeZoneLabel(timezone)}</option>)}</select></Field></div>
+          <Field label="Experience Level"><select value={p.experience_level ?? ""} onChange={(event) => setP({ ...p, experience_level: event.target.value })} className="h-10 w-full rounded-lg border bg-background px-3 text-sm"><option value="">Select experience level...</option><option value="0-3 years">0–3 years</option><option value="4-7 years">4–7 years</option><option value="7+ years">7+ years</option></select><p className="mt-1 text-xs text-muted-foreground">Choose the experience range that best represents your professional experience.</p></Field>
           <ChipList label="Specialities" items={p.specialities ?? []} input={specInput} setInput={setSpecInput} onAdd={() => addArr("specialities", specInput, () => setSpecInput(""))} onRemove={(index) => rmArr("specialities", index)} placeholder="Anxiety, executive coaching..." />
           <ChipList label="Qualifications" items={p.qualifications ?? []} input={qualInput} setInput={setQualInput} onAdd={() => addArr("qualifications", qualInput, () => setQualInput(""))} onRemove={(index) => rmArr("qualifications", index)} placeholder="PhD Psychology, MBBS..." />
           <div className="flex items-center justify-between gap-4 rounded-lg border bg-gradient-to-br from-accent/70 via-card to-card p-4"><div><div className="font-medium">Publish profile</div><div className="text-xs text-muted-foreground">When on, customers can find and book you.</div></div><Switch checked={!!p.is_published} onCheckedChange={(value) => setP({ ...p, is_published: value })} /></div>
