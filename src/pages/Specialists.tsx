@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getDeviceTimeZone, getTimeZoneLabel, formatInTimeZone, zonedTimeToUtc, getZonedDateKey, getZonedDayOfWeek } from "@/lib/timezone";
 import { Card } from "@/components/ui/card";
@@ -163,7 +163,7 @@ export default function Specialists() {
     <section className="relative min-h-screen overflow-hidden bg-[#f4f3e9] px-3 py-8 text-[#204b3b] dark:bg-[#14271e] dark:text-[#edf4e8] sm:px-5 sm:py-12 lg:py-14">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-[#dfe9d9] via-[#edf0e5]/60 to-transparent dark:from-[#233b2c] dark:via-[#182d22]/70" />
       <div className="container relative mx-auto w-full max-w-7xl">
-        <div className="relative overflow-hidden rounded-[1.4rem] border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none dark:border-[#3d5946] dark:bg-[#1b3025] sm:p-7 lg:p-10"><div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full border border-[#c5d6bf] dark:border-[#3f604a]" /><div className="pointer-events-none absolute -right-5 -top-9 h-44 w-44 rounded-full border border-[#c5d6bf] dark:border-[#3f604a]" /><div className="pointer-events-none absolute right-8 top-8 h-24 w-24 rounded-full bg-[#dfe9d9]/70 dark:bg-[#315640]/50" />
+        <RevealOnScroll className="relative overflow-hidden rounded-[1.4rem] border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none dark:border-[#3d5946] dark:bg-[#1b3025] sm:p-7 lg:p-10"><div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full border border-[#c5d6bf] dark:border-[#3f604a]" /><div className="pointer-events-none absolute -right-5 -top-9 h-44 w-44 rounded-full border border-[#c5d6bf] dark:border-[#3f604a]" /><div className="pointer-events-none absolute right-8 top-8 h-24 w-24 rounded-full bg-[#dfe9d9]/70 dark:bg-[#315640]/50" />
           <div className="relative z-10 grid min-w-0 items-center gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.9fr)] lg:gap-8">
             <div className="min-w-0"><span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-[#cbdac5] bg-[#e5ecdf] px-3 py-1.5 text-xs font-semibold text-[#315b49] dark:border-[#3f604a] dark:bg-[#294737] dark:text-[#dcebd8]"><Star className="h-3.5 w-3.5" /> Thoughtful care, chosen around you</span>
               <h1 className="mt-5 max-w-2xl font-display text-4xl font-medium leading-[1.04] tracking-[-.065em] text-[#204b3b] dark:text-[#edf4e8] sm:text-6xl lg:text-7xl">Find the right support for your <span className="font-serif italic font-normal text-[#789577] dark:text-[#9fbe9d]">next step.</span></h1>
@@ -177,9 +177,11 @@ export default function Specialists() {
           </div>
         </div>
 
+        </RevealOnScroll>
+
         {/* Filters & sorting — options come only from published specialists */}
         {!loading && items.length > 0 && (
-          <div className="mt-6 rounded-2xl border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none dark:border-[#3d5946] dark:bg-[#1b3025] sm:p-5">
+          <RevealOnScroll className="mt-6 rounded-2xl border border-[#d1dccd] bg-[#fbfaf4] p-4 shadow-none dark:border-[#3d5946] dark:bg-[#1b3025] sm:p-5">
             <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[auto_repeat(5,minmax(0,1fr))] lg:items-end">
               <div className="flex min-h-10 items-center gap-2 text-sm font-semibold sm:col-span-2 lg:col-span-1 lg:mr-2">
                 <SlidersHorizontal className="h-4 w-4 text-teal" /> Filter specialists
@@ -227,7 +229,7 @@ export default function Specialists() {
               {(specialityFilter !== "all" || qualificationFilter !== "all" || experienceFilter !== "all" || priceSort !== "all") && <Button type="button" variant="outline" onClick={() => { setSpecialityFilter("all"); setQualificationFilter("all"); setExperienceFilter("all"); setPriceSort("all"); }}>Clear</Button>}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">{visibleItems.length} published specialist{visibleItems.length === 1 ? "" : "s"} shown</p>
-          </div>
+          </RevealOnScroll>
         )}
 
         {/* Grid */}
@@ -244,8 +246,10 @@ export default function Specialists() {
             </Card>
           )}
 
-          {!loading && visibleItems.map((specialist) => (
-            <SpecialistCard key={specialist.id} specialist={specialist} onBook={(tierId) => setBookingSelection({ specialistId: specialist.id, tierId })} />
+          {!loading && visibleItems.map((specialist, index) => (
+            <RevealOnScroll key={specialist.id} delay={Math.min(index % 3, 2) * 90}>
+              <SpecialistCard specialist={specialist} onBook={(tierId) => setBookingSelection({ specialistId: specialist.id, tierId })} />
+            </RevealOnScroll>
           ))}
         </div>
         <Dialog open={!!bookingSelection} onOpenChange={(open) => { if (!open) setBookingSelection(null); }}>
@@ -391,9 +395,42 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
 
       {/* ── CTA FOOTER ── */}
       <div className="border-t border-[#d7e0d2] bg-[#f0f2e9] p-4 dark:border-[#3d5946] dark:bg-[#203629]">
-        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="w-full rounded-full bg-[#204b3b] font-semibold !text-[#f4f3e9] shadow-none transition-transform active:scale-95 hover:bg-[#163a2d] hover:!text-white dark:bg-[#204b3b] dark:!text-[#f4f3e9] dark:hover:bg-[#163a2d]"><Zap className="mr-2 h-4 w-4" />Book now{selectedTier && <span className="ml-auto pl-2 font-bold">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</span>}<ArrowRight className="ml-1 h-4 w-4" /></Button>
+        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="group/book relative w-full overflow-hidden rounded-full border border-[#65cdb5]/50 bg-gradient-to-r from-[#147d70] via-[#259e8a] to-[#537fba] font-semibold !text-white shadow-[0_8px_22px_-8px_rgba(37,158,138,0.65)] transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent before:transition-transform before:duration-700 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-8px_rgba(37,158,138,0.75)] hover:before:translate-x-full active:scale-[0.98] dark:border-[#65cdb5]/40 dark:from-[#176f64] dark:via-[#218c7c] dark:to-[#496fa4]"><Zap className="mr-2 h-4 w-4" />Book now{selectedTier && <span className="ml-auto pl-2 font-bold">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</span>}<ArrowRight className="ml-1 h-4 w-4" /></Button>
       </div>
     </Card>
+  );
+}
+
+
+function RevealOnScroll({ children, className = "", delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
+  const elementRef = useRef<HTMLDivElement>(null);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setRevealed(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setRevealed(true);
+        observer.unobserve(entry.target);
+      }
+    }, { threshold: 0.12, rootMargin: "0px 0px -35px 0px" });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={elementRef}
+      className={`transition-[opacity,filter,transform] duration-700 ease-out motion-reduce:transition-none ${revealed ? "translate-y-0 opacity-100 blur-0" : "translate-y-5 opacity-0 blur-md"} ${className}`}
+      style={{ transitionDelay: revealed ? `${delay}ms` : "0ms" }}
+    >
+      {children}
+    </div>
   );
 }
 
