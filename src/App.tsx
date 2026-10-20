@@ -79,57 +79,74 @@ const ScrollToTop = () => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [pathname]);
 
-  // Apply one consistent, scroll-progress reveal across every route. Elements
-  // sharpen and become fully visible as they move into the viewport.
+  // Apply a consistent, scroll-progress reveal across every route. The page
+  // content is lazy-loaded, so keep scanning as route components mount/update.
   useEffect(() => {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const selector = [
-      "main section",
-      "main article",
-      "main [data-scroll-reveal]",
-      "main [class*='rounded-xl border']",
-      "main [class*='rounded-2xl border']",
-      "main [class*='rounded-3xl border']",
-      "#root section",
+      "#root main section",
+      "#root main article",
+      "#root main form",
+      "#root main [data-scroll-reveal]",
+      "#root main [class*='rounded-xl border']",
+      "#root main [class*='rounded-2xl border']",
+      "#root main [class*='rounded-3xl border']",
+      "#root > section",
       "#root article",
-      "footer",
+      "#root footer",
     ].join(",");
-    const matches = Array.from(document.querySelectorAll<HTMLElement>(selector));
-    // Avoid stacking multiple blur/opacity effects on nested cards and sections.
-    const elements = matches.filter((element) => !element.parentElement?.closest(selector));
-
-    if (reduceMotion) {
-      elements.forEach((element) => {
-        element.style.removeProperty("opacity");
-        element.style.removeProperty("filter");
-        element.style.removeProperty("translate");
-      });
-      return;
-    }
-
+    const elements = new Set<HTMLElement>();
     let frame = 0;
+
+    const scanForElements = () => {
+      document.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+        if (elements.has(element)) return;
+        // Do not animate site chrome or hidden modal/menu content.
+        if (element.closest('[role="dialog"], [data-state="closed"]')) return;
+        elements.add(element);
+        if (reduceMotion) return;
+        element.dataset.brScrollReveal = "true";
+      });
+      scheduleUpdate();
+    };
+
     const updateReveal = () => {
       frame = 0;
+      if (reduceMotion) return;
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
       elements.forEach((element) => {
+        if (!element.isConnected) {
+          elements.delete(element);
+          return;
+        }
         const rect = element.getBoundingClientRect();
-        // Keep content that is already above the viewport fully revealed; fade
-        // in from the bottom edge over the first ~72% of the viewport height.
-        const progress = Math.max(0, Math.min(1, (viewportHeight - rect.top) / (viewportHeight * 0.72)));
-        element.style.opacity = String(0.22 + progress * 0.78);
+        // The blur and opacity track scroll progress as each block enters view.
+        // Content already above the viewport stays fully revealed.
+        const progress = rect.bottom <= 0
+          ? 1
+          : Math.max(0, Math.min(1, (viewportHeight * 0.9 - rect.top) / (viewportHeight * 0.62)));
+        element.style.opacity = String(0.18 + progress * 0.82);
         element.style.filter = progress >= 1 ? "blur(0px)" : `blur(${(1 - progress) * 12}px)`;
         element.style.translate = `0 ${(1 - progress) * 18}px`;
-        element.style.willChange = progress > 0 && progress < 1 ? "opacity, filter, translate" : "auto";
+        element.style.willChange = progress < 1 ? "opacity, filter, translate" : "auto";
       });
     };
+
     const scheduleUpdate = () => {
       if (!frame) frame = window.requestAnimationFrame(updateReveal);
     };
 
-    updateReveal();
+    scanForElements();
+    const mutationObserver = new MutationObserver(scanForElements);
+    mutationObserver.observe(document.getElementById("root") ?? document.body, {
+      childList: true,
+      subtree: true,
+    });
     window.addEventListener("scroll", scheduleUpdate, { passive: true });
     window.addEventListener("resize", scheduleUpdate, { passive: true });
+
     return () => {
+      mutationObserver.disconnect();
       window.removeEventListener("scroll", scheduleUpdate);
       window.removeEventListener("resize", scheduleUpdate);
       if (frame) window.cancelAnimationFrame(frame);
@@ -138,6 +155,7 @@ const ScrollToTop = () => {
         element.style.removeProperty("filter");
         element.style.removeProperty("translate");
         element.style.removeProperty("will-change");
+        delete element.dataset.brScrollReveal;
       });
     };
   }, [pathname]);
