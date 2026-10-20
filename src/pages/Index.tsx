@@ -57,6 +57,33 @@ const values = [
   },
 ];
 
+const careOptions = [
+  {
+    icon: HeartHandshake,
+    title: "Therapy & counselling",
+    description: "Make sense of what you’re feeling with a specialist who listens without judgement.",
+    tag: "Talk it through",
+  },
+  {
+    icon: Brain,
+    title: "Psychiatric support",
+    description: "Explore professional guidance for mood, sleep, focus and other mental health concerns.",
+    tag: "Expert guidance",
+  },
+  {
+    icon: Users,
+    title: "Relationship support",
+    description: "Build healthier ways to communicate, navigate change and feel connected.",
+    tag: "Grow together",
+  },
+  {
+    icon: Sparkles,
+    title: "Everyday wellbeing",
+    description: "Find practical ways to build resilience, self-awareness and steadier routines.",
+    tag: "Small steps matter",
+  },
+];
+
 const testimonials = [
   {
     quote: "The whole experience felt calm from the first click. I finally found someone I could open up to.",
@@ -272,6 +299,42 @@ export default function Index() {
                 <h3 className="mt-6 text-xl font-semibold">{value.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">{value.desc}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 md:py-28">
+        <div className="container mx-auto">
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Ways to feel supported</p>
+              <h2 className="mt-4 max-w-lg text-4xl font-semibold leading-tight md:text-5xl">
+                Care for the person you are, not just the moment you’re in.
+              </h2>
+            </div>
+            <p className="max-w-xl leading-7 text-muted-foreground lg:justify-self-end">
+              Everyone’s story is different. Explore the kind of support that feels right for you, then connect with a specialist at your own pace.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            {careOptions.map((option) => (
+              <article
+                key={option.title}
+                className="group flex min-h-[285px] flex-col rounded-3xl border border-border/70 bg-card p-6 shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-primary/35"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                  <option.icon className="h-5 w-5" />
+                </div>
+                <p className="mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{option.tag}</p>
+                <h3 className="mt-2 text-xl font-semibold">{option.title}</h3>
+                <p className="mt-3 flex-1 text-sm leading-6 text-muted-foreground">{option.description}</p>
+                <Link to="/specialists" className="mt-5 inline-flex items-center text-sm font-semibold text-primary">
+                  Explore specialists
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </article>
             ))}
           </div>
         </div>
