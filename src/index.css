@@ -100,7 +100,7 @@
 
 /* Scroll-progress reveal: the route observer updates opacity, blur and translate
    continuously, so content resolves smoothly instead of popping in at a threshold. */
-:where(main section, main article, main [data-scroll-reveal], footer) {
+:where(main section, main article, main [data-scroll-reveal], main [class*="rounded-xl border"], main [class*="rounded-2xl border"], main [class*="rounded-3xl border"], footer) {
   transition: opacity 90ms linear, filter 90ms linear, translate 90ms linear;
 }
 @media (prefers-reduced-motion: reduce) {
