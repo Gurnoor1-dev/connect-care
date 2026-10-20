@@ -79,6 +79,69 @@ const ScrollToTop = () => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [pathname]);
 
+  // Apply one consistent, scroll-progress reveal across every route. Elements
+  // sharpen and become fully visible as they move into the viewport.
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const selector = [
+      "main section",
+      "main article",
+      "main [data-scroll-reveal]",
+      "main [class*='rounded-xl border']",
+      "main [class*='rounded-2xl border']",
+      "main [class*='rounded-3xl border']",
+      "#root section",
+      "#root article",
+      "footer",
+    ].join(",");
+    const matches = Array.from(document.querySelectorAll<HTMLElement>(selector));
+    // Avoid stacking multiple blur/opacity effects on nested cards and sections.
+    const elements = matches.filter((element) => !element.parentElement?.closest(selector));
+
+    if (reduceMotion) {
+      elements.forEach((element) => {
+        element.style.removeProperty("opacity");
+        element.style.removeProperty("filter");
+        element.style.removeProperty("translate");
+      });
+      return;
+    }
+
+    let frame = 0;
+    const updateReveal = () => {
+      frame = 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      elements.forEach((element) => {
+        const rect = element.getBoundingClientRect();
+        // Keep content that is already above the viewport fully revealed; fade
+        // in from the bottom edge over the first ~72% of the viewport height.
+        const progress = Math.max(0, Math.min(1, (viewportHeight - rect.top) / (viewportHeight * 0.72)));
+        element.style.opacity = String(0.22 + progress * 0.78);
+        element.style.filter = progress >= 1 ? "blur(0px)" : `blur(${(1 - progress) * 12}px)`;
+        element.style.translate = `0 ${(1 - progress) * 18}px`;
+        element.style.willChange = progress > 0 && progress < 1 ? "opacity, filter, translate" : "auto";
+      });
+    };
+    const scheduleUpdate = () => {
+      if (!frame) frame = window.requestAnimationFrame(updateReveal);
+    };
+
+    updateReveal();
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+      if (frame) window.cancelAnimationFrame(frame);
+      elements.forEach((element) => {
+        element.style.removeProperty("opacity");
+        element.style.removeProperty("filter");
+        element.style.removeProperty("translate");
+        element.style.removeProperty("will-change");
+      });
+    };
+  }, [pathname]);
+
   return null;
 };
 
