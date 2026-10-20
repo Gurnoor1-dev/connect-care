@@ -151,43 +151,37 @@
   box-shadow: var(--shadow-card);
 }
 
-/* Atmospheric visual glow tuned for light peach & dark slate */
+/* A quiet paper-like canvas keeps the green palette intentional rather than glossy. */
 :root {
-  --visual-glow-a: oklch(0.88 0.09 174 / 34%);
-  --visual-glow-b: oklch(0.9 0.075 220 / 24%);
-  --visual-glow-c: oklch(0.93 0.08 95 / 35%);
+  --visual-glow-a: oklch(0.91 0.055 164 / 22%);
+  --visual-glow-b: oklch(0.93 0.045 95 / 18%);
+  --visual-glow-c: oklch(0.94 0.035 160 / 16%);
 }
 .dark {
-  --visual-glow-a: oklch(0.42 0.1 174 / 20%);
-  --visual-glow-b: oklch(0.36 0.09 220 / 18%);
-  --visual-glow-c: oklch(0.3 0.06 95 / 12%);
+  --visual-glow-a: oklch(0.28 0.06 164 / 18%);
+  --visual-glow-b: oklch(0.25 0.04 95 / 10%);
+  --visual-glow-c: oklch(0.24 0.04 160 / 10%);
 }
 body {
   background-image:
-    radial-gradient(ellipse at 6% 4%, var(--visual-glow-a), transparent 34rem),
-    radial-gradient(ellipse at 96% 22%, var(--visual-glow-b), transparent 38rem),
-    radial-gradient(ellipse at 45% 100%, var(--visual-glow-c), transparent 44rem);
+    radial-gradient(ellipse at 8% 0%, var(--visual-glow-a), transparent 40rem),
+    radial-gradient(ellipse at 92% 34%, var(--visual-glow-b), transparent 42rem);
   background-attachment: fixed;
 }
-#root {
-  isolation: isolate;
-}
+#root { isolation: isolate; }
 :where(.bg-card, [class*="bg-card/"], .rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border) {
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 8px 22px -20px color-mix(in oklab, var(--foreground) 26%, transparent);
   transition: box-shadow 220ms ease, border-color 220ms ease, background-color 220ms ease;
 }
-:where(.bg-card, [class*="bg-card/"], .rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border):hover {
-  border-color: color-mix(in oklab, var(--primary) 28%, var(--color-border));
-}
 :where(button, [role="button"], a[class*="rounded"]):not(:disabled):hover {
-  filter: saturate(1.08);
+  filter: saturate(1.04);
 }
 :where(header, nav, [data-state="open"][role="dialog"]) {
   transition: backdrop-filter 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
 }
 html.scrolling-up :where(header, nav) {
-  -webkit-backdrop-filter: blur(16px) saturate(1.18);
-  backdrop-filter: blur(16px) saturate(1.18);
+  -webkit-backdrop-filter: blur(16px) saturate(1.12);
+  backdrop-filter: blur(16px) saturate(1.12);
   box-shadow: 0 8px 28px -18px color-mix(in oklab, var(--foreground) 15%, transparent);
 }
 :root:not(.dark) html.scrolling-up :where(header, nav) {
@@ -196,20 +190,17 @@ html.scrolling-up :where(header, nav) {
 .dark html.scrolling-up :where(header, nav) {
   background-color: color-mix(in oklab, var(--background) 85%, transparent);
 }
-:where(img) {
-  image-rendering: auto;
-}
+:where(img) { image-rendering: auto; }
 :where(.bg-gradient-brand) {
   background-size: 160% 160%;
   transition: background-position 350ms ease, filter 220ms ease;
 }
-:where(.bg-gradient-brand):hover {
-  background-position: 100% 0;
-}
+:where(.bg-gradient-brand):hover { background-position: 100% 0; }
+.br-site footer a { text-underline-offset: 4px; }
+.br-site footer a:hover { text-decoration: underline; }
+.br-site footer h4 { color: var(--foreground); }
 @media (prefers-reduced-motion: reduce) {
   body { background-attachment: scroll; }
   :where(.bg-card, [class*="bg-card/"], .rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
-  :where(button, [role="button"], a[class*="rounded"]) {
-    transition: none !important;
-  }
+  :where(button, [role="button"], a[class*="rounded"]) { transition: none !important; }
 }
