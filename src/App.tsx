@@ -99,14 +99,19 @@ const ScrollToTop = () => {
     let frame = 0;
 
     const scanForElements = () => {
-      document.querySelectorAll<HTMLElement>(selector).forEach((element) => {
-        if (elements.has(element)) return;
-        // Do not animate site chrome or hidden modal/menu content.
-        if (element.closest('[role="dialog"], [data-state="closed"]')) return;
-        elements.add(element);
-        if (reduceMotion) return;
-        element.dataset.brScrollReveal = "true";
-      });
+      const matches = Array.from(document.querySelectorAll<HTMLElement>(selector));
+      // Animate the outermost matching block only, preventing nested cards from
+      // multiplying opacity and blur while keeping whole sections consistent.
+      matches
+        .filter((element) => !element.parentElement?.closest(selector))
+        .forEach((element) => {
+          if (elements.has(element)) return;
+          // Do not animate hidden modal/menu content.
+          if (element.closest('[role="dialog"], [data-state="closed"]')) return;
+          elements.add(element);
+          if (reduceMotion) return;
+          element.dataset.brScrollReveal = "true";
+        });
       scheduleUpdate();
     };
 
