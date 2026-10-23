@@ -77,7 +77,7 @@ export default function Specialists() {
   const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState<SpecialistRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [previousConsultationSpecialistIds, setPreviousConsultationSpecialistIds] = useState<Set<string>>(new Set());
+  const [hasPaidConsultation, setHasPaidConsultation] = useState(false);
   const [consultationHistoryLoaded, setConsultationHistoryLoaded] = useState(false);
   const [specialityFilter, setSpecialityFilter] = useState("all");
   const [qualificationFilter, setQualificationFilter] = useState("all");
@@ -90,28 +90,45 @@ export default function Specialists() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      setPreviousConsultationSpecialistIds(new Set());
+      setHasPaidConsultation(false);
       setConsultationHistoryLoaded(true);
       return;
     }
+
     let cancelled = false;
-    setConsultationHistoryLoaded(false);
-    (async () => {
+    const refreshPaidConsultation = async () => {
       const { data, error } = await supabase.from("appointments")
-        .select("specialist_id")
+        .select("id")
         .eq("customer_id", user.id)
-        .not("status", "eq", "cancelled");
+        .or("payment_captured_at.not.is.null,razorpay_payment_status.eq.captured,payu_mihpayid.not.is.null")
+        .limit(1);
       if (cancelled) return;
       if (error) {
-        console.error("[Specialists] consultation history lookup failed:", error);
-        setPreviousConsultationSpecialistIds(new Set(items.map((item) => item.id)));
+        console.error("[Specialists] paid consultation lookup failed:", error);
+        // Fail closed: never show a one-time offer when eligibility cannot be verified.
+        setHasPaidConsultation(true);
       } else {
-        setPreviousConsultationSpecialistIds(new Set((data ?? []).map((appointment) => appointment.specialist_id)));
+        setHasPaidConsultation((data ?? []).length > 0);
       }
       setConsultationHistoryLoaded(true);
-    })();
-    return () => { cancelled = true; };
-  }, [user, authLoading, items]);
+    };
+
+    setConsultationHistoryLoaded(false);
+    void refreshPaidConsultation();
+    const channel = supabase.channel(`first-consultation-offer-${user.id}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "appointments",
+        filter: `customer_id=eq.${user.id}`,
+      }, () => { void refreshPaidConsultation(); })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      void supabase.removeChannel(channel);
+    };
+  }, [user, authLoading]);
 
   const breatheRiseSpecialities = [
     { label: "Stress & anxiety", keywords: ["stress", "anxiety"] },
@@ -285,7 +302,7 @@ export default function Specialists() {
             <RevealOnScroll key={specialist.id} delay={Math.min(index % 3, 2) * 90}>
               <SpecialistCard
                 specialist={specialist}
-                firstConsultationEligible={!authLoading && (!user || (consultationHistoryLoaded && !previousConsultationSpecialistIds.has(specialist.id)))}
+                firstConsultationEligible={!authLoading && (!user || (consultationHistoryLoaded && !hasPaidConsultation))}
                 onBook={(tierId) => setBookingSelection({ specialistId: specialist.id, tierId })}
               />
             </RevealOnScroll>
