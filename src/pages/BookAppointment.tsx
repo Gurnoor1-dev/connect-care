@@ -142,13 +142,13 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
   }, [specialistId, user]);
 
   useEffect(() => {
-    if (!specialistId || !user) {
+    if (!user) {
       setHasPreviousConsultation(null);
       return;
     }
-    setHasPreviousConsultation(true);
+
     let cancelled = false;
-    (async () => {
+    const refreshPaidConsultation = async () => {
       const { data, error } = await supabase.from("appointments")
         .select("id")
         .eq("customer_id", user.id)
@@ -156,14 +156,29 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
         .limit(1);
       if (cancelled) return;
       if (error) {
-        console.error("[BookAppointment] consultation eligibility check failed:", error);
+        console.error("[BookAppointment] paid consultation lookup failed:", error);
         setHasPreviousConsultation(true);
       } else {
         setHasPreviousConsultation((data ?? []).length > 0);
       }
-    })();
-    return () => { cancelled = true; };
-  }, [specialistId, user]);
+    };
+
+    setHasPreviousConsultation(true);
+    void refreshPaidConsultation();
+    const channel = supabase.channel(`booking-first-consultation-offer-${user.id}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "appointments",
+        filter: `customer_id=eq.${user.id}`,
+      }, () => { void refreshPaidConsultation(); })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      void supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!specialistId) return;
