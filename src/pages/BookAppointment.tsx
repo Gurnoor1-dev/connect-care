@@ -24,7 +24,7 @@ declare global {
 
 interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; tier_type?: string | null; }
 interface Specialist { id: string; display_name: string; headline: string | null; country: string | null; country_flag: string | null; timezone: string | null; avatar_url: string | null; immediate_sessions: boolean; }
-interface Availability { available_date: string; day_of_week: number; start_time: string; end_time: string; }
+interface Availability { available_date: string | null; day_of_week: number; start_time: string; end_time: string; }
 interface BookedAppointment { scheduled_at: string; duration_minutes: number; status: string; }
 interface SlotOption { value: string; booked: boolean; }
 
@@ -219,22 +219,30 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
     const output: SlotOption[] = [];
 
     for (const range of availability) {
-      // Ignore malformed availability rows so one bad record cannot crash the
-      // booking dialog when a customer selects a calendar date.
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(range.available_date ?? "")) continue;
+      // Availability may be a one-off date or a recurring weekday (NULL date).
+      // Skip malformed times without breaking the entire booking screen.
+      if (range.available_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(range.available_date)) continue;
       if (!/^\\d{2}:\\d{2}/.test(range.start_time ?? "") || !/^\\d{2}:\\d{2}/.test(range.end_time ?? "")) continue;
       const rangeStart = timeToMinutes(range.start_time);
       const rawRangeEnd = timeToMinutes(range.end_time);
       if (!Number.isFinite(rangeStart) || !Number.isFinite(rawRangeEnd) || rangeStart < 0 || rangeStart >= 24 * 60 || rawRangeEnd < 0 || rawRangeEnd >= 24 * 60) continue;
       const rangeEnd = rawRangeEnd <= rangeStart ? rawRangeEnd + 24 * 60 : rawRangeEnd;
+      const baseDateKeys = range.available_date
+        ? [range.available_date]
+        : [-1, 0, 1].map((offset) => {
+            const candidate = new Date(`${viewerDateKey}T00:00:00Z`);
+            candidate.setUTCDate(candidate.getUTCDate() + offset);
+            return candidate.toISOString().slice(0, 10);
+          }).filter((dateKey) => new Date(`${dateKey}T00:00:00Z`).getUTCDay() === range.day_of_week);
 
+      for (const baseDateKey of baseDateKeys) {
       for (let minutes = rangeStart; minutes + tier.duration_minutes <= rangeEnd; minutes += SLOT_MINUTES) {
         const startDayOffset = Math.floor(minutes / (24 * 60));
         const endMinutes = minutes + tier.duration_minutes;
         const endDayOffset = Math.floor(endMinutes / (24 * 60));
         const startMinuteOfDay = minutes % (24 * 60);
         const endMinuteOfDay = endMinutes % (24 * 60);
-        const startDate = new Date(`${range.available_date}T00:00:00Z`);
+        const startDate = new Date(`${baseDateKey}T00:00:00Z`);
         startDate.setUTCDate(startDate.getUTCDate() + startDayOffset);
         const endDate = new Date(`${range.available_date}T00:00:00Z`);
         endDate.setUTCDate(endDate.getUTCDate() + endDayOffset);
@@ -258,6 +266,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
         });
 
         output.push({ value: value.toISOString(), booked: isBooked });
+      }
       }
     }
 
