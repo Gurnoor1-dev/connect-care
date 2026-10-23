@@ -221,8 +221,8 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
     for (const range of availability) {
       // Availability may be a one-off date or a recurring weekday (NULL date).
       // Skip malformed times without breaking the entire booking screen.
-      if (range.available_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(range.available_date)) continue;
-      if (!/^\\d{2}:\\d{2}/.test(range.start_time ?? "") || !/^\\d{2}:\\d{2}/.test(range.end_time ?? "")) continue;
+      if (range.available_date && !/^\d{4}-\d{2}-\d{2}$/.test(range.available_date)) continue;
+      if (!/^\d{2}:\d{2}/.test(range.start_time ?? "") || !/^\d{2}:\d{2}/.test(range.end_time ?? "")) continue;
       const rangeStart = timeToMinutes(range.start_time);
       const rawRangeEnd = timeToMinutes(range.end_time);
       if (!Number.isFinite(rangeStart) || !Number.isFinite(rawRangeEnd) || rangeStart < 0 || rangeStart >= 24 * 60 || rawRangeEnd < 0 || rawRangeEnd >= 24 * 60) continue;
