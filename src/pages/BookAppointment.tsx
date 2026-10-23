@@ -22,7 +22,7 @@ declare global {
   }
 }
 
-interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; tier_type?: string; }
+interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; tier_type?: string | null; }
 interface Specialist { id: string; display_name: string; headline: string | null; country: string | null; country_flag: string | null; timezone: string | null; avatar_url: string | null; immediate_sessions: boolean; }
 interface Availability { available_date: string; day_of_week: number; start_time: string; end_time: string; }
 interface BookedAppointment { scheduled_at: string; duration_minutes: number; status: string; }
@@ -46,13 +46,13 @@ function timeToMinutes(value: string) {
   return hours * 60 + minutes;
 }
 
-function firstConsultationPrice(priceCents: number, tierType?: string) {
+function firstConsultationPrice(priceCents: number, tierType?: string | null) {
   if (tierType === "bundle") return null;
   const discounts: Record<number, number> = { 9900: 6900, 12900: 9100, 18900: 13300 };
   return discounts[priceCents] ?? null;
 }
 
-function priceForConsultation(priceCents: number, tierType: string | undefined, hasPreviousConsultation: boolean | null) {
+function priceForConsultation(priceCents: number, tierType: string | null | undefined, hasPreviousConsultation: boolean | null) {
   const discount = firstConsultationPrice(priceCents, tierType);
   return hasPreviousConsultation === true || discount === null ? priceCents : discount;
 }
