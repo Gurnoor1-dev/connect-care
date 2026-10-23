@@ -148,11 +148,6 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
 
   const allowedDays = useMemo(() => bookingDays(), []);
   const allowedSet = useMemo(() => new Set(allowedDays.map((date) => format(date, "yyyy-MM-dd"))), [allowedDays]);
-  const availableDateSet = useMemo(() => new Set(
-    allowedDays
-      .filter((date) => hasAvailableSlotOnDate(date, tier, specialist, availability, booked))
-      .map((date) => format(date, "yyyy-MM-dd")),
-  ), [allowedDays, tier, specialist, availability, booked]);
 
   useEffect(() => {
     (async () => {
@@ -257,6 +252,12 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
   const specialist = specialists.find((item) => item.id === specialistId);
   const tier = tiers.find((item) => item.id === tierId);
   const displayedTierPrice = tier ? priceForConsultation(tier.price_cents, tier.tier_type, hasPreviousConsultation) : 0;
+
+  const availableDateSet = useMemo(() => new Set(
+    allowedDays
+      .filter((date) => hasAvailableSlotOnDate(date, tier, specialist, availability, booked))
+      .map((date) => format(date, "yyyy-MM-dd")),
+  ), [allowedDays, tier, specialist, availability, booked]);
 
   const slotOptions = useMemo<SlotOption[]>(() => {
     if (!selectedDate || !tier || !specialist) return [];
