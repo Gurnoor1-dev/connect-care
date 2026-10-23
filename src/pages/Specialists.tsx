@@ -82,7 +82,7 @@ export default function Specialists() {
   const [specialityFilter, setSpecialityFilter] = useState("all");
   const [qualificationFilter, setQualificationFilter] = useState("all");
   const [experienceFilter, setExperienceFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("name-asc");
+  const [sortBy, setSortBy] = useState("price-low");
   const [priceSort, setPriceSort] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [bookingSelection, setBookingSelection] = useState<{ specialistId: string; tierId: string } | null>(null);
@@ -159,6 +159,7 @@ export default function Specialists() {
       (experienceFilter === "all" || s.experience_level === experienceFilter);
     });
     return [...filtered].sort((a, b) => {
+      if (sortBy === "price-low") return (a.specialist_tiers.find((t) => (t.tier_type ?? "single") === "single")?.price_cents ?? Infinity) - (b.specialist_tiers.find((t) => (t.tier_type ?? "single") === "single")?.price_cents ?? Infinity);
       if (sortBy === "name-desc") return b.display_name.localeCompare(a.display_name);
       if (priceSort === "low") return (a.specialist_tiers.find((t) => (t.tier_type ?? "single") === "single")?.price_cents ?? Infinity) - (b.specialist_tiers.find((t) => (t.tier_type ?? "single") === "single")?.price_cents ?? Infinity);
       if (priceSort === "high") return (b.specialist_tiers.find((t) => (t.tier_type ?? "single") === "single")?.price_cents ?? -1) - (a.specialist_tiers.find((t) => (t.tier_type ?? "single") === "single")?.price_cents ?? -1);
@@ -264,6 +265,7 @@ export default function Specialists() {
               <label className="flex-1">
                 <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground"><ArrowUpDown className="h-3 w-3" /> Sort by</span>
                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-10 w-full rounded-lg border border-[#cbd7c7] bg-[#fbfaf4] px-3 text-sm dark:border-[#3d5946] dark:bg-[#192e23]">
+                  <option value="price-low">Price (low to high)</option>
                   <option value="name-asc">Name (A–Z)</option>
                   <option value="name-desc">Name (Z–A)</option>
                   <option value="duration-short">Shortest session</option>
