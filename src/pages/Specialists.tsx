@@ -57,6 +57,12 @@ function specialtyColor(s: string) {
   return SPECIALTY_COLORS[key ?? "default"];
 }
 
+function firstConsultationPrice(priceCents: number, tierType?: string) {
+  if (tierType === "bundle") return null;
+  const discounts: Record<number, number> = { 9900: 6900, 12900: 9100, 18900: 13300 };
+  return discounts[priceCents] ?? null;
+}
+
 // Sort tiers: single first, then bundles ascending by price
 function sortTiers(tiers: Tier[]) {
   return [...tiers].sort((a, b) => {
@@ -407,11 +413,21 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
             <p className="mt-0.5 text-xs text-[#718273] dark:text-[#b8cbbb]"><Clock className="mr-1 inline h-3 w-3" />{selectedTier.duration_minutes} minute session</p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-2xl font-bold tracking-tight text-[#204b3b] dark:text-[#edf4e8]">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</p>
+            <div className="text-right">
+              {firstConsultationPrice(selectedTier.price_cents, selectedTier.tier_type) !== null ? (
+                <>
+                  <p className="text-xs text-[#718273] line-through dark:text-[#b8cbbb]">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}/session</p>
+                  <p className="text-2xl font-bold tracking-tight text-[#147d70] dark:text-[#9fdbca]">{selectedTier.currency} {(firstConsultationPrice(selectedTier.price_cents, selectedTier.tier_type)! / 100).toFixed(0)}</p>
+                  <span className="mt-1 inline-flex rounded-full bg-[#dff1e3] px-2 py-1 text-[10px] font-bold text-[#276545] dark:bg-[#294737] dark:text-[#c3e2cf]">First consultation only</span>
+                </>
+              ) : (
+                <p className="text-2xl font-bold tracking-tight text-[#204b3b] dark:text-[#edf4e8]">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}</p>
+              )}
+            </div>
             <p className="text-[10px] text-[#718273] dark:text-[#b8cbbb]">clear, upfront pricing</p>
           </div>
         </div>}
-        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="group/book relative z-10 flex h-12 w-full items-center overflow-hidden rounded-2xl border border-[#65cdb5]/50 bg-gradient-to-r from-[#147d70] via-[#259e8a] to-[#537fba] px-5 font-semibold !text-white shadow-[0_10px_26px_-9px_rgba(37,158,138,0.72)] transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent before:transition-transform before:duration-700 hover:-translate-y-0.5 hover:shadow-[0_15px_32px_-8px_rgba(37,158,138,0.8)] hover:before:translate-x-full active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#65cdb5]/40 dark:from-[#176f64] dark:via-[#218c7c] dark:to-[#496fa4]"><Zap className="mr-2 h-4 w-4" />Book this session<span className="ml-auto flex items-center gap-1 text-sm font-bold"><span>{selectedTier ? selectedTier.currency + " " + (selectedTier.price_cents / 100).toFixed(0) : "Choose a session"}</span><ArrowRight className="h-4 w-4 transition-transform group-hover/book:translate-x-1" /></span></Button>
+        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="group/book relative z-10 flex h-12 w-full items-center overflow-hidden rounded-2xl border border-[#65cdb5]/50 bg-gradient-to-r from-[#147d70] via-[#259e8a] to-[#537fba] px-5 font-semibold !text-white shadow-[0_10px_26px_-9px_rgba(37,158,138,0.72)] transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent before:transition-transform before:duration-700 hover:-translate-y-0.5 hover:shadow-[0_15px_32px_-8px_rgba(37,158,138,0.8)] hover:before:translate-x-full active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#65cdb5]/40 dark:from-[#176f64] dark:via-[#218c7c] dark:to-[#496fa4]"><Zap className="mr-2 h-4 w-4" />Book this session<span className="ml-auto flex items-center gap-1 text-sm font-bold"><span>{selectedTier ? selectedTier.currency + " " + ((firstConsultationPrice(selectedTier.price_cents, selectedTier.tier_type) ?? selectedTier.price_cents) / 100).toFixed(0) : "Choose a session"}</span><ArrowRight className="h-4 w-4 transition-transform group-hover/book:translate-x-1" /></span></Button>
         <p className="relative mt-2.5 text-center text-[10px] text-[#718273] dark:text-[#b8cbbb]">A thoughtful next step, at your own pace.</p>
       </div>
     </Card>
@@ -538,7 +554,15 @@ function TierPill({
         </div>
         <div className="max-w-[42%] shrink-0 text-right">
           <div className={`text-base font-bold tracking-tight ${selected ? "text-[#204b3b] dark:text-[#edf4e8]" : "text-[#405d4b] dark:text-[#d7e6d5]"}`}>
-            {tier.currency} {(tier.price_cents / 100).toFixed(0)}
+            {firstConsultationPrice(tier.price_cents, tier.tier_type) !== null ? (
+              <div className="flex flex-col items-end">
+                <span className="text-xs font-medium text-[#718273] line-through dark:text-[#b8cbbb]">{tier.currency} {(tier.price_cents / 100).toFixed(0)}/session</span>
+                <span className="text-base font-extrabold text-[#147d70] dark:text-[#9fdbca]">{tier.currency} {(firstConsultationPrice(tier.price_cents, tier.tier_type)! / 100).toFixed(0)}</span>
+                <span className="mt-1 rounded-full bg-[#dff1e3] px-2 py-0.5 text-[9px] font-bold text-[#276545] dark:bg-[#294737] dark:text-[#c3e2cf]">First consultation only</span>
+              </div>
+            ) : (
+              <span>{tier.currency} {(tier.price_cents / 100).toFixed(0)}</span>
+            )}
           </div>
           {isBundle && tier.session_count && tier.session_count > 1 && (
             <div className="mt-0.5 text-[10px] text-[#718273] dark:text-[#b8cbbb]">
