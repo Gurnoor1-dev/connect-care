@@ -152,8 +152,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
       const { data, error } = await supabase.from("appointments")
         .select("id")
         .eq("customer_id", user.id)
-        .eq("specialist_id", specialistId)
-        .not("status", "eq", "cancelled")
+        .or("payment_captured_at.not.is.null,razorpay_payment_status.eq.captured,payu_mihpayid.not.is.null")
         .limit(1);
       if (cancelled) return;
       if (error) {
@@ -368,8 +367,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
       const { data: priorAppointments, error: priorAppointmentsError } = await supabase.from("appointments")
         .select("id")
         .eq("customer_id", bookingUser.id)
-        .eq("specialist_id", specialistId)
-        .not("status", "eq", "cancelled")
+        .or("payment_captured_at.not.is.null,razorpay_payment_status.eq.captured,payu_mihpayid.not.is.null")
         .limit(1);
       if (priorAppointmentsError) throw new Error("We couldn't verify first-consultation eligibility. Please try again.");
       const isFirstConsultation = (priorAppointments ?? []).length === 0;
