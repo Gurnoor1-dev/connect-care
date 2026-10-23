@@ -244,7 +244,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
         const endMinuteOfDay = endMinutes % (24 * 60);
         const startDate = new Date(`${baseDateKey}T00:00:00Z`);
         startDate.setUTCDate(startDate.getUTCDate() + startDayOffset);
-        const endDate = new Date(`${range.available_date}T00:00:00Z`);
+        const endDate = new Date(`${baseDateKey}T00:00:00Z`);
         endDate.setUTCDate(endDate.getUTCDate() + endDayOffset);
         const startDateKey = startDate.toISOString().slice(0, 10);
         const endDateKey = endDate.toISOString().slice(0, 10);
