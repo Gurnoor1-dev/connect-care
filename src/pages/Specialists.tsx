@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { getDeviceTimeZone, getTimeZoneLabel, formatInTimeZone, zonedTimeToUtc, getZonedDateKey, getZonedDayOfWeek } from "@/lib/timezone";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -73,8 +74,11 @@ function sortTiers(tiers: Tier[]) {
 }
 
 export default function Specialists() {
+  const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState<SpecialistRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previousConsultationSpecialistIds, setPreviousConsultationSpecialistIds] = useState<Set<string>>(new Set());
+  const [consultationHistoryLoaded, setConsultationHistoryLoaded] = useState(false);
   const [specialityFilter, setSpecialityFilter] = useState("all");
   const [qualificationFilter, setQualificationFilter] = useState("all");
   const [experienceFilter, setExperienceFilter] = useState("all");
@@ -82,6 +86,32 @@ export default function Specialists() {
   const [priceSort, setPriceSort] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [bookingSelection, setBookingSelection] = useState<{ specialistId: string; tierId: string } | null>(null);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setPreviousConsultationSpecialistIds(new Set());
+      setConsultationHistoryLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    setConsultationHistoryLoaded(false);
+    (async () => {
+      const { data, error } = await supabase.from("appointments")
+        .select("specialist_id")
+        .eq("customer_id", user.id)
+        .not("status", "eq", "cancelled");
+      if (cancelled) return;
+      if (error) {
+        console.error("[Specialists] consultation history lookup failed:", error);
+        setPreviousConsultationSpecialistIds(new Set(items.map((item) => item.id)));
+      } else {
+        setPreviousConsultationSpecialistIds(new Set((data ?? []).map((appointment) => appointment.specialist_id)));
+      }
+      setConsultationHistoryLoaded(true);
+    })();
+    return () => { cancelled = true; };
+  }, [user, authLoading, items]);
 
   const breatheRiseSpecialities = [
     { label: "Stress & anxiety", keywords: ["stress", "anxiety"] },
@@ -253,7 +283,11 @@ export default function Specialists() {
 
           {!loading && visibleItems.map((specialist, index) => (
             <RevealOnScroll key={specialist.id} delay={Math.min(index % 3, 2) * 90}>
-              <SpecialistCard specialist={specialist} onBook={(tierId) => setBookingSelection({ specialistId: specialist.id, tierId })} />
+              <SpecialistCard
+                specialist={specialist}
+                firstConsultationEligible={!authLoading && (!user || (consultationHistoryLoaded && !previousConsultationSpecialistIds.has(specialist.id)))}
+                onBook={(tierId) => setBookingSelection({ specialistId: specialist.id, tierId })}
+              />
             </RevealOnScroll>
           ))}
         </div>
@@ -268,7 +302,7 @@ export default function Specialists() {
   );
 }
 
-function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onBook: (tierId: string) => void }) {
+function SpecialistCard({ specialist, onBook, firstConsultationEligible }: { specialist: SpecialistRow; onBook: (tierId: string) => void; firstConsultationEligible: boolean }) {
   const tiers = sortTiers(specialist.specialist_tiers ?? []);
   const singleTier = tiers.find((t) => (t.tier_type ?? "single") === "single");
   const bundleTiers = tiers.filter((t) => t.tier_type === "bundle");
@@ -388,6 +422,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
                 selected={activeTier === singleTier.id}
                 onSelect={() => setActiveTier(singleTier.id)}
                 badge={null}
+                firstConsultationEligible={firstConsultationEligible}
               />
             )}
             {bundleTiers.map((t, i) => (
@@ -397,6 +432,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
                 selected={activeTier === t.id}
                 onSelect={() => setActiveTier(t.id)}
                 badge={t.savings_label ?? (i === 0 ? "SAVE 12%" : i === 1 ? "SAVE 20%" : null)}
+                firstConsultationEligible={firstConsultationEligible}
               />
             ))}
           </div>
@@ -414,7 +450,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
           </div>
           <div className="shrink-0 text-right">
             <div className="text-right">
-              {firstConsultationPrice(selectedTier.price_cents, selectedTier.tier_type) !== null ? (
+              {firstConsultationEligible && firstConsultationPrice(selectedTier.price_cents, selectedTier.tier_type) !== null ? (
                 <>
                   <p className="text-xs text-[#718273] line-through dark:text-[#b8cbbb]">{selectedTier.currency} {(selectedTier.price_cents / 100).toFixed(0)}/session</p>
                   <p className="text-2xl font-bold tracking-tight text-[#147d70] dark:text-[#9fdbca]">{selectedTier.currency} {(firstConsultationPrice(selectedTier.price_cents, selectedTier.tier_type)! / 100).toFixed(0)}</p>
@@ -427,7 +463,7 @@ function SpecialistCard({ specialist, onBook }: { specialist: SpecialistRow; onB
             <p className="text-[10px] text-[#718273] dark:text-[#b8cbbb]">clear, upfront pricing</p>
           </div>
         </div>}
-        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="group/book relative z-10 flex h-12 w-full items-center overflow-hidden rounded-2xl border border-[#65cdb5]/50 bg-gradient-to-r from-[#147d70] via-[#259e8a] to-[#537fba] px-5 font-semibold !text-white shadow-[0_10px_26px_-9px_rgba(37,158,138,0.72)] transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent before:transition-transform before:duration-700 hover:-translate-y-0.5 hover:shadow-[0_15px_32px_-8px_rgba(37,158,138,0.8)] hover:before:translate-x-full active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#65cdb5]/40 dark:from-[#176f64] dark:via-[#218c7c] dark:to-[#496fa4]"><Zap className="mr-2 h-4 w-4" />Book this session<span className="ml-auto flex items-center gap-1 text-sm font-bold"><span>{selectedTier ? selectedTier.currency + " " + ((firstConsultationPrice(selectedTier.price_cents, selectedTier.tier_type) ?? selectedTier.price_cents) / 100).toFixed(0) : "Choose a session"}</span><ArrowRight className="h-4 w-4 transition-transform group-hover/book:translate-x-1" /></span></Button>
+        <Button type="button" disabled={!selectedTier} onClick={() => selectedTier && onBook(selectedTier.id)} className="group/book relative z-10 flex h-12 w-full items-center overflow-hidden rounded-2xl border border-[#65cdb5]/50 bg-gradient-to-r from-[#147d70] via-[#259e8a] to-[#537fba] px-5 font-semibold !text-white shadow-[0_10px_26px_-9px_rgba(37,158,138,0.72)] transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent before:transition-transform before:duration-700 hover:-translate-y-0.5 hover:shadow-[0_15px_32px_-8px_rgba(37,158,138,0.8)] hover:before:translate-x-full active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#65cdb5]/40 dark:from-[#176f64] dark:via-[#218c7c] dark:to-[#496fa4]"><Zap className="mr-2 h-4 w-4" />Book this session<span className="ml-auto flex items-center gap-1 text-sm font-bold"><span>{selectedTier ? selectedTier.currency + " " + ((firstConsultationEligible ? firstConsultationPrice(selectedTier.price_cents, selectedTier.tier_type) : null) ?? selectedTier.price_cents) / 100).toFixed(0) : "Choose a session"}</span><ArrowRight className="h-4 w-4 transition-transform group-hover/book:translate-x-1" /></span></Button>
         <p className="relative mt-2.5 text-center text-[10px] text-[#718273] dark:text-[#b8cbbb]">A thoughtful next step, at your own pace.</p>
       </div>
     </Card>
@@ -509,11 +545,13 @@ function TierPill({
   selected,
   onSelect,
   badge,
+  firstConsultationEligible,
 }: {
   tier: Tier;
   selected: boolean;
   onSelect: () => void;
   badge: string | null;
+  firstConsultationEligible: boolean;
 }) {
   const isBundle = tier.tier_type === "bundle";
 
@@ -554,7 +592,7 @@ function TierPill({
         </div>
         <div className="max-w-[42%] shrink-0 text-right">
           <div className={`text-base font-bold tracking-tight ${selected ? "text-[#204b3b] dark:text-[#edf4e8]" : "text-[#405d4b] dark:text-[#d7e6d5]"}`}>
-            {firstConsultationPrice(tier.price_cents, tier.tier_type) !== null ? (
+            {firstConsultationEligible && firstConsultationPrice(tier.price_cents, tier.tier_type) !== null ? (
               <div className="flex flex-col items-end">
                 <span className="text-xs font-medium text-[#718273] line-through dark:text-[#b8cbbb]">{tier.currency} {(tier.price_cents / 100).toFixed(0)}/session</span>
                 <span className="text-base font-extrabold text-[#147d70] dark:text-[#9fdbca]">{tier.currency} {(firstConsultationPrice(tier.price_cents, tier.tier_type)! / 100).toFixed(0)}</span>
