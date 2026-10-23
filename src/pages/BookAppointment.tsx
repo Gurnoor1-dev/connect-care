@@ -219,8 +219,13 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
     const output: SlotOption[] = [];
 
     for (const range of availability) {
+      // Ignore malformed availability rows so one bad record cannot crash the
+      // booking dialog when a customer selects a calendar date.
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(range.available_date ?? "")) continue;
+      if (!/^\\d{2}:\\d{2}/.test(range.start_time ?? "") || !/^\\d{2}:\\d{2}/.test(range.end_time ?? "")) continue;
       const rangeStart = timeToMinutes(range.start_time);
       const rawRangeEnd = timeToMinutes(range.end_time);
+      if (!Number.isFinite(rangeStart) || !Number.isFinite(rawRangeEnd) || rangeStart < 0 || rangeStart >= 24 * 60 || rawRangeEnd < 0 || rawRangeEnd >= 24 * 60) continue;
       const rangeEnd = rawRangeEnd <= rangeStart ? rawRangeEnd + 24 * 60 : rawRangeEnd;
 
       for (let minutes = rangeStart; minutes + tier.duration_minutes <= rangeEnd; minutes += SLOT_MINUTES) {
@@ -459,7 +464,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
 
           <div><Label>Session plan</Label><Select value={tierId} onValueChange={setTierId} disabled={!specialistId || !tiers.length}><SelectTrigger className="mt-2 w-full"><SelectValue placeholder={!specialistId ? "Pick a specialist first" : !tiers.length ? "No active plans" : "Select a plan"} /></SelectTrigger><SelectContent>{tiers.map((item) => <SelectItem key={item.id} value={item.id}>{item.label} · {item.currency} {(priceForConsultation(item.price_cents, item.tier_type, hasPreviousConsultation) / 100).toFixed(2)} / {item.duration_minutes} min</SelectItem>)}</SelectContent></Select></div>
 
-          <div className="overflow-hidden rounded-3xl border bg-gradient-soft p-3 sm:p-4"><div className="mb-3 rounded-xl border bg-accent/40 px-3 py-2 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}) is being used. Booking times are converted from the specialist&#39;s timezone.</div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 font-semibold"><CalendarClock className="h-4 w-4 text-teal" />Choose your date</div><span className="text-[11px] text-muted-foreground">Today + 7 days</span></div><DayPicker mode="single" selected={selectedDate} onSelect={(date) => { setSelectedDate(date); setScheduledAt(""); }} disabled={(date) => !allowedSet.has(format(date, "yyyy-MM-dd"))} startMonth={allowedDays[0]} endMonth={allowedDays[allowedDays.length - 1]} showOutsideDays={false} className="booking-calendar mx-auto" /></div>
+          <div className="overflow-hidden rounded-3xl border bg-gradient-soft p-3 sm:p-4"><div className="mb-3 rounded-xl border bg-accent/40 px-3 py-2 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}) is being used. Booking times are converted from the specialist&#39;s timezone.</div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 font-semibold"><CalendarClock className="h-4 w-4 text-teal" />Choose your date</div><span className="text-[11px] text-muted-foreground">Today + 7 days</span></div><DayPicker mode="single" selected={selectedDate} onSelect={(date) => { if (!date || Number.isNaN(date.getTime())) return; setSelectedDate(startOfDay(date)); setScheduledAt(""); }} disabled={(date) => !allowedSet.has(format(date, "yyyy-MM-dd"))} startMonth={allowedDays[0]} endMonth={allowedDays[allowedDays.length - 1]} showOutsideDays={false} className="booking-calendar mx-auto" /></div>
 
           <div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><Label>Available time</Label>{specialist?.timezone && <span className="text-xs text-muted-foreground">Your device timezone: {getTimeZoneLabel(getDeviceTimeZone())}</span>}</div>
             {todaySelected && specialist && <p className="mb-3 rounded-xl bg-accent/45 px-3 py-2 text-xs leading-5 text-muted-foreground">{specialist.immediate_sessions ? <><span className="font-semibold text-foreground">Immediate Sessions are enabled.</span> Same-day booking can start 5 minutes after the current time.</> : <>For today, booking opens <span className="font-semibold text-foreground">5 hours after the current time</span>, rounded down to the nearest 15 minutes.</>}</p>}
