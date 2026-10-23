@@ -22,7 +22,7 @@ declare global {
   }
 }
 
-interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; }
+interface Tier { id: string; label: string; duration_minutes: number; price_cents: number; currency: string; tier_type?: string; }
 interface Specialist { id: string; display_name: string; headline: string | null; country: string | null; country_flag: string | null; timezone: string | null; avatar_url: string | null; immediate_sessions: boolean; }
 interface Availability { available_date: string; day_of_week: number; start_time: string; end_time: string; }
 interface BookedAppointment { scheduled_at: string; duration_minutes: number; status: string; }
@@ -44,6 +44,17 @@ function bookingDays(from = new Date()) {
 function timeToMinutes(value: string) {
   const [hours, minutes] = value.slice(0, 5).split(":").map(Number);
   return hours * 60 + minutes;
+}
+
+function firstConsultationPrice(priceCents: number, tierType?: string) {
+  if (tierType === "bundle") return null;
+  const discounts: Record<number, number> = { 9900: 6900, 12900: 9100, 18900: 13300 };
+  return discounts[priceCents] ?? null;
+}
+
+function priceForConsultation(priceCents: number, tierType: string | undefined, hasPreviousConsultation: boolean | null) {
+  const discount = firstConsultationPrice(priceCents, tierType);
+  return hasPreviousConsultation === true || discount === null ? priceCents : discount;
 }
 
 function sameDayMinimum(immediateSessions: boolean, now = new Date()) {
@@ -75,6 +86,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
   const [specialists, setSpecialists] = useState<Specialist[]>([]);
   const [specialistId, setSpecialistId] = useState(initialSpecialistId ?? params.get("specialist") ?? "");
   const [tiers, setTiers] = useState<Tier[]>([]);
+  const [hasPreviousConsultation, setHasPreviousConsultation] = useState<boolean | null>(null);
   const [tierId, setTierId] = useState(initialTierId ?? params.get("tier") ?? "");
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [booked, setBooked] = useState<BookedAppointment[]>([]);
@@ -115,7 +127,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
     (async () => {
       const [{ data: tierData, error: tierError }, { data: availabilityData, error: availabilityError }, { data: creditData }] =
         await Promise.all([
-          supabase.from("specialist_tiers").select("id,label,duration_minutes,price_cents,currency").eq("specialist_id", specialistId).eq("is_active", true).eq("currency", "USD").order("price_cents"),
+          supabase.from("specialist_tiers").select("id,label,duration_minutes,price_cents,currency,tier_type").eq("specialist_id", specialistId).eq("is_active", true).eq("currency", "USD").order("price_cents"),
           supabase.from("specialist_availability").select("available_date,day_of_week,start_time,end_time").eq("specialist_id", specialistId).eq("is_active", true),
           user ? supabase.from("customer_specialist_credits").select("credit_points").eq("customer_id", user.id).eq("specialist_id", specialistId).maybeSingle() : Promise.resolve({ data: null } as any),
         ]);
@@ -127,6 +139,31 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
       if (!(tierData ?? []).some((tier: Tier) => tier.id === tierId)) setTierId("");
       setScheduledAt("");
     })();
+  }, [specialistId, user]);
+
+  useEffect(() => {
+    if (!specialistId || !user) {
+      setHasPreviousConsultation(null);
+      return;
+    }
+    setHasPreviousConsultation(true);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from("appointments")
+        .select("id")
+        .eq("customer_id", user.id)
+        .eq("specialist_id", specialistId)
+        .not("status", "eq", "cancelled")
+        .limit(1);
+      if (cancelled) return;
+      if (error) {
+        console.error("[BookAppointment] consultation eligibility check failed:", error);
+        setHasPreviousConsultation(true);
+      } else {
+        setHasPreviousConsultation((data ?? []).length > 0);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [specialistId, user]);
 
   useEffect(() => {
@@ -156,6 +193,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
 
   const specialist = specialists.find((item) => item.id === specialistId);
   const tier = tiers.find((item) => item.id === tierId);
+  const displayedTierPrice = tier ? priceForConsultation(tier.price_cents, tier.tier_type, hasPreviousConsultation) : 0;
 
   const slotOptions = useMemo<SlotOption[]>(() => {
     if (!selectedDate || !tier || !specialist) return [];
@@ -327,6 +365,17 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
         bookingUser = signUpData.user;
       }
 
+      const { data: priorAppointments, error: priorAppointmentsError } = await supabase.from("appointments")
+        .select("id")
+        .eq("customer_id", bookingUser.id)
+        .eq("specialist_id", specialistId)
+        .not("status", "eq", "cancelled")
+        .limit(1);
+      if (priorAppointmentsError) throw new Error("We couldn't verify first-consultation eligibility. Please try again.");
+      const isFirstConsultation = (priorAppointments ?? []).length === 0;
+      const discountedPrice = isFirstConsultation ? firstConsultationPrice(tier.price_cents, tier.tier_type) : null;
+      const amountToCharge = discountedPrice ?? tier.price_cents;
+
       if (useCredits && credits >= 2 && bookingUser) {
         const { error } = await supabase.from("customer_specialist_credits").update({ credit_points: credits - 2, updated_at: new Date().toISOString() })
           .eq("customer_id", bookingUser.id).eq("specialist_id", specialistId).gte("credit_points", 2);
@@ -352,7 +401,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
       const { data: appointment, error: appointmentError } = await supabase.from("appointments").insert({
         customer_id: bookingUser.id, specialist_id: specialistId, tier_id: tier.id,
         scheduled_at: scheduledAt, duration_minutes: tier.duration_minutes,
-        amount_cents: tier.price_cents, currency: tier.currency, status: "pending_payment",
+        amount_cents: amountToCharge, currency: tier.currency, status: "pending_payment",
         customer_name: bookingUser.user_metadata?.full_name ?? bookingUser.email ?? (fullName.trim() || "Customer"),
       }).select().single();
 
@@ -395,7 +444,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
             <button type="button" onClick={() => setUseCredits(false)} className={`min-w-0 rounded-2xl border p-3 text-left transition-colors ${!useCredits || !credits ? "border-primary bg-primary/5" : "bg-background hover:bg-accent/40"}`}><ShieldCheck className="h-4 w-4 text-primary" /><div className="mt-1 text-sm font-medium">Pay via Razorpay</div><div className="text-xs text-muted-foreground">Secure USD payment</div></button>
           </div></div>}
 
-          <div><Label>Session plan</Label><Select value={tierId} onValueChange={setTierId} disabled={!specialistId || !tiers.length}><SelectTrigger className="mt-2 w-full"><SelectValue placeholder={!specialistId ? "Pick a specialist first" : !tiers.length ? "No active plans" : "Select a plan"} /></SelectTrigger><SelectContent>{tiers.map((item) => <SelectItem key={item.id} value={item.id}>{item.label} · {item.currency} {(item.price_cents / 100).toFixed(2)} / {item.duration_minutes} min</SelectItem>)}</SelectContent></Select></div>
+          <div><Label>Session plan</Label><Select value={tierId} onValueChange={setTierId} disabled={!specialistId || !tiers.length}><SelectTrigger className="mt-2 w-full"><SelectValue placeholder={!specialistId ? "Pick a specialist first" : !tiers.length ? "No active plans" : "Select a plan"} /></SelectTrigger><SelectContent>{tiers.map((item) => <SelectItem key={item.id} value={item.id}>{item.label} · {item.currency} {(priceForConsultation(item.price_cents, item.tier_type, hasPreviousConsultation) / 100).toFixed(2)} / {item.duration_minutes} min</SelectItem>)}</SelectContent></Select></div>
 
           <div className="overflow-hidden rounded-3xl border bg-gradient-soft p-3 sm:p-4"><div className="mb-3 rounded-xl border bg-accent/40 px-3 py-2 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Timezone notice:</span> your device timezone ({getTimeZoneLabel(getDeviceTimeZone())}) is being used. Booking times are converted from the specialist&#39;s timezone.</div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 font-semibold"><CalendarClock className="h-4 w-4 text-teal" />Choose your date</div><span className="text-[11px] text-muted-foreground">Today + 7 days</span></div><DayPicker mode="single" selected={selectedDate} onSelect={(date) => { setSelectedDate(date); setScheduledAt(""); }} disabled={(date) => !allowedSet.has(format(date, "yyyy-MM-dd"))} startMonth={allowedDays[0]} endMonth={allowedDays[allowedDays.length - 1]} showOutsideDays={false} className="booking-calendar mx-auto" /></div>
 
@@ -407,11 +456,15 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
           </div>
 
           {scheduledAt && <div className="rounded-2xl border bg-background p-4 text-sm"><div className="font-semibold">Selected appointment</div><div className="mt-1 break-words text-muted-foreground">{formatInTimeZone(scheduledAt, getDeviceTimeZone(), { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {tier?.duration_minutes} minutes</div></div>}
-          {tier && <div className="rounded-2xl border bg-accent/40 p-4 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="text-muted-foreground">Session total</span><span className="font-semibold">{useCredits && credits >= 2 ? "2 credits" : "$" + (tier.price_cents / 100).toFixed(2)}</span></div></div>}
+          {tier && <div className="rounded-2xl border bg-accent/40 p-4 text-sm">
+            <div className="flex flex-wrap justify-between gap-2"><span className="text-muted-foreground">Session total</span><span className="font-semibold">{useCredits && credits >= 2 ? "2 credits" : "$" + (displayedTierPrice / 100).toFixed(2)}</span></div>
+            {!useCredits && displayedTierPrice < tier.price_cents && <><div className="mt-2 flex flex-wrap justify-between gap-2 text-xs"><span className="text-muted-foreground">Regular price</span><span className="text-muted-foreground line-through">${(tier.price_cents / 100).toFixed(2)}</span></div><p className="mt-2 text-xs leading-5 text-primary">First consultation offer only. Your regular per-session price applies from your next booking.</p></>}
+          </div>}
           </>}
 
           {(embedded || bookingStep === 2) && <div className="space-y-4">
-            <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.08] via-background to-accent/20 p-4 sm:p-5"><div className="flex items-center gap-2 text-sm font-semibold"><CheckCircle2 className="h-4 w-4 text-primary" />Booking summary</div><div className="mt-4 flex items-start gap-3">{specialist?.avatar_url ? <img src={specialist.avatar_url} alt="" className="h-14 w-14 rounded-2xl object-cover" /> : <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-lg font-bold text-primary">{specialist?.display_name?.[0] ?? "B"}</div>}<div className="min-w-0 flex-1"><div className="font-semibold">{specialist?.display_name ?? "Your specialist"}</div><div className="mt-1 text-sm text-muted-foreground">{tier?.label} · {tier?.duration_minutes} minutes</div><div className="mt-2 text-sm text-muted-foreground">{scheduledAt ? formatInTimeZone(scheduledAt, getDeviceTimeZone(), { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Choose a time"}</div></div></div><div className="mt-4 flex items-center justify-between border-t pt-4"><span className="text-sm text-muted-foreground">{useCredits && credits >= 2 ? "Credit payment" : "Total due"}</span><span className="text-2xl font-bold tracking-tight">{useCredits && credits >= 2 ? "2 credits" : "$" + ((tier?.price_cents ?? 0) / 100).toFixed(2)}</span></div><p className="mt-2 text-xs leading-5 text-muted-foreground">Your appointment is confirmed after successful payment verification. Your time is shown in {getTimeZoneLabel(getDeviceTimeZone())}.</p></div>
+            <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.08] via-background to-accent/20 p-4 sm:p-5"><div className="flex items-center gap-2 text-sm font-semibold"><CheckCircle2 className="h-4 w-4 text-primary" />Booking summary</div><div className="mt-4 flex items-start gap-3">{specialist?.avatar_url ? <img src={specialist.avatar_url} alt="" className="h-14 w-14 rounded-2xl object-cover" /> : <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-lg font-bold text-primary">{specialist?.display_name?.[0] ?? "B"}</div>}<div className="min-w-0 flex-1"><div className="font-semibold">{specialist?.display_name ?? "Your specialist"}</div><div className="mt-1 text-sm text-muted-foreground">{tier?.label} · {tier?.duration_minutes} minutes</div><div className="mt-2 text-sm text-muted-foreground">{scheduledAt ? formatInTimeZone(scheduledAt, getDeviceTimeZone(), { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Choose a time"}</div></div></div><div className="mt-4 flex items-center justify-between border-t pt-4"><span className="text-sm text-muted-foreground">{useCredits && credits >= 2 ? "Credit payment" : "Total due"}</span><span className="text-2xl font-bold tracking-tight">{useCredits && credits >= 2 ? "2 credits" : "$" + (tier ? (priceForConsultation(tier.price_cents, tier.tier_type, hasPreviousConsultation) / 100).toFixed(2) : "0.00")}</span></div>
+            {!useCredits && tier && priceForConsultation(tier.price_cents, tier.tier_type, hasPreviousConsultation) < tier.price_cents && <><div className="mt-2 flex justify-between text-xs"><span className="text-muted-foreground">Regular price</span><span className="text-muted-foreground line-through">${(tier.price_cents / 100).toFixed(2)}</span></div><p className="mt-2 text-xs leading-5 text-primary">Discounted for your first consultation only.</p></>}<p className="mt-2 text-xs leading-5 text-muted-foreground">Your appointment is confirmed after successful payment verification. Your time is shown in {getTimeZoneLabel(getDeviceTimeZone())}.</p></div>
           {!user && <div className="space-y-4 rounded-2xl border border-primary/15 bg-background p-4">
             <div><h2 className="font-semibold">{accountMode === "signup" ? "Create your BreatheRise account" : "Welcome back"}</h2><p className="mt-1 text-sm text-muted-foreground">{accountMode === "signup" ? "Create an account to keep your bookings and care journey together." : "Sign in to continue to secure checkout."}</p></div>
             <div className="grid grid-cols-2 rounded-xl bg-muted/60 p-1"><button type="button" onClick={() => setAccountMode("signup")} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${accountMode === "signup" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Create account</button><button type="button" onClick={() => setAccountMode("signin")} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${accountMode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Sign in</button></div>
@@ -430,7 +483,7 @@ export default function BookAppointment({ initialSpecialistId, initialTierId, em
 
           {(embedded || bookingStep === 2) && <label className="flex items-start gap-3 rounded-2xl border bg-background p-4 text-sm"><Checkbox checked={acceptPolicies} onCheckedChange={(value) => setAcceptPolicies(!!value)} className="mt-0.5 shrink-0" /><span className="leading-6 text-muted-foreground">I have read and agree to the <Link to="/terms" target="_blank" className="font-medium text-foreground underline underline-offset-4">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link>, <Link to="/trust" target="_blank" className="font-medium text-foreground underline underline-offset-4">Trust & Safety Policy</Link>, and <Link to="/cancellation" target="_blank" className="font-medium text-foreground underline underline-offset-4">Cancellation & Refund Policy</Link>.</span></label>}
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">{!embedded && bookingStep === 2 && <Button type="button" variant="outline" onClick={() => setBookingStep(1)} disabled={submitting} className="sm:w-auto">Back to times</Button>}{(embedded || bookingStep === 1) && <Button type="button" variant="outline" onClick={() => embedded ? onClose?.() : navigate(-1)} disabled={submitting} className="sm:w-auto">Cancel</Button>}<Button type="submit" disabled={submitting || (embedded ? (!specialistId || !tierId || !scheduledAt || !acceptPolicies || (!user && (!accountEmail.trim() || !accountPassword || (accountMode === "signup" && !fullName.trim())))) : bookingStep === 1 ? (!specialistId || !tierId || !scheduledAt) : (!acceptPolicies || (!user && (!accountEmail.trim() || !accountPassword || (accountMode === "signup" && !fullName.trim())))))} className="min-w-0 flex-1 rounded-full bg-gradient-brand text-primary-foreground shadow-brand">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : embedded ? (useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</> : "Pay $" + ((tier?.price_cents ?? 0) / 100).toFixed(2)) : bookingStep === 1 ? "Continue to review" : useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</> : "Pay $" + ((tier?.price_cents ?? 0) / 100).toFixed(2)}</Button></div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">{!embedded && bookingStep === 2 && <Button type="button" variant="outline" onClick={() => setBookingStep(1)} disabled={submitting} className="sm:w-auto">Back to times</Button>}{(embedded || bookingStep === 1) && <Button type="button" variant="outline" onClick={() => embedded ? onClose?.() : navigate(-1)} disabled={submitting} className="sm:w-auto">Cancel</Button>}<Button type="submit" disabled={submitting || (embedded ? (!specialistId || !tierId || !scheduledAt || !acceptPolicies || (!user && (!accountEmail.trim() || !accountPassword || (accountMode === "signup" && !fullName.trim())))) : bookingStep === 1 ? (!specialistId || !tierId || !scheduledAt) : (!acceptPolicies || (!user && (!accountEmail.trim() || !accountPassword || (accountMode === "signup" && !fullName.trim())))))} className="min-w-0 flex-1 rounded-full bg-gradient-brand text-primary-foreground shadow-brand">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : embedded ? (useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</> : "Pay $" + (tier ? (priceForConsultation(tier.price_cents, tier.tier_type, hasPreviousConsultation) / 100).toFixed(2) : "0.00")) : bookingStep === 1 ? "Continue to review" : useCredits && credits >= 2 ? <><Zap className="mr-2 h-4 w-4" />Book with 2 credits</> : "Pay $" + (tier ? (priceForConsultation(tier.price_cents, tier.tier_type, hasPreviousConsultation) / 100).toFixed(2) : "0.00")}</Button></div>
         </form>
         {!embedded && bookingStep === 2 && !user && <p className="px-5 pb-5 text-center text-xs leading-5 text-muted-foreground">Your account details stay secure. Payment is processed by Razorpay.</p>}
       </Card>
