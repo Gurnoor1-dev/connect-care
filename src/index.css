@@ -100,11 +100,11 @@
 
 /* Scroll-progress reveal: the route observer updates opacity, blur and translate
    continuously, so content resolves smoothly instead of popping in at a threshold. */
-:where(#root section, #root article, #root form, #root [class*="rounded-xl border"], #root [class*="rounded-2xl border"], #root [class*="rounded-3xl border"], #root footer) {
+html:not(.dashboard-route) :where(#root section, #root article, #root form, #root [class*="rounded-xl border"], #root [class*="rounded-2xl border"], #root [class*="rounded-3xl border"], #root footer) {
   transition: opacity 90ms linear, filter 90ms linear, translate 90ms linear;
 }
 @media (prefers-reduced-motion: reduce) {
-  :where(#root section, #root article, #root form, #root [class*="rounded-xl border"], #root [class*="rounded-2xl border"], #root [class*="rounded-3xl border"], #root footer) {
+  html:not(.dashboard-route) :where(#root section, #root article, #root form, #root [class*="rounded-xl border"], #root [class*="rounded-2xl border"], #root [class*="rounded-3xl border"], #root footer) {
     transition: none !important;
     filter: none !important;
     translate: none !important;
@@ -193,15 +193,15 @@ body {
 :where(header, nav, [data-state="open"][role="dialog"]) {
   transition: backdrop-filter 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
 }
-html.scrolling-up :where(header, nav) {
+html.scrolling-up:not(.dashboard-route) :where(header, nav) {
   -webkit-backdrop-filter: blur(16px) saturate(1.12);
   backdrop-filter: blur(16px) saturate(1.12);
   box-shadow: 0 8px 28px -18px color-mix(in oklab, var(--foreground) 15%, transparent);
 }
-:root:not(.dark) html.scrolling-up :where(header, nav) {
+html:not(.dark).scrolling-up:not(.dashboard-route) :where(header, nav) {
   background-color: color-mix(in oklab, var(--background) 90%, transparent);
 }
-.dark html.scrolling-up :where(header, nav) {
+html.dark.scrolling-up:not(.dashboard-route) :where(header, nav) {
   background-color: color-mix(in oklab, var(--background) 85%, transparent);
 }
 :where(img) { image-rendering: auto; }
