@@ -53,6 +53,12 @@ const ScrollToTop = () => {
   const { pathname } = useLocation();
 
   useEffect(() => {
+    const isDashboardRoute = pathname.startsWith("/dashboard");
+    document.documentElement.classList.toggle("dashboard-route", isDashboardRoute);
+    return () => document.documentElement.classList.remove("dashboard-route");
+  }, [pathname]);
+
+  useEffect(() => {
     let previousY = window.scrollY;
     let ticking = false;
     const updateScrollDirection = () => {
@@ -82,6 +88,8 @@ const ScrollToTop = () => {
   // Apply a consistent, scroll-progress reveal across every route. The page
   // content is lazy-loaded, so keep scanning as route components mount/update.
   useEffect(() => {
+    // Dashboards stay crisp and fully visible; keep the reveal effect on public pages.
+    if (pathname.startsWith("/dashboard")) return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const selector = [
       "#root section",
