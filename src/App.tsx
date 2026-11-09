@@ -88,8 +88,9 @@ const ScrollToTop = () => {
   // Apply a consistent, scroll-progress reveal across every route. The page
   // content is lazy-loaded, so keep scanning as route components mount/update.
   useEffect(() => {
-    // Dashboards stay crisp and fully visible; keep the reveal effect on public pages.
-    if (pathname.startsWith("/dashboard")) return;
+    // Dashboards and authentication flows must remain crisp and fully interactive.
+    const isAuthRoute = /^\/(login|signup|verify-otp|forgot-password|reset-password|auth(?:\/|$)|invite(?:\/|$))/.test(pathname);
+    if (pathname.startsWith("/dashboard") || isAuthRoute) return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const selector = [
       "#root section",
@@ -133,9 +134,14 @@ const ScrollToTop = () => {
           return;
         }
         const rect = element.getBoundingClientRect();
+        // At the true document bottom, reveal every remaining block completely.
+        // This prevents the footer and final content from staying blurred when
+        // the browser can no longer scroll any farther.
+        const atPageBottom =
+          window.scrollY + viewportHeight >= document.documentElement.scrollHeight - 2;
         // The blur and opacity track scroll progress as each block enters view.
         // Content already above the viewport stays fully revealed.
-        const progress = rect.bottom <= 0
+        const progress = atPageBottom || rect.bottom <= 0
           ? 1
           : Math.max(0, Math.min(1, (viewportHeight * 0.9 - rect.top) / (viewportHeight * 0.62)));
         element.style.opacity = String(0.18 + progress * 0.82);
