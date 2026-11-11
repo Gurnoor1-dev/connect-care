@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronRight, Loader2, Send, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,8 +53,10 @@ export function AIQuickChat() {
     } finally { setLoading(false); }
   };
 
-  return <>
-    {open && <div className="fixed bottom-16 right-4 z-[70] flex max-h-[calc(100dvh-5.5rem)] w-[min(calc(100vw-2rem),390px)] flex-col overflow-hidden rounded-[1.5rem] border border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl sm:right-6 sm:bottom-20 sm:max-h-[calc(100dvh-7rem)]">
+  // Render outside #root so the scroll-reveal observer cannot blur this fixed UI.
+  // An opaque surface keeps chat text crisp without backdrop-filter.
+  return createPortal(<>
+    {open && <div className="br-ai-chat fixed bottom-16 right-4 z-[100] flex max-h-[calc(100dvh-5.5rem)] w-[min(calc(100vw-2rem),390px)] flex-col overflow-hidden rounded-[1.5rem] border border-border bg-background shadow-2xl sm:right-6 sm:bottom-20 sm:max-h-[calc(100dvh-7rem)]">
       <div className="flex shrink-0 items-center justify-between border-b border-border/70 bg-secondary/40 px-4 py-3.5">
         <div className="flex min-w-0 items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/60 bg-background"><img src={logo} alt="" className="h-full w-full object-cover" /></div><div className="min-w-0"><div className="flex items-center gap-1.5 font-semibold"><span>BreatheRise AI</span><Sparkles className="h-3.5 w-3.5 text-primary" /></div><p className="text-xs text-muted-foreground">Quick help & common questions</p></div></div>
         <Button variant="ghost" size="icon" className="shrink-0 rounded-full" onClick={() => setOpen(false)} aria-label="Close AI chat"><X className="h-4 w-4" /></Button>
@@ -66,8 +69,8 @@ export function AIQuickChat() {
       </div>
       <div className="shrink-0 border-t border-border/70 p-3"><form onSubmit={e => { e.preventDefault(); void send(); }} className="flex items-center gap-2"><Input value={input} onChange={e => setInput(e.target.value)} placeholder="Ask a quick question…" className="h-10 rounded-xl bg-secondary/50" disabled={loading} /><Button type="submit" size="icon" className="h-10 w-10 shrink-0 rounded-xl" disabled={!input.trim() || loading} aria-label="Send message"><Send className="h-4 w-4" /></Button></form><p className="mt-2 text-center text-[10px] leading-4 text-muted-foreground">AI can make mistakes. Don’t share passwords, payment card details, or sensitive personal information.</p></div>
     </div>}
-    <Button type="button" onClick={() => setOpen(v => !v)} aria-label={open ? "Close AI quick chat" : "Open AI quick chat"} className="fixed bottom-5 right-5 z-[71] h-16 w-16 rounded-full border border-border/80 bg-white p-0 text-foreground shadow-xl transition-all hover:scale-105 hover:shadow-2xl dark:bg-zinc-800 dark:text-white sm:bottom-6 sm:right-6 sm:h-[68px] sm:w-[68px]">
+    <Button type="button" onClick={() => setOpen(v => !v)} aria-label={open ? "Close AI quick chat" : "Open AI quick chat"} className="br-ai-chat fixed bottom-5 right-5 z-[101] h-16 w-16 rounded-full border border-border bg-white p-0 text-foreground shadow-xl transition-all hover:scale-105 hover:shadow-2xl dark:bg-zinc-800 dark:text-white sm:bottom-6 sm:right-6 sm:h-[68px] sm:w-[68px]">
       {open ? <X className="h-6 w-6" /> : <img src={logo} alt="Open BreatheRise AI chat" className="h-10 w-10 object-contain dark:invert sm:h-11 sm:w-11" />}
     </Button>
-  </>;
+  </>, document.body);
 }
