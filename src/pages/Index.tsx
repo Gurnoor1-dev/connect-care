@@ -117,7 +117,7 @@ export default function Index() {
           </div>
           <div className="mt-9 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {careOptions.map((option, index) => <Link key={option.title} to="/specialists" className="group flex min-h-[220px] flex-col rounded-[1.5rem] border border-[#d4ddcf] bg-[#fbfaf4] p-6 transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_-28px_rgba(24,62,50,.4)] dark:bg-[#1a3025]">
-              <div className="flex items-start justify-between"><span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${option.tone} text-[#315b49]`}><option.icon className="h-6 w-6" /></span><span className="font-serif text-sm italic text-[#7d9580]">0{index+1}</span></div>
+              <div className="flex items-start justify-between"><span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#73947c]/50 bg-[#204b3b] text-[#f4f3e9] shadow-[0_8px_22px_-12px_rgba(24,62,50,.75)] ring-4 ring-[#dce8d8]/70 transition-transform group-hover:scale-105 dark:border-[#9bb99b]/60 dark:bg-[#315d49] dark:text-[#f4f3e9] dark:ring-[#294737]"><option.icon className="h-7 w-7 stroke-[1.8]" /></span><span className="font-serif text-sm italic text-[#7d9580]">0{index+1}</span></div>
               <p className="mt-6 text-[9px] font-bold uppercase tracking-[.18em] text-[#718273]">{option.tag}</p>
               <h3 className="mt-2 text-lg font-semibold tracking-tight text-[#244637] dark:text-[#e4eee2]">{option.title}</h3>
               <span className="mt-auto inline-flex items-center pt-5 text-sm font-semibold text-[#315b49] dark:text-[#b9d5b4]">Explore <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
