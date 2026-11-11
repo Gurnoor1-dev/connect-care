@@ -297,3 +297,14 @@ html.dark.scrolling-up:not(.dashboard-route) :where(header, nav) {
 .dark .br-site textarea::placeholder {
   color: #9fb5a0;
 }
+
+/* Homepage care-category icon tiles: keep their illustrations visible in both themes. */
+.dark .br-home .br-home-care-icon {
+  background-color: #315d49 !important;
+  color: #f4f3e9 !important;
+  border-color: #9bb99b !important;
+}
+.dark .br-home .br-home-care-icon svg {
+  color: inherit;
+  stroke: currentColor;
+}
